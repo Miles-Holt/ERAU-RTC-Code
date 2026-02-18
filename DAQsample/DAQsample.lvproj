@@ -12,17 +12,12 @@
 		<Property Name="server.vi.callsEnabled" Type="Bool">true</Property>
 		<Property Name="server.vi.propertiesEnabled" Type="Bool">true</Property>
 		<Property Name="specify.custom.address" Type="Bool">false</Property>
-		<Item Name="CTRnode.vi" Type="VI" URL="../CTRnode.vi"/>
 		<Item Name="DAQ-node.vi" Type="VI" URL="../DAQ-node.vi"/>
 		<Item Name="DAQ-node_streamIO_settings.ctl" Type="VI" URL="../Control/DAQ-node_streamIO_settings.ctl"/>
-		<Item Name="ManageDAQ.vi" Type="VI" URL="../Support/ManageDAQ.vi"/>
-		<Item Name="ManageWebSocket.vi" Type="VI" URL="../Support/ManageWebSocket.vi"/>
-		<Item Name="MergeData.vi" Type="VI" URL="../Support/MergeData.vi"/>
+		<Item Name="InitStreamTypeDef.vi" Type="VI" URL="../Support/InitStreamTypeDef.vi"/>
 		<Item Name="ReaderWriter-EndpointURL.vi" Type="VI" URL="../Support/ReaderWriter-EndpointURL.vi"/>
-		<Item Name="StreamDAQ.vi" Type="VI" URL="../Support/StreamDAQ.vi"/>
 		<Item Name="streamIO_states.ctl" Type="VI" URL="../Control/streamIO_states.ctl"/>
 		<Item Name="StreamTypeDef.ctl" Type="VI" URL="../Control/StreamTypeDef.ctl"/>
-		<Item Name="StreamWebSocket.vi" Type="VI" URL="../Support/StreamWebSocket.vi"/>
 		<Item Name="Dependencies" Type="Dependencies">
 			<Item Name="vi.lib" Type="Folder">
 				<Item Name="DAQmx Clear Task.vi" Type="VI" URL="/&lt;vilib&gt;/DAQmx/configure/task.llb/DAQmx Clear Task.vi"/>
@@ -181,11 +176,6 @@
 				<Item Name="DAQmx Timing (Sample Clock).vi" Type="VI" URL="/&lt;vilib&gt;/DAQmx/configure/timing.llb/DAQmx Timing (Sample Clock).vi"/>
 				<Item Name="DAQmx Timing (Use Waveform).vi" Type="VI" URL="/&lt;vilib&gt;/DAQmx/configure/timing.llb/DAQmx Timing (Use Waveform).vi"/>
 				<Item Name="DAQmx Timing.vi" Type="VI" URL="/&lt;vilib&gt;/DAQmx/configure/timing.llb/DAQmx Timing.vi"/>
-				<Item Name="Error Cluster From Error Code.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/error.llb/Error Cluster From Error Code.vi"/>
-				<Item Name="Internecine Avoider.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/tcp.llb/Internecine Avoider.vi"/>
-				<Item Name="TCP Listen Internal List.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/tcp.llb/TCP Listen Internal List.vi"/>
-				<Item Name="TCP Listen List Operations.ctl" Type="VI" URL="/&lt;vilib&gt;/Utility/tcp.llb/TCP Listen List Operations.ctl"/>
-				<Item Name="TCP Listen.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/tcp.llb/TCP Listen.vi"/>
 			</Item>
 			<Item Name="nilvaiu.dll" Type="Document" URL="nilvaiu.dll">
 				<Property Name="NI.PreserveRelativePath" Type="Bool">true</Property>
