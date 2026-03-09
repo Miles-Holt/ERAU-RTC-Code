@@ -38,6 +38,9 @@
 			<Item Name="DAQ_msgHandler Error Handler - Message Handling Loop.vi" Type="VI" URL="../support/DAQ_msgHandler Error Handler - Message Handling Loop.vi"/>
 			<Item Name="Stream Stop.vi" Type="VI" URL="../Streaming/Stream Stop.vi"/>
 			<Item Name="Streaming Message Loop.vi" Type="VI" URL="../Streaming/Streaming Message Loop.vi"/>
+			<Item Name="Error Handler - Stream Message Loop.vi" Type="VI" URL="../Streaming/Error Handler - Stream Message Loop.vi"/>
+			<Item Name="Concat Stream Data.vi" Type="VI" URL="../Streaming/Concat Stream Data.vi"/>
+			<Item Name="Initilize Streaming.vi" Type="VI" URL="../Streaming/Initilize Streaming.vi"/>
 		</Item>
 		<Item Name="Type Definitions" Type="Folder">
 			<Item Name="DAQ_msgHandler Acquired Data.ctl" Type="VI" URL="../controls/DAQ_msgHandler Acquired Data.ctl"/>
@@ -49,9 +52,7 @@
 		<Item Name="DAQ_msgHandler Settings.lvlib" Type="Library" URL="../Settings/DAQ_msgHandler Settings.lvlib"/>
 		<Item Name="DAQ_msgHandler Main.vi" Type="VI" URL="../DAQ_msgHandler Main.vi"/>
 		<Item Name="DAQ_msgHandler StreamTypeDef.ctl" Type="VI" URL="../controls/DAQ_msgHandler StreamTypeDef.ctl"/>
-		<Item Name="Error Handler - Stream Message Loop.vi" Type="VI" URL="../Streaming/Error Handler - Stream Message Loop.vi"/>
-		<Item Name="Concat Stream Data.vi" Type="VI" URL="../Streaming/Concat Stream Data.vi"/>
-		<Item Name="Initilize Streaming.vi" Type="VI" URL="../Streaming/Initilize Streaming.vi"/>
+		<Item Name="DAQ_Network-Stream_Reader-Writer.vi" Type="VI" URL="../Streaming/DAQ_Network-Stream_Reader-Writer.vi"/>
 		<Item Name="Dependencies" Type="Dependencies">
 			<Item Name="vi.lib" Type="Folder">
 				<Item Name="Write to XML File(array).vi" Type="VI" URL="/&lt;vilib&gt;/Utility/xml.llb/Write to XML File(array).vi"/>
