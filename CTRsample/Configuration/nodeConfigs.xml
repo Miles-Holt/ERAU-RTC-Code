@@ -4,7 +4,9 @@
     <!-- NETWORK / SYSTEM-WIDE SETTINGS -->
     <Network>
         <WebSocketPort>8080</WebSocketPort>
-        <BroadcastRate_Hz>100</BroadcastRate_Hz>
+        <BroadcastRate_Hz>50</BroadcastRate_Hz>
+        <ConnectionManagementRate_Hz>1</ConnectionManagementRate_Hz>
+        <LoggingRate_Hz>10</LoggingRate_Hz>
     </Network>
 
     <!-- CTR NODE -->
@@ -18,7 +20,7 @@
     <!-- DAQ NODES -->
     <DAQNodes>
 
-        <DAQNode>
+        <DAQNode> <!-- DAQ000, Testing Node -->
             <RefDes>DAQ000</RefDes>
             <IP>localhost</IP>
             <Description>Testing DAQ node</Description>
@@ -181,6 +183,17 @@
 
                     </Sensors>
                 </Module>
+
+            </Modules>
+        </DAQNode>
+
+        <DAQNode> <!-- DAQ001, PXIe Placeholder Node -->
+            <RefDes>DAQ001</RefDes>
+            <IP></IP>
+            <Description></Description>
+            <Enabled>false</Enabled>
+
+            <Modules>
 
             </Modules>
         </DAQNode>
