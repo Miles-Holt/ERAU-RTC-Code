@@ -36,7 +36,7 @@
                     <ModelNumber>NI-9265</ModelNumber>
                     <Description>4-ch analog current output</Description>
                     <Enabled>true</Enabled>
-                    <SampleRate_Hz>1000</SampleRate_Hz>
+                    <SampleRate_Hz>1000</SampleRate_Hz> <!-- samples/Second -->
                     <Sensors>
 
                         <Sensor>
@@ -76,7 +76,7 @@
                     <ModelNumber>NI-9208</ModelNumber>
                     <Description>16-ch analog current input</Description>
                     <Enabled>true</Enabled>
-                    <SampleRate_Hz>100</SampleRate_Hz>
+                    <SampleRate_Hz>100</SampleRate_Hz> <!-- samples/Second -->
                     <Sensors>
 
                         <Sensor>
@@ -160,7 +160,7 @@
                     <ModelNumber>NI-9474</ModelNumber>
                     <Description>8-ch sourcing digital output</Description>
                     <Enabled>true</Enabled>
-                    <SampleRate_Hz>1000</SampleRate_Hz>
+                    <SampleRate_Hz>1000</SampleRate_Hz> <!-- samples/Second -->
                     <Sensors>
 
                         <Sensor>
@@ -189,7 +189,7 @@
             </Modules>
         </DAQNode>
 
-        <DAQNode> <!-- DAQ001, PXIe Placeholder Node -->
+        <DAQNode> <!-- DAQ001, TC3 PXIe Placeholder Node -->
             <refDes>DAQ001</refDes>
             <IP></IP>
             <Description></Description>
