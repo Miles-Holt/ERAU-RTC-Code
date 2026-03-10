@@ -7,11 +7,13 @@
         <BroadcastRate_Hz>50</BroadcastRate_Hz>
         <ConnectionManagementRate_Hz>1</ConnectionManagementRate_Hz>
         <LoggingRate_Hz>10</LoggingRate_Hz>
+        <LostConnectionHysterisis_Count>5</LostConnectionHysterisis_Count>
+        <NetworkStreamBuffer>1</NetworkStreamBuffer>
     </Network>
 
     <!-- CTR NODE -->
     <CTRNode>
-        <RefDes>CTR001</RefDes>
+        <refDes>CTR001</refDes>
         <IP>localhost</IP>
         <Description>Central control and routing node</Description>
         <Enabled>true</Enabled>
@@ -21,7 +23,7 @@
     <DAQNodes>
 
         <DAQNode> <!-- DAQ000, Testing Node -->
-            <RefDes>DAQ000</RefDes>
+            <refDes>DAQ000</refDes>
             <IP>localhost</IP>
             <Description>Testing DAQ node</Description>
             <Enabled>true</Enabled>
@@ -38,7 +40,7 @@
                     <Sensors>
 
                         <Sensor>
-                            <RefDes>WV-01-POS</RefDes>
+                            <refDes>WV-01-POS</refDes>
                             <SerialNumber>SN-00001</SerialNumber>
                             <ModelNumber>VALWORX-CV-4-20MA</ModelNumber>
                             <Type>ControlValve</Type>
@@ -52,7 +54,7 @@
                         </Sensor>
 
                         <Sensor>
-                            <RefDes>WV-02-POS</RefDes>
+                            <refDes>WV-02-POS</refDes>
                             <SerialNumber>SN-00002</SerialNumber>
                             <ModelNumber>SHARPE-CV-4-20MA</ModelNumber>
                             <Type>ControlValve</Type>
@@ -78,7 +80,7 @@
                     <Sensors>
 
                         <Sensor>
-                            <RefDes>WPT-01</RefDes>
+                            <refDes>WPT-01</refDes>
                             <SerialNumber>SN-00003</SerialNumber>
                             <ModelNumber>OMEGA-PX119-150AI</ModelNumber>
                             <Type>PressureTransducer</Type>
@@ -93,7 +95,7 @@
                         </Sensor>
 
                         <Sensor>
-                            <RefDes>WPT-02</RefDes>
+                            <refDes>WPT-02</refDes>
                             <SerialNumber>SN-00004</SerialNumber>
                             <ModelNumber>OMEGA-PX119-150AI</ModelNumber>
                             <Type>PressureTransducer</Type>
@@ -108,7 +110,7 @@
                         </Sensor>
 
                         <Sensor>
-                            <RefDes>WFM-01</RefDes>
+                            <refDes>WFM-01</refDes>
                             <SerialNumber>SN-00005</SerialNumber>
                             <ModelNumber>OMEGA-FMA-1700</ModelNumber>
                             <Type>FlowMeter</Type>
@@ -122,7 +124,7 @@
                         </Sensor>
 
                         <Sensor>
-                            <RefDes>WV-01-FB</RefDes>
+                            <refDes>WV-01-FB</refDes>
                             <SerialNumber>SN-00006</SerialNumber>
                             <ModelNumber>VALWORX-CV-4-20MA</ModelNumber>
                             <Type>ValvePositionFeedback</Type>
@@ -136,7 +138,7 @@
                         </Sensor>
 
                         <Sensor>
-                            <RefDes>WV-02-FB</RefDes>
+                            <refDes>WV-02-FB</refDes>
                             <SerialNumber>SN-00007</SerialNumber>
                             <ModelNumber>SHARPE-CV-4-20MA</ModelNumber>
                             <Type>ValvePositionFeedback</Type>
@@ -162,7 +164,7 @@
                     <Sensors>
 
                         <Sensor>
-                            <RefDes>SOL001</RefDes>
+                            <refDes>SOL001</refDes>
                             <SerialNumber>SN-00007</SerialNumber>
                             <ModelNumber>GENERIC-SOL-24V</ModelNumber>
                             <Type>Solenoid</Type>
@@ -172,7 +174,7 @@
                         </Sensor>
 
                         <Sensor>
-                            <RefDes>SOL002</RefDes>
+                            <refDes>SOL002</refDes>
                             <SerialNumber>SN-00008</SerialNumber>
                             <ModelNumber>GENERIC-SOL-24V</ModelNumber>
                             <Type>Solenoid</Type>
@@ -188,7 +190,7 @@
         </DAQNode>
 
         <DAQNode> <!-- DAQ001, PXIe Placeholder Node -->
-            <RefDes>DAQ001</RefDes>
+            <refDes>DAQ001</refDes>
             <IP></IP>
             <Description></Description>
             <Enabled>false</Enabled>
