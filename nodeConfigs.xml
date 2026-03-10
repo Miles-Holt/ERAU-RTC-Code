@@ -35,6 +35,7 @@
                     <SlotID>1</SlotID>
                     <ModelNumber>NI-9265</ModelNumber>
                     <Description>4-ch analog current output</Description>
+                    <IOMode>output</IOMode>
                     <Enabled>true</Enabled>
                     <SampleRate_Hz>1000</SampleRate_Hz> <!-- samples/Second -->
                     <Sensors>
@@ -75,6 +76,7 @@
                     <SlotID>2</SlotID>
                     <ModelNumber>NI-9208</ModelNumber>
                     <Description>16-ch analog current input</Description>
+                    <IOMode>input</IOMode>
                     <Enabled>true</Enabled>
                     <SampleRate_Hz>100</SampleRate_Hz> <!-- samples/Second -->
                     <Sensors>
@@ -159,6 +161,7 @@
                     <SlotID>3</SlotID>
                     <ModelNumber>NI-9474</ModelNumber>
                     <Description>8-ch sourcing digital output</Description>
+                    <IOMode>output</IOMode>
                     <Enabled>true</Enabled>
                     <SampleRate_Hz>1000</SampleRate_Hz> <!-- samples/Second -->
                     <Sensors>
