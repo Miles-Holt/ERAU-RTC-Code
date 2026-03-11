@@ -194,8 +194,8 @@
 
         <DAQNode> <!-- DAQ001, TC3 PXIe Placeholder Node -->
             <refDes>DAQ001</refDes>
-            <IP></IP>
-            <Description></Description>
+            <IP>localhost</IP>
+            <Description>PXIe configuration file</Description>
             <Enabled>false</Enabled>
 
             <Modules>
