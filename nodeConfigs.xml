@@ -200,6 +200,78 @@
 
             <Modules>
 
+                <Module>
+                    <SlotID></SlotID>
+                    <ModelNumber>NI-4353</ModelNumber>
+                    <Description>Thermocouple Module</Description>
+                    <IOMode>input</IOMode>
+                    <Enabled>true</Enabled>
+                    <SampleRate_Hz>1000</SampleRate_Hz> <!-- samples/Second -->
+                    <Sensors>
+
+                    </Sensors>
+                </Module>
+
+                <Module>
+                    <SlotID></SlotID>
+                    <ModelNumber>NI-4302</ModelNumber>
+                    <Description>Analog-input module</Description>
+                    <IOMode>input</IOMode>
+                    <Enabled>true</Enabled>
+                    <SampleRate_Hz>1000</SampleRate_Hz> <!-- samples/Second -->
+                    <Sensors>
+
+                    </Sensors>
+                </Module>
+
+                <Module>
+                    <SlotID></SlotID>
+                    <ModelNumber>NI-4339</ModelNumber>
+                    <Description>Bridge Completion Module 1</Description>
+                    <IOMode>input</IOMode>
+                    <Enabled>true</Enabled>
+                    <SampleRate_Hz>1000</SampleRate_Hz> <!-- samples/Second -->
+                    <Sensors>
+
+                    </Sensors>
+                </Module>
+
+                <Module>
+                    <SlotID></SlotID>
+                    <ModelNumber>NI-4339</ModelNumber>
+                    <Description>Bridge Completion Module 2</Description>
+                    <IOMode>input</IOMode>
+                    <Enabled>true</Enabled>
+                    <SampleRate_Hz>1000</SampleRate_Hz> <!-- samples/Second -->
+                    <Sensors>
+
+                    </Sensors>
+                </Module>
+
+                <Module>
+                    <SlotID></SlotID>
+                    <ModelNumber>NI-6528-INPUT</ModelNumber>
+                    <Description>Digital IO Module</Description>
+                    <IOMode>input</IOMode>
+                    <Enabled>true</Enabled>
+                    <SampleRate_Hz>1000</SampleRate_Hz> <!-- samples/Second -->
+                    <Sensors>
+
+                    </Sensors>
+                </Module>
+
+                <Module>
+                    <SlotID></SlotID>
+                    <ModelNumber>NI-6528-OUTPUT</ModelNumber>
+                    <Description>Digital IO Module</Description>
+                    <IOMode>output</IOMode>
+                    <Enabled>true</Enabled>
+                    <SampleRate_Hz>1000</SampleRate_Hz> <!-- samples/Second -->
+                    <Sensors>
+
+                    </Sensors>
+                </Module>
+
             </Modules>
         </DAQNode>
 
