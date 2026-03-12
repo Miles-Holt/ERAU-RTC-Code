@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<SystemConfig>
+<systemConfig>
     <controlList_template>
         <control>
             <refDes></refDes> <!-- required -->
@@ -42,21 +42,21 @@
                     <DAQmx> <!-- required -->
                         <!-- thermocouple:
                         <type></type> k,e,t
-                        <taskName></tankName> (ex. Digital-IO/port3/line0)
+                        <taskName></taskName> (ex. Digital-IO/port3/line0)
                         <units></units> Deg F
                         -->
                         <!-- analog input:
-                        <taskName></tankName> (ex. Digital-IO/port3/line0)
+                        <taskName></taskName> (ex. Digital-IO/port3/line0)
                         <sensitivity></sensitivity>
                         <balance></balance>
                         <inputTerminalConfiguration></inputTerminalConfiguration> Differential, NRSE, RSE
                         <units></units> psi, %, GPM, Volts, Amps, Watts
                         -->
                         <!-- analog output:
-                        <taskName></tankName> (ex. Digital-IO/port3/line0)
+                        <taskName></taskName> (ex. Digital-IO/port3/line0)
                         -->
                         <!-- bridge completion:
-                        <taskName></tankName> (ex. Digital-IO/port3/line0)
+                        <taskName></taskName> (ex. Digital-IO/port3/line0)
                         <bridgeConfiguration></bridgeConfiguration> full, half, quarter
                         <voltageExcitationSource></voltageExcitationSource> internal, external
                         <excitationVoltage></excitationVoltage>
@@ -71,41 +71,18 @@
                         <units></units> Pounds
                         -->
                         <!-- Digital Out
-                            <taskName></tankName> (ex. Digital-IO/port3/line0)
+                            <taskName></taskName> (ex. Digital-IO/port3/line0)
                         -->
                         <!-- Digital In
-                            <taskName></tankName> (ex. Digital-IO/port3/line0)
+                            <taskName></taskName> (ex. Digital-IO/port3/line0)
                         -->
                     </DAQmx>
                 </channel>
             </channels>
         </control>
     </controlList_template>
+
     <controlList>
-        <control>
-            <refDes>FT-01</refDes> <!-- required -->
-            <description>Fuel Tank Temperature</description>
-            <enabled>true</enabled> <!-- T/F --> 
-            <type>temperature</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
-            <details> <!-- required for some sensors -->
-            </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
-            <channels>
-                <channel>
-                    <refDes>FT-01</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>N/A</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai12</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
-                        <type>K</type> <!-- K, E, T -->
-                        <units>Deg F</units> <!-- Deg F -->
-                    </DAQmx>
-                </channel>
-            </channels>
-        </control>
         <control>
             <refDes>FT-02</refDes> <!-- required -->
             <description>Fuel Injectror Temperature</description>
@@ -123,7 +100,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
                     <channelNumber>ai13</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4353/ai13</taskName>
                         <type>K</type> <!-- K, E, T -->
                         <units>Deg F</units> <!-- Deg F -->
                     </DAQmx>
@@ -147,7 +125,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
                     <channelNumber>ai12</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4353/ai12</taskName>
                         <type>K</type> <!-- K, E, T -->
                         <units>Deg F</units> <!-- Deg F -->
                     </DAQmx>
@@ -171,7 +150,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
                     <channelNumber>ai25</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4353/ai25</taskName>
                         <type>E</type> <!-- K, E, T -->
                         <units>Deg F</units> <!-- Deg F -->
                     </DAQmx>
@@ -195,7 +175,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
                     <channelNumber>ai28</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4353/ai28</taskName>
                         <type>E</type> <!-- K, E, T -->
                         <units>Deg F</units> <!-- Deg F -->
                     </DAQmx>
@@ -219,7 +200,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
                     <channelNumber>ai29</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4353/ai29</taskName>
                         <type>E</type> <!-- K, E, T -->
                         <units>Deg F</units> <!-- Deg F -->
                     </DAQmx>
@@ -243,7 +225,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
                     <channelNumber>ai30</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4353/a30</taskName>
                         <type>E</type> <!-- K, E, T -->
                         <units>Deg F</units> <!-- Deg F -->
                     </DAQmx>
@@ -267,7 +250,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
                     <channelNumber>ai31</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4353/ai31</taskName>
                         <type>E</type> <!-- K, E, T -->
                         <units>Deg F</units> <!-- Deg F -->
                     </DAQmx>
@@ -291,7 +275,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
                     <channelNumber>ai24</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4353/ai24</taskName>
                         <type>E</type> <!-- K, E, T -->
                         <units>Deg F</units> <!-- Deg F -->
                     </DAQmx>
@@ -315,7 +300,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
                     <channelNumber>ai26</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4353/ai26</taskName>
                         <type>E</type> <!-- K, E, T -->
                         <units>Deg F</units> <!-- Deg F -->
                     </DAQmx>
@@ -339,7 +325,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
                     <channelNumber>ai27</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4353/ai27</taskName>
                         <type>E</type> <!-- K, E, T -->
                         <units>Deg F</units> <!-- Deg F -->
                     </DAQmx>
@@ -365,7 +352,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
                     <channelNumber>ai02</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4302/ai02</taskName>
                         <sensitivity>73943.66197</sensitivity>
                         <balance>2.21831</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -393,7 +381,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
                     <channelNumber>ai01</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4302/ai01</taskName>
                         <sensitivity>3002.5</sensitivity>
                         <balance>0.3854</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -421,7 +410,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
                     <channelNumber>ai13</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4302/ai13</taskName>
                         <sensitivity>-19859.9870910083</sensitivity>
                         <balance>3.61451765056352</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -449,7 +439,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
                     <channelNumber>ai03</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4302/ai03</taskName>
                         <sensitivity>20309.48</sensitivity>
                         <balance>4.26499</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -477,7 +468,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
                     <channelNumber>ai07</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4302/ai07</taskName>
                         <sensitivity>20153.55</sensitivity>
                         <balance>-6.2476</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -505,7 +497,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
                     <channelNumber>ai10</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4302/ai10</taskName>
                         <sensitivity>20063.4231925066</sensitivity>
                         <balance>11.2409341120657</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -533,7 +526,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
                     <channelNumber>ai12</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4302/ai12</taskName>
                         <sensitivity>10011</sensitivity>
                         <balance>-0.1097</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -561,7 +555,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
                     <channelNumber>ai00</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4302/ai00</taskName>
                         <sensitivity>20309.48</sensitivity>
                         <balance>4.26499</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -589,7 +584,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
                     <channelNumber>ai04</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4302/ai04</taskName>
                         <sensitivity>19848.7712665406</sensitivity>
                         <balance>14.88658</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -617,7 +613,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
                     <channelNumber>ai05</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4302/ai05</taskName>
                         <sensitivity>249.6</sensitivity>
                         <balance>-116.79</balance>
                         <inputTerminalConfiguration>NRSE</inputTerminalConfiguration>
@@ -645,7 +642,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
                     <channelNumber>ai06</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4302/ai06</taskName>
                         <sensitivity>10038</sensitivity>
                         <balance>-4.5825</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -672,7 +670,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
                     <channelNumber>ai31</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4302/ai31</taskName>
                         <sensitivity>189.9696</sensitivity>
                         <balance>-250</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -699,7 +698,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
                     <channelNumber>ai18</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4302/ai18</taskName>
                         <sensitivity>1</sensitivity>
                         <balance>0</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -725,7 +725,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
                     <channelNumber>ai29</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4302/ai29</taskName>
                         <sensitivity>904.46</sensitivity>
                         <balance>0</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -751,7 +752,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
                     <channelNumber>ai30</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4302/ai30</taskName>
                         <sensitivity>728.9</sensitivity>
                         <balance>0</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -777,7 +779,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
                     <channelNumber>ai29</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true">NI-4302/ai29</taskName>
                         <sensitivity>904.46</sensitivity>
                         <balance>0</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -804,7 +807,8 @@
                     <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
                     <moduleModelNumber>NI-6528-OUTPUT</moduleModelNumber> <!-- required -->
                     <channelNumber>ai29</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <DAQmx required="true">
+                        <taskName required="true"></taskName>
                     </DAQmx>
                 </channel>
             </channels>
@@ -1017,9 +1021,9 @@
                     <IOMode>input</IOMode>
                     <Enabled>true</Enabled>
                     <SampleRate_Hz>1000</SampleRate_Hz> <!-- samples/Second -->
-                    <Sensors>
+                    <channels>
 
-                    </Sensors>
+                    </channels>
                 </Module>
 
                 <Module>
@@ -1029,9 +1033,9 @@
                     <IOMode>input</IOMode>
                     <Enabled>true</Enabled>
                     <SampleRate_Hz>1000</SampleRate_Hz> <!-- samples/Second -->
-                    <Sensors>
+                    <channels>
 
-                    </Sensors>
+                    </channels>
                 </Module>
 
                 <Module>
@@ -1041,9 +1045,9 @@
                     <IOMode>input</IOMode>
                     <Enabled>true</Enabled>
                     <SampleRate_Hz>1000</SampleRate_Hz> <!-- samples/Second -->
-                    <Sensors>
+                    <channels>
 
-                    </Sensors>
+                    </channels>
                 </Module>
 
                 <Module>
@@ -1053,9 +1057,9 @@
                     <IOMode>input</IOMode>
                     <Enabled>true</Enabled>
                     <SampleRate_Hz>1000</SampleRate_Hz> <!-- samples/Second -->
-                    <Sensors>
+                    <channels>
 
-                    </Sensors>
+                    </channels>
                 </Module>
 
                 <Module>
@@ -1065,9 +1069,9 @@
                     <IOMode>input</IOMode>
                     <Enabled>true</Enabled>
                     <SampleRate_Hz>1000</SampleRate_Hz> <!-- samples/Second -->
-                    <Sensors>
+                    <channels>
 
-                    </Sensors>
+                    </channels>
                 </Module>
 
                 <Module>
@@ -1077,9 +1081,9 @@
                     <IOMode>output</IOMode>
                     <Enabled>true</Enabled>
                     <SampleRate_Hz>1000</SampleRate_Hz> <!-- samples/Second -->
-                    <Sensors>
+                    <channels>
 
-                    </Sensors>
+                    </channels>
                 </Module>
 
             </Modules>
@@ -1087,4 +1091,4 @@
 
     </DAQNodes>
 
-</SystemConfig>
+</systemConfig>
