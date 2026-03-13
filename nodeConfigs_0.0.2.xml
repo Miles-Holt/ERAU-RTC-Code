@@ -779,7 +779,7 @@
             <description>LOX Bang Bang</description>
             <enabled>true</enabled> <!-- T/F --> 
             <type required="true">bangBang</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType>press</subType> <!-- NOT required -->
+            <subType>press</subType>
             <details> <!-- required for some sensors -->
                 <senseRefDes>OPT-02</senseRefDes>
             </details>
