@@ -1,10 +1,9 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<systemConfig>
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?><systemConfig>
     <controlListTemplate>
         <control>
-            <refDes required="true"></refDes>
-            <description></description>
-            <enabled></enabled> <!-- T/F -->
+            <refDes required="true"/>
+            <description/>
+            <enabled/> <!-- T/F -->
             <type required="true">
                 <!--
                     temperature,
@@ -44,12 +43,12 @@
             </details>
             <channels>
                 <channel>
-                    <refDes required="true"></refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber required="true"></modelNumber>
-                    <serialNumber></serialNumber>
-                    <refDesDaq required="true"></refDesDaq>
-                    <moduleModelNumber required="true"></moduleModelNumber>
-                    <channelNumber required="true"></channelNumber> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true"/> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true"/>
+                    <serialNumber/>
+                    <refDesDaq required="true"/>
+                    <moduleModelNumber required="true"/>
+                    <channelNumber required="true"/> <!-- (ex. AI05, DO01)-->
                     <daqMx required="true">
                         <!-- thermocouple:
                         <type></type> k,e,t
@@ -99,14 +98,14 @@
             <description>Fuel Injectror Temperature</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">temperature</type>
-            <subType></subType>
+            <subType/>
             <details>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">FT-02</refDes>
                     <modelNumber required="true">N/A</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4353</moduleModelNumber>
                     <channelNumber required="true">ai13</channelNumber>
@@ -123,14 +122,14 @@
             <description>Fuel Tank Temperature</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">temperature</type>
-            <subType></subType>
+            <subType/>
             <details>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">FT-01</refDes>
                     <modelNumber required="true">N/A</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4353</moduleModelNumber>
                     <channelNumber required="true">ai12</channelNumber>
@@ -147,14 +146,14 @@
             <description>LOX Tank Temperature 0%</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">temperature</type>
-            <subType></subType>
+            <subType/>
             <details>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">OT-01</refDes>
                     <modelNumber required="true">N/A</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4353</moduleModelNumber>
                     <channelNumber required="true">ai25</channelNumber>
@@ -171,14 +170,14 @@
             <description>LOX Tank Temperature 25%</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">temperature</type>
-            <subType></subType>
+            <subType/>
             <details>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">OT-02</refDes>
                     <modelNumber required="true">N/A</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4353</moduleModelNumber>
                     <channelNumber required="true">ai28</channelNumber>
@@ -195,14 +194,14 @@
             <description>LOX Tank Temperature 50%</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">temperature</type>
-            <subType></subType>
+            <subType/>
             <details>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">OT-03</refDes>
                     <modelNumber required="true">N/A</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4353</moduleModelNumber>
                     <channelNumber required="true">ai29</channelNumber>
@@ -219,14 +218,14 @@
             <description>LOX Tank Temperature 75%</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">temperature</type>
-            <subType></subType>
+            <subType/>
             <details>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">OT-04</refDes>
                     <modelNumber required="true">N/A</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4353</moduleModelNumber>
                     <channelNumber required="true">ai30</channelNumber>
@@ -243,14 +242,14 @@
             <description>LOX Tank Temperature 100%</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">temperature</type>
-            <subType></subType>
+            <subType/>
             <details>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">OT-05</refDes>
                     <modelNumber required="true">N/A</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4353</moduleModelNumber>
                     <channelNumber required="true">ai31</channelNumber>
@@ -267,14 +266,14 @@
             <description>LOX Fill Temperature</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">temperature</type>
-            <subType></subType>
+            <subType/>
             <details>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">OT-06</refDes>
                     <modelNumber required="true">N/A</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4353</moduleModelNumber>
                     <channelNumber required="true">ai24</channelNumber>
@@ -291,14 +290,14 @@
             <description>LOX Upstream Temperature</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">temperature</type>
-            <subType></subType>
+            <subType/>
             <details>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">OT-07</refDes>
                     <modelNumber required="true">N/A</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4353</moduleModelNumber>
                     <channelNumber required="true">ai26</channelNumber>
@@ -315,14 +314,14 @@
             <description>LOX Injector Temperature</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">temperature</type>
-            <subType></subType>
+            <subType/>
             <details>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">OT-08</refDes>
                     <modelNumber required="true">N/A</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4353</moduleModelNumber>
                     <channelNumber required="true">ai27</channelNumber>
@@ -339,16 +338,16 @@
             <description>Bottle Pressure</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">pressure</type>
-            <subType></subType>
+            <subType/>
             <details>
                 <absolute>false</absolute> <!-- T/F -->
-                <absoluteSensorRefDes></absoluteSensorRefDes> <!-- if empty and absolute pressure is false, 0 offset will be applied on front panel -->
+                <absoluteSensorRefDes/> <!-- if empty and absolute pressure is false, 0 offset will be applied on front panel -->
             </details>
             <channels>
                 <channel>
                     <refDes required="true">NPT-01</refDes>
                     <modelNumber required="true">PX309</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4302</moduleModelNumber>
                     <channelNumber required="true">ai02</channelNumber>
@@ -367,16 +366,16 @@
             <description>Muscle Pressure</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">pressure</type>
-            <subType></subType>
+            <subType/>
             <details>
                 <absolute>false</absolute> <!-- T/F -->
-                <absoluteSensorRefDes></absoluteSensorRefDes>
+                <absoluteSensorRefDes/>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">NPT-02</refDes>
                     <modelNumber required="true">PX309</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4302</moduleModelNumber>
                     <channelNumber required="true">ai01</channelNumber>
@@ -395,16 +394,16 @@
             <description>Hight-Pressure Purge Pressure</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">pressure</type>
-            <subType></subType>
+            <subType/>
             <details>
                 <absolute>false</absolute> <!-- T/F -->
-                <absoluteSensorRefDes></absoluteSensorRefDes>
+                <absoluteSensorRefDes/>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">NPT-03</refDes>
                     <modelNumber required="true">PX309</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4302</moduleModelNumber>
                     <channelNumber required="true">ai13</channelNumber>
@@ -423,16 +422,16 @@
             <description>Fuel Panel Pressure</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">pressure</type>
-            <subType></subType>
+            <subType/>
             <details>
                 <absolute>false</absolute> <!-- T/F -->
-                <absoluteSensorRefDes></absoluteSensorRefDes>
+                <absoluteSensorRefDes/>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">FPT-01</refDes>
                     <modelNumber required="true">PX309</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4302</moduleModelNumber>
                     <channelNumber required="true">ai03</channelNumber>
@@ -451,16 +450,16 @@
             <description>Fuel Tank Pressure</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">pressure</type>
-            <subType></subType>
+            <subType/>
             <details>
                 <absolute>false</absolute> <!-- T/F -->
-                <absoluteSensorRefDes></absoluteSensorRefDes>
+                <absoluteSensorRefDes/>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">FPT-02</refDes>
                     <modelNumber required="true">PX309</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4302</moduleModelNumber>
                     <channelNumber required="true">ai07</channelNumber>
@@ -479,16 +478,16 @@
             <description>Fuel Venturi Upstream Pressure</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">pressure</type>
-            <subType></subType>
+            <subType/>
             <details>
                 <absolute>false</absolute> <!-- T/F -->
-                <absoluteSensorRefDes></absoluteSensorRefDes>
+                <absoluteSensorRefDes/>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">FPT-03</refDes>
                     <modelNumber required="true">PX309</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4302</moduleModelNumber>
                     <channelNumber required="true">ai10</channelNumber>
@@ -507,16 +506,16 @@
             <description>Fuel Injector Pressure</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">pressure</type>
-            <subType></subType>
+            <subType/>
             <details>
                 <absolute>false</absolute> <!-- T/F -->
-                <absoluteSensorRefDes></absoluteSensorRefDes>
+                <absoluteSensorRefDes/>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">FPT-04</refDes>
                     <modelNumber required="true">PX309</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4302</moduleModelNumber>
                     <channelNumber required="true">ai12</channelNumber>
@@ -535,16 +534,16 @@
             <description>LOX Panel Pressure</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">pressure</type>
-            <subType></subType>
+            <subType/>
             <details>
                 <absolute>false</absolute> <!-- T/F -->
-                <absoluteSensorRefDes></absoluteSensorRefDes>
+                <absoluteSensorRefDes/>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">OPT-01</refDes>
                     <modelNumber required="true">PX309</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4302</moduleModelNumber>
                     <channelNumber required="true">ai00</channelNumber>
@@ -563,16 +562,16 @@
             <description>LOX Tank Pressure</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">pressure</type>
-            <subType></subType>
+            <subType/>
             <details>
                 <absolute>false</absolute> <!-- T/F -->
-                <absoluteSensorRefDes></absoluteSensorRefDes>
+                <absoluteSensorRefDes/>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">OPT-02</refDes>
                     <modelNumber required="true">PX309</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4302</moduleModelNumber>
                     <channelNumber required="true">ai04</channelNumber>
@@ -591,16 +590,16 @@
             <description>LOX Venturi Upstream Pressure</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">pressure</type>
-            <subType></subType>
+            <subType/>
             <details>
                 <absolute>false</absolute> <!-- T/F -->
-                <absoluteSensorRefDes></absoluteSensorRefDes>
+                <absoluteSensorRefDes/>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">OPT-03</refDes>
                     <modelNumber required="true">PX309</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4302</moduleModelNumber>
                     <channelNumber required="true">ai05</channelNumber>
@@ -619,16 +618,16 @@
             <description>LOX Injector Pressure</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">pressure</type>
-            <subType></subType>
+            <subType/>
             <details>
                 <absolute>false</absolute> <!-- T/F -->
-                <absoluteSensorRefDes></absoluteSensorRefDes>
+                <absoluteSensorRefDes/>
             </details>
             <channels>
                 <channel>
                     <refDes required="true">OPT-04</refDes>
                     <modelNumber required="true">PX309</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4302</moduleModelNumber>
                     <channelNumber required="true">ai06</channelNumber>
@@ -647,7 +646,7 @@
             <description>Chamber Pressure</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">pressure</type>
-            <subType></subType>
+            <subType/>
             <details>
                 <absolute>true</absolute> <!-- T/F -->
             </details>
@@ -655,7 +654,7 @@
                 <channel>
                     <refDes required="true">CPT-01</refDes>
                     <modelNumber required="true">N/A</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4302</moduleModelNumber>
                     <channelNumber required="true">ai31</channelNumber>
@@ -674,7 +673,7 @@
             <description>ASI Chamber Pressure</description>
             <enabled>false</enabled> <!-- T/F -->
             <type required="true">pressure</type>
-            <subType></subType>
+            <subType/>
             <details>
                 <absolute>true</absolute> <!-- T/F -->
             </details>
@@ -682,7 +681,7 @@
                 <channel>
                     <refDes required="true">CPT-02</refDes>
                     <modelNumber required="true">N/A</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-4302</moduleModelNumber>
                     <channelNumber required="true">ai18</channelNumber>
@@ -701,7 +700,7 @@
             <description>Fuel Turbine Flow Meter</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">flowMeter</type>
-            <subType></subType>
+            <subType/>
             <details>
             </details>
             <channels>
@@ -727,7 +726,7 @@
             <description>LOX Turbine Flow Meter</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">flowMeter</type>
-            <subType></subType>
+            <subType/>
             <details>
             </details>
             <channels>
@@ -761,7 +760,7 @@
                 <channel>
                     <refDes required="true">NV-01</refDes>
                     <modelNumber required="true">N/A</modelNumber>
-                    <serialNumber></serialNumber>
+                    <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
                     <moduleModelNumber required="true">NI-6528-OUTPUT</moduleModelNumber>
                     <channelNumber required="true">ai29</channelNumber>
@@ -974,7 +973,7 @@
             <modules>
 
                 <module>
-                    <slotId></slotId>
+                    <slotId/>
                     <moduleModelNumber>NI-4353</moduleModelNumber>
                     <description>Thermocouple Module</description>
                     <ioMode>input</ioMode>
@@ -986,7 +985,7 @@
                 </module>
 
                 <module>
-                    <slotId></slotId>
+                    <slotId/>
                     <moduleModelNumber>NI-4302</moduleModelNumber>
                     <description>Analog-input module</description>
                     <ioMode>input</ioMode>
@@ -998,7 +997,7 @@
                 </module>
 
                 <module>
-                    <slotId></slotId>
+                    <slotId/>
                     <moduleModelNumber>NI-4339</moduleModelNumber>
                     <description>Bridge Completion Module 1</description>
                     <ioMode>input</ioMode>
@@ -1010,7 +1009,7 @@
                 </module>
 
                 <module>
-                    <slotId></slotId>
+                    <slotId/>
                     <moduleModelNumber>NI-4339</moduleModelNumber>
                     <description>Bridge Completion Module 2</description>
                     <ioMode>input</ioMode>
@@ -1022,7 +1021,7 @@
                 </module>
 
                 <module>
-                    <slotId></slotId>
+                    <slotId/>
                     <moduleModelNumber>NI-6528-INPUT</moduleModelNumber>
                     <description>Digital IO Module</description>
                     <ioMode>input</ioMode>
@@ -1034,7 +1033,7 @@
                 </module>
 
                 <module>
-                    <slotId></slotId>
+                    <slotId/>
                     <moduleModelNumber>NI-6528-OUTPUT</moduleModelNumber>
                     <description>Digital IO Module</description>
                     <ioMode>output</ioMode>
