@@ -2,44 +2,55 @@
 <systemConfig>
     <controlList_template>
         <control>
-            <refDes></refDes> <!-- required -->
+            <refDes required="true"></refDes>
             <description></description>
             <enabled></enabled> <!-- T/F -->
-            <type></type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter, voltage -->
+            <type required="true">
+                <!-- 
+                    temperature, 
+                    pressure, 
+                    valve, 
+                    levelSensor, 
+                    ignition, 
+                    bangBang, 
+                    VFD, 
+                    flowMeter, 
+                    voltage 
+                -->
+            </type> 
             <subType>
             <!-- valve
-                IO-CMD_IO-FB
-                IO-CMD
-                IO-CMD_POS-FB
-                POS-CMD_POS-FB
+                IO-CMD_IO-FB        (on off commands with one limit switch feedback)
+                IO-CMD              (on off commands with no feedback device)
+                IO-CMD_POS-FB       (on off commands with % open position feedback (ex. 4-20mA))
+                POS-CMD_POS-FB      (% open commands (ex. 4-20mA) with % open position feedback (ex. 4-20mA))
             -->
             <!-- bangBang
                 press               (just a valve)
-                pressVent           (diret tank press and vent valves)
+                pressVent           (press and vent valves)
             -->
-            </subType> <!-- NOT required -->
-            <details> <!-- required for some sensors -->
+            </subType>
+            <details>
                 <!-- pressure
                 <absolute></absolute> absolute pressure? T/F
                 <absolureSensorRefDes></absolureSensorRefDes> if empty and absolure pressure is false, 0 offset will be applied on front panel
                 -->
-                <!--bang Bang
-                    <senseRefDes></senseRefDes> PT for pressure to bang bang off
+                <!--bangBang
+                    <senseRefDes></senseRefDes> PT for pressure to bang bang off (ex. tank pressure, dome pressure)
                 -->
                 <!-- VFD
                     will probably need something
                 -->
             </details>
-            <commandable></commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes></refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber></modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ></refDesDAQ> <!-- required -->
-                    <moduleModelNumber></moduleModelNumber> <!-- required -->
-                    <channelNumber></channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
-                    <DAQmx> <!-- required -->
+                    <refDes required="true"></refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true"></modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true"></refDesDAQ>
+                    <moduleModelNumber required="true"></moduleModelNumber>
+                    <channelNumber required="true"></channelNumber> <!-- (ex. AI05, DO01)-->
+                    <DAQmx required="true">
                         <!-- thermocouple:
                         <type></type> k,e,t
                         <taskName></taskName> (ex. Digital-IO/port3/line0)
@@ -84,22 +95,21 @@
 
     <controlList>
         <control>
-            <refDes>FT-02</refDes> <!-- required -->
+            <refDes required="true">FT-02</refDes>
             <description>Fuel Injectror Temperature</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>temperature</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
-            <details> <!-- required for some sensors -->
+            <type required="true">temperature</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
+            <details>
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>FT-02</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>N/A</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai13</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">FT-02</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <channelNumber required="true">ai13</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4353/ai13</taskName>
                         <type>K</type> <!-- K, E, T -->
@@ -109,22 +119,21 @@
             </channels>
         </control>
         <control>
-            <refDes>OT-01</refDes> <!-- required -->
+            <refDes required="true">OT-01</refDes>
             <description>Fuel Tank Temperature</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>temperature</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
-            <details> <!-- required for some sensors -->
+            <type required="true">temperature</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
+            <details>
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>FT-01</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>N/A</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai12</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">FT-01</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <channelNumber required="true">ai12</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4353/ai12</taskName>
                         <type>K</type> <!-- K, E, T -->
@@ -134,22 +143,21 @@
             </channels>
         </control>
         <control>
-            <refDes>OT-01</refDes> <!-- required -->
+            <refDes required="true">OT-01</refDes>
             <description>LOX Tank Temperature 0%</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>temperature</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
-            <details> <!-- required for some sensors -->
+            <type required="true">temperature</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
+            <details>
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>OT-01</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>N/A</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai25</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">OT-01</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <channelNumber required="true">ai25</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4353/ai25</taskName>
                         <type>E</type> <!-- K, E, T -->
@@ -159,22 +167,21 @@
             </channels>
         </control>
         <control>
-            <refDes>OT-02</refDes> <!-- required -->
+            <refDes required="true">OT-02</refDes>
             <description>LOX Tank Temperature 25%</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>temperature</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
-            <details> <!-- required for some sensors -->
+            <type required="true">temperature</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
+            <details>
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>OT-02</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>N/A</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai28</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">OT-02</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <channelNumber required="true">ai28</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4353/ai28</taskName>
                         <type>E</type> <!-- K, E, T -->
@@ -184,22 +191,21 @@
             </channels>
         </control>
         <control>
-            <refDes>OT-03</refDes> <!-- required -->
+            <refDes required="true">OT-03</refDes>
             <description>LOX Tank Temperature 50%</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>temperature</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
-            <details> <!-- required for some sensors -->
+            <type required="true">temperature</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
+            <details>
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>OT-03</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>N/A</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai29</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">OT-03</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <channelNumber required="true">ai29</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4353/ai29</taskName>
                         <type>E</type> <!-- K, E, T -->
@@ -209,22 +215,21 @@
             </channels>
         </control>
         <control>
-            <refDes>OT-04</refDes> <!-- required -->
+            <refDes required="true">OT-04</refDes>
             <description>LOX Tank Temperature 75%</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>temperature</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
-            <details> <!-- required for some sensors -->
+            <type required="true">temperature</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
+            <details>
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>OT-04</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>N/A</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai30</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">OT-04</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <channelNumber required="true">ai30</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4353/a30</taskName>
                         <type>E</type> <!-- K, E, T -->
@@ -234,22 +239,21 @@
             </channels>
         </control>
         <control>
-            <refDes>OT-05</refDes> <!-- required -->
+            <refDes required="true">OT-05</refDes>
             <description>LOX Tank Temperature 100%</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>temperature</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
-            <details> <!-- required for some sensors -->
+            <type required="true">temperature</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
+            <details>
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>OT-05</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>N/A</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai31</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">OT-05</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <channelNumber required="true">ai31</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4353/ai31</taskName>
                         <type>E</type> <!-- K, E, T -->
@@ -259,22 +263,21 @@
             </channels>
         </control>
         <control>
-            <refDes>OT-06</refDes> <!-- required -->
+            <refDes required="true">OT-06</refDes>
             <description>LOX Fill Temperature</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>temperature</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
-            <details> <!-- required for some sensors -->
+            <type required="true">temperature</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
+            <details>
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>OT-06</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>N/A</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai24</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">OT-06</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <channelNumber required="true">ai24</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4353/ai24</taskName>
                         <type>E</type> <!-- K, E, T -->
@@ -284,22 +287,21 @@
             </channels>
         </control>
         <control>
-            <refDes>OT-07</refDes> <!-- required -->
+            <refDes required="true">OT-07</refDes>
             <description>LOX Upstream Temperature</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>temperature</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
-            <details> <!-- required for some sensors -->
+            <type required="true">temperature</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
+            <details>
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>OT-07</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>N/A</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai26</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">OT-07</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <channelNumber required="true">ai26</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4353/ai26</taskName>
                         <type>E</type> <!-- K, E, T -->
@@ -309,22 +311,21 @@
             </channels>
         </control>
         <control>
-            <refDes>OT-08</refDes> <!-- required -->
+            <refDes required="true">OT-08</refDes>
             <description>LOX Injector Temperature</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>temperature</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
-            <details> <!-- required for some sensors -->
+            <type required="true">temperature</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
+            <details>
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>OT-08</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>N/A</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4353</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai27</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">OT-08</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <channelNumber required="true">ai27</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4353/ai27</taskName>
                         <type>E</type> <!-- K, E, T -->
@@ -334,24 +335,23 @@
             </channels>
         </control>
         <control>
-            <refDes>NPT-01</refDes> <!-- required -->
+            <refDes required="true">NPT-01</refDes>
             <description>Bottle Pressure</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>pressure</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
+            <type required="true">pressure</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
             <details> <!-- required for some sensors -->
                 <absolute>false</absolute> <!-- T/F -->
                 <absolureSensorRefDes></absolureSensorRefDes> <!-- if empty and absolure pressure is false, 0 offset will be applied on front panel -->
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>NPT-01</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>PX309</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai02</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">NPT-01</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">PX309</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <channelNumber required="true">ai02</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4302/ai02</taskName>
                         <sensitivity>73943.66197</sensitivity>
@@ -363,24 +363,23 @@
             </channels>
         </control>
         <control>
-            <refDes>NPT-02</refDes> <!-- required -->
+            <refDes required="true">NPT-02</refDes>
             <description>Muscle Pressure</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>pressure</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
+            <type required="true">pressure</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
             <details> <!-- required for some sensors -->
                 <absolute>false</absolute> <!-- T/F -->
                 <absolureSensorRefDes></absolureSensorRefDes> <!-- if empty and absolure pressure is false, 0 offset will be applied on front panel -->
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>NPT-02</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>PX309</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai01</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">NPT-02</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">PX309</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <channelNumber required="true">ai01</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4302/ai01</taskName>
                         <sensitivity>3002.5</sensitivity>
@@ -392,24 +391,23 @@
             </channels>
         </control>
         <control>
-            <refDes>NPT-03</refDes> <!-- required -->
+            <refDes required="true">NPT-03</refDes>
             <description>Hight-Pressure Purge Pressure</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>pressure</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
+            <type required="true">pressure</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
             <details> <!-- required for some sensors -->
                 <absolute>false</absolute> <!-- T/F -->
                 <absolureSensorRefDes></absolureSensorRefDes> <!-- if empty and absolure pressure is false, 0 offset will be applied on front panel -->
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>NPT-03</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>PX309</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai13</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">NPT-03</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">PX309</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <channelNumber required="true">ai13</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4302/ai13</taskName>
                         <sensitivity>-19859.9870910083</sensitivity>
@@ -421,24 +419,23 @@
             </channels>
         </control>
         <control>
-            <refDes>FPT-01</refDes> <!-- required -->
+            <refDes required="true">FPT-01</refDes>
             <description>Fuel Panel Pressure</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>pressure</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
+            <type required="true">pressure</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
             <details> <!-- required for some sensors -->
                 <absolute>false</absolute> <!-- T/F -->
                 <absolureSensorRefDes></absolureSensorRefDes> <!-- if empty and absolure pressure is false, 0 offset will be applied on front panel -->
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>FPT-01</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>PX309</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai03</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">FPT-01</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">PX309</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <channelNumber required="true">ai03</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4302/ai03</taskName>
                         <sensitivity>20309.48</sensitivity>
@@ -450,24 +447,23 @@
             </channels>
         </control>
         <control>
-            <refDes>FPT-02</refDes> <!-- required -->
+            <refDes required="true">FPT-02</refDes>
             <description>Fuel Tank Pressure</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>pressure</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
+            <type required="true">pressure</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
             <details> <!-- required for some sensors -->
                 <absolute>false</absolute> <!-- T/F -->
                 <absolureSensorRefDes></absolureSensorRefDes> <!-- if empty and absolure pressure is false, 0 offset will be applied on front panel -->
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>FPT-02</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>PX309</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai07</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">FPT-02</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">PX309</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <channelNumber required="true">ai07</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4302/ai07</taskName>
                         <sensitivity>20153.55</sensitivity>
@@ -479,24 +475,23 @@
             </channels>
         </control>
         <control>
-            <refDes>FPT-03</refDes> <!-- required -->
+            <refDes required="true">FPT-03</refDes>
             <description>Fuel Venturi Upstream Pressure</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>pressure</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
+            <type required="true">pressure</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
             <details> <!-- required for some sensors -->
                 <absolute>false</absolute> <!-- T/F -->
                 <absolureSensorRefDes></absolureSensorRefDes> <!-- if empty and absolure pressure is false, 0 offset will be applied on front panel -->
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>FPT-03</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>PX309</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai10</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">FPT-03</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">PX309</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <channelNumber required="true">ai10</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4302/ai10</taskName>
                         <sensitivity>20063.4231925066</sensitivity>
@@ -508,24 +503,23 @@
             </channels>
         </control>
         <control>
-            <refDes>FPT-04</refDes> <!-- required -->
+            <refDes required="true">FPT-04</refDes>
             <description>Fuel Injector Pressure</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>pressure</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
+            <type required="true">pressure</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
             <details> <!-- required for some sensors -->
                 <absolute>false</absolute> <!-- T/F -->
                 <absolureSensorRefDes></absolureSensorRefDes> <!-- if empty and absolure pressure is false, 0 offset will be applied on front panel -->
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>FPT-04</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>PX309</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai12</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">FPT-04</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">PX309</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <channelNumber required="true">ai12</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4302/ai12</taskName>
                         <sensitivity>10011</sensitivity>
@@ -537,24 +531,23 @@
             </channels>
         </control>
         <control>
-            <refDes>OPT-01</refDes> <!-- required -->
+            <refDes required="true">OPT-01</refDes>
             <description>LOX Panel Pressure</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>pressure</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
+            <type required="true">pressure</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
             <details> <!-- required for some sensors -->
                 <absolute>false</absolute> <!-- T/F -->
                 <absolureSensorRefDes></absolureSensorRefDes> <!-- if empty and absolure pressure is false, 0 offset will be applied on front panel -->
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>OPT-01</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>PX309</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai00</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">OPT-01</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">PX309</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <channelNumber required="true">ai00</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4302/ai00</taskName>
                         <sensitivity>20309.48</sensitivity>
@@ -566,24 +559,23 @@
             </channels>
         </control>
         <control>
-            <refDes>OPT-02</refDes> <!-- required -->
+            <refDes required="true">OPT-02</refDes>
             <description>LOX Tank Pressure</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>pressure</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
+            <type required="true">pressure</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
             <details> <!-- required for some sensors -->
                 <absolute>false</absolute> <!-- T/F -->
                 <absolureSensorRefDes></absolureSensorRefDes> <!-- if empty and absolure pressure is false, 0 offset will be applied on front panel -->
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>OPT-02</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>PX309</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai04</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">OPT-02</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">PX309</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <channelNumber required="true">ai04</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4302/ai04</taskName>
                         <sensitivity>19848.7712665406</sensitivity>
@@ -595,24 +587,23 @@
             </channels>
         </control>
         <control>
-            <refDes>OPT-03</refDes> <!-- required -->
+            <refDes required="true">OPT-03</refDes>
             <description>LOX Venturi Upstream Pressure</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>pressure</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
+            <type required="true">pressure</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
             <details> <!-- required for some sensors -->
                 <absolute>false</absolute> <!-- T/F -->
                 <absolureSensorRefDes></absolureSensorRefDes> <!-- if empty and absolure pressure is false, 0 offset will be applied on front panel -->
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>OPT-03</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>PX309</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai05</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">OPT-03</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">PX309</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <channelNumber required="true">ai05</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4302/ai05</taskName>
                         <sensitivity>249.6</sensitivity>
@@ -624,24 +615,23 @@
             </channels>
         </control>
         <control>
-            <refDes>OPT-04</refDes> <!-- required -->
+            <refDes required="true">OPT-04</refDes>
             <description>LOX Injector Pressure</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>pressure</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
+            <type required="true">pressure</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
             <details> <!-- required for some sensors -->
                 <absolute>false</absolute> <!-- T/F -->
                 <absolureSensorRefDes></absolureSensorRefDes> <!-- if empty and absolure pressure is false, 0 offset will be applied on front panel -->
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>OPT-04</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>PX309</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai06</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">OPT-04</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">PX309</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <channelNumber required="true">ai06</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4302/ai06</taskName>
                         <sensitivity>10038</sensitivity>
@@ -653,23 +643,22 @@
             </channels>
         </control>
         <control>
-            <refDes>CPT-01</refDes> <!-- required -->
+            <refDes required="true">CPT-01</refDes>
             <description>Chamber Pressure</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>pressure</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
+            <type required="true">pressure</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
             <details> <!-- required for some sensors -->
                 <absolute>true</absolute> <!-- T/F -->
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>CPT-01</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>N/A</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai31</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">CPT-01</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <channelNumber required="true">ai31</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4302/ai31</taskName>
                         <sensitivity>189.9696</sensitivity>
@@ -681,23 +670,22 @@
             </channels>
         </control>
         <control>
-            <refDes>CPT-02</refDes> <!-- required -->
+            <refDes required="true">CPT-02</refDes>
             <description>ASI Chamber Pressure</description>
             <enabled>false</enabled> <!-- T/F --> 
-            <type>pressure</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
+            <type required="true">pressure</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
             <details> <!-- required for some sensors -->
                 <absolute>true</absolute> <!-- T/F -->
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>CPT-02</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>N/A</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai18</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">CPT-02</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <channelNumber required="true">ai18</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4302/ai18</taskName>
                         <sensitivity>1</sensitivity>
@@ -709,22 +697,21 @@
             </channels>
         </control>
         <control>
-            <refDes>FFM-01</refDes> <!-- required -->
+            <refDes required="true">FFM-01</refDes>
             <description>Fuel Turbine Flow Meter</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>flowMeter</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
-            <details> <!-- required for some sensors -->
+            <type required="true">flowMeter</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
+            <details>
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>FFM-01</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>TM0100</modelNumber> <!-- required -->
+                    <refDes required="true">FFM-01</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">TM0100</modelNumber>
                     <serialNumber>140040-43</serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai29</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <channelNumber required="true">ai29</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4302/ai29</taskName>
                         <sensitivity>904.46</sensitivity>
@@ -736,22 +723,21 @@
             </channels>
         </control>
         <control>
-            <refDes>OFM-01</refDes> <!-- required -->
+            <refDes required="true">OFM-01</refDes>
             <description>LOX Turbine Flow Meter</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>flowMeter</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
-            <details> <!-- required for some sensors -->
+            <type required="true">flowMeter</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
+            <details>
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>OFM-01</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>TMC0100</modelNumber> <!-- required -->
+                    <refDes required="true">OFM-01</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">TMC0100</modelNumber>
                     <serialNumber>140566-06</serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai30</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <channelNumber required="true">ai30</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4302/ai30</taskName>
                         <sensitivity>728.9</sensitivity>
@@ -763,22 +749,21 @@
             </channels>
         </control>
         <control>
-            <refDes>FFM-01</refDes> <!-- required -->
+            <refDes required="true">FFM-01</refDes>
             <description>Fuel Turbine Flow Meter</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>flowMeter</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
-            <subType></subType> <!-- NOT required -->
-            <details> <!-- required for some sensors -->
+            <type required="true">flowMeter</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <subType></subType>
+            <details>
             </details>
-            <commandable>false</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>FFM-01</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>TM0100</modelNumber> <!-- required -->
+                    <refDes required="true">FFM-01</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">TM0100</modelNumber>
                     <serialNumber>140040-43</serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-4302</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai29</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <channelNumber required="true">ai29</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true">NI-4302/ai29</taskName>
                         <sensitivity>904.46</sensitivity>
@@ -790,23 +775,22 @@
             </channels>
         </control>
         <control>
-            <refDes>NV-01</refDes> <!-- required -->
+            <refDes required="true">NV-01</refDes>
             <description>LOX Bang Bang</description>
             <enabled>true</enabled> <!-- T/F --> 
-            <type>bangBang</type> <!-- required --> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
+            <type required="true">bangBang</type> <!-- temperature, pressure, valve, levelSensor, ignition, bangBang, VFD, flowMeter -->
             <subType>press</subType> <!-- NOT required -->
             <details> <!-- required for some sensors -->
                 <senseRefDes>OPT-02</senseRefDes>
             </details>
-            <commandable>true</commandable> <!-- is it a commandable valve through front panel -->
             <channels>
                 <channel>
-                    <refDes>NV-01</refDes> <!-- required --> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
-                    <modelNumber>N/A</modelNumber> <!-- required -->
-                    <serialNumber></serialNumber> <!-- NOT required -->
-                    <refDesDAQ>DAQ001</refDesDAQ> <!-- required -->
-                    <moduleModelNumber>NI-6528-OUTPUT</moduleModelNumber> <!-- required -->
-                    <channelNumber>ai29</channelNumber> <!-- required --> <!-- (ex. AI05, DO01)-->
+                    <refDes required="true">NV-01</refDes> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDAQ required="true">DAQ001</refDesDAQ>
+                    <moduleModelNumber required="true">NI-6528-OUTPUT</moduleModelNumber>
+                    <channelNumber required="true">ai29</channelNumber> <!-- (ex. AI05, DO01)-->
                     <DAQmx required="true">
                         <taskName required="true"></taskName>
                     </DAQmx>
