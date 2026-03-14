@@ -792,7 +792,9 @@
     </ctrNode>
 
     <!-- DAQ NODES -->
-    <daqNodes>
+    
+
+<daqNodes>
 
         <daqNode> <!-- DAQ000, Testing Node -->
             <refDes>DAQ000</refDes>
@@ -964,37 +966,20 @@
             </modules>
         </daqNode>
 
-        <daqNode> <!-- DAQ001, TC3 PXIe Placeholder Node -->
+        
+
+    <daqNode> <!-- DAQ001, TC3 PXIe Placeholder Node -->
             <refDes>DAQ001</refDes>
             <ip>localhost</ip>
             <description>PXIe configuration file</description>
             <enabled>true</enabled>
 
-            <modules>
+            
+        <modules>
 
-                <module>
-                    <slotId/>
-                    <moduleModelNumber>NI-4353</moduleModelNumber>
-                    <description>Thermocouple Module</description>
-                    <ioMode>input</ioMode>
-                    <enabled>true</enabled>
-                    <sampleRateHz>1000</sampleRateHz>
-                    <channels>
+                
 
-                    </channels>
-                </module>
-
-                <module>
-                    <slotId/>
-                    <moduleModelNumber>NI-4302</moduleModelNumber>
-                    <description>Analog-input module</description>
-                    <ioMode>input</ioMode>
-                    <enabled>true</enabled>
-                    <sampleRateHz>1000</sampleRateHz>
-                    <channels>
-
-                    </channels>
-                </module>
+                
 
                 <module>
                     <slotId/>
@@ -1032,21 +1017,36 @@
                     </channels>
                 </module>
 
-                <module>
+                
+
+            <module>
+                    <slotId/>
+                    <moduleModelNumber>NI-4353</moduleModelNumber>
+                    <description>Thermocouple Module</description>
+                    <ioMode>input</ioMode>
+                    <enabled>true</enabled>
+                    <sampleRateHz>1000</sampleRateHz>
+                    
+                <channels>
+
+                    <channel><refDes>FT-02</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai13</channelNumber><taskName></taskName><type>NI-4353/ai13</type><units>K</units></channel><channel><refDes>FT-01</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai12</channelNumber><taskName></taskName><type>NI-4353/ai12</type><units>K</units></channel><channel><refDes>OT-01</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai25</channelNumber><taskName></taskName><type>NI-4353/ai25</type><units>E</units></channel><channel><refDes>OT-02</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai28</channelNumber><taskName></taskName><type>NI-4353/ai28</type><units>E</units></channel><channel><refDes>OT-03</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai29</channelNumber><taskName></taskName><type>NI-4353/ai29</type><units>E</units></channel><channel><refDes>OT-04</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai30</channelNumber><taskName></taskName><type>NI-4353/a30</type><units>E</units></channel><channel><refDes>OT-05</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai31</channelNumber><taskName></taskName><type>NI-4353/ai31</type><units>E</units></channel><channel><refDes>OT-06</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai24</channelNumber><taskName></taskName><type>NI-4353/ai24</type><units>E</units></channel><channel><refDes>OT-07</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai26</channelNumber><taskName></taskName><type>NI-4353/ai26</type><units>E</units></channel><channel><refDes>OT-08</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai27</channelNumber><taskName></taskName><type>NI-4353/ai27</type><units>E</units></channel></channels></module><module>
+                    <slotId/>
+                    <moduleModelNumber>NI-4302</moduleModelNumber>
+                    <description>Analog-input module</description>
+                    <ioMode>input</ioMode>
+                    <enabled>true</enabled>
+                    <sampleRateHz>1000</sampleRateHz>
+                    
+                <channels>
+
+                    <channel><refDes>NPT-01</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai02</channelNumber><taskName></taskName><sensitivity>NI-4302/ai02</sensitivity><balance>73943.66197</balance><inputTerminalConfiguration>2.21831</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>NPT-02</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai01</channelNumber><taskName></taskName><sensitivity>NI-4302/ai01</sensitivity><balance>3002.5</balance><inputTerminalConfiguration>0.3854</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>NPT-03</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai13</channelNumber><taskName></taskName><sensitivity>NI-4302/ai13</sensitivity><balance>-19859.9870910083</balance><inputTerminalConfiguration>3.61451765056352</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>FPT-01</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai03</channelNumber><taskName></taskName><sensitivity>NI-4302/ai03</sensitivity><balance>20309.48</balance><inputTerminalConfiguration>4.26499</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>FPT-02</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai07</channelNumber><taskName></taskName><sensitivity>NI-4302/ai07</sensitivity><balance>20153.55</balance><inputTerminalConfiguration>-6.2476</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>FPT-03</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai10</channelNumber><taskName></taskName><sensitivity>NI-4302/ai10</sensitivity><balance>20063.4231925066</balance><inputTerminalConfiguration>11.2409341120657</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>FPT-04</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai12</channelNumber><taskName></taskName><sensitivity>NI-4302/ai12</sensitivity><balance>10011</balance><inputTerminalConfiguration>-0.1097</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>OPT-01</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai00</channelNumber><taskName></taskName><sensitivity>NI-4302/ai00</sensitivity><balance>20309.48</balance><inputTerminalConfiguration>4.26499</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>OPT-02</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai04</channelNumber><taskName></taskName><sensitivity>NI-4302/ai04</sensitivity><balance>19848.7712665406</balance><inputTerminalConfiguration>14.88658</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>OPT-03</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai05</channelNumber><taskName></taskName><sensitivity>NI-4302/ai05</sensitivity><balance>249.6</balance><inputTerminalConfiguration>-116.79</inputTerminalConfiguration><units>NRSE</units></channel><channel><refDes>OPT-04</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai06</channelNumber><taskName></taskName><sensitivity>NI-4302/ai06</sensitivity><balance>10038</balance><inputTerminalConfiguration>-4.5825</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>CPT-01</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai31</channelNumber><taskName></taskName><sensitivity>NI-4302/ai31</sensitivity><balance>189.9696</balance><inputTerminalConfiguration>-250</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>FFM-01</refDes><serialNumber></serialNumber><modelNumber>TM0100</modelNumber><channelNumber>ai29</channelNumber><taskName>140040-43</taskName><sensitivity>NI-4302/ai29</sensitivity><balance>904.46</balance><inputTerminalConfiguration>0</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>OFM-01</refDes><serialNumber></serialNumber><modelNumber>TMC0100</modelNumber><channelNumber>ai30</channelNumber><taskName>140566-06</taskName><sensitivity>NI-4302/ai30</sensitivity><balance>728.9</balance><inputTerminalConfiguration>0</inputTerminalConfiguration><units>Differential</units></channel></channels></module><module>
                     <slotId/>
                     <moduleModelNumber>NI-6528-OUTPUT</moduleModelNumber>
                     <description>Digital IO Module</description>
                     <ioMode>output</ioMode>
                     <enabled>true</enabled>
                     <sampleRateHz>1000</sampleRateHz>
-                    <channels>
+                    
+                <channels>
 
-                    </channels>
-                </module>
-
-            </modules>
-        </daqNode>
-
-    </daqNodes>
-
-</systemConfig>
+                    <channel><refDes>NV-01</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai29</channelNumber><taskName></taskName></channel></channels></module></modules></daqNode></daqNodes></systemConfig>
