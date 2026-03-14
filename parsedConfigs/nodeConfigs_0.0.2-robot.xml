@@ -983,8 +983,8 @@
 
                 <module>
                     <slotId/>
-                    <moduleModelNumber>NI-4339</moduleModelNumber>
-                    <description>Bridge Completion Module 1</description>
+                    <moduleModelNumber>NI-4353</moduleModelNumber>
+                    <description>Thermocouple Module</description>
                     <ioMode>input</ioMode>
                     <enabled>true</enabled>
                     <sampleRateHz>1000</sampleRateHz>
