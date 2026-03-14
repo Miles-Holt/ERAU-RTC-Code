@@ -973,7 +973,7 @@
             <modules>
 
                 <module>
-                    <slotId/>
+                    <slotId>1</slotId>
                     <moduleModelNumber>NI-4353</moduleModelNumber>
                     <description>Thermocouple Module</description>
                     <ioMode>input</ioMode>
