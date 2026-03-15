@@ -10,12 +10,12 @@
                     temperature,
                     pressure,
                     valve,
-                    levelSensor,
+                    tank,
                     ignition,
                     bangBang,
                     VFD,
                     flowMeter,
-                    voltage
+                    digitalOut
                 -->
             </type>
             <subType>
@@ -94,6 +94,72 @@
     </controlListTemplate>
 
     <controlList>
+        <control>
+            <refDes required="true">TRIGGER-01</refDes>
+            <description>Trigger signal</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">digitalOut</type>
+            <subType></subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">TRIGGER-01</refDes>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6738</moduleModelNumber>
+                    <channelNumber required="true">/port0/line0</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6738/port0/line0</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">IG-01</refDes>
+            <description>Ignition ciruit</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">ignition</type>
+            <subType>IO-CMD_VAR-FB-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">IG-01-CMD</refDes>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port5/line0</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port5/line0</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">IG-01-FB</refDes>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port2/line0</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port2/line0</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">IG-01-FB-CMD</refDes>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6738</moduleModelNumber>
+                    <channelNumber required="true">ao11</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6738/ao11</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
         <control>
             <refDes required="true">FT-02</refDes>
             <description>Fuel Injectror Temperature</description>
@@ -749,24 +815,562 @@
             </channels>
         </control>
         <control>
+            <refDes required="true">IFV-01</refDes>
+            <description>ASI Fuel Main</description>
+            <enabled>false</enabled> <!-- T/F -->
+            <type required="true"></type>
+            <subType></subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">IFV-01-FB</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port1/line6</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port1/line6</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">IOV-01</refDes>
+            <description>ASI Oxidizer Main</description>
+            <enabled>false</enabled> <!-- T/F -->
+            <type required="true"></type>
+            <subType></subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">I0V-01-FB</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port1/line5</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port1/line5</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>        
+        <control>
+            <refDes required="true">INV-01</refDes>
+            <description>ASI Nitorgen Main</description>
+            <enabled>false</enabled> <!-- T/F -->
+            <type required="true"></type>
+            <subType></subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">INV-01-FB</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port1/line4</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port1/line4</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
             <refDes required="true">NV-01</refDes>
             <description>LOX Bang Bang</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">bangBang</type>
-            <subType>press</subType>
+            <subType>press2</subType>
             <details>
                 <senseRefDes>OPT-02</senseRefDes>
             </details>
             <channels>
                 <channel>
-                    <refDes required="true">NV-01</refDes>
+                    <refDes required="true">NV-01-POS</refDes>
+                    <description>BBLOX Pos</description>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber></serialNumber>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-6528-OUTPUT</moduleModelNumber>
-                    <channelNumber required="true">ai29</channelNumber>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port5/line2</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">TODO</taskName>
+                        <taskName required="true">NI-6528/port5/line2</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">NV-01-NEG</refDes>
+                    <description>BBLOX Neg</description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port5/line3</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port5/line3</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">NV-02</refDes>
+            <description>Fuel Bang Bang</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">bangBang</type>
+            <subType>press2</subType>
+            <details>
+                <senseRefDes>FPT-02</senseRefDes>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">NV-02-POS</refDes>
+                    <description>BBFuel Pos</description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port5/line4</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port5/line4</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">NV-02-NEG</refDes>
+                    <description>BBFuel Neg</description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port5/line5</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port5/line5</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">NV-03</refDes>
+            <description>LOX Press</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">NV-03-CMD</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port3/line0</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port3/line0</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">NV-03-FB</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port0/line0</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port0/line0</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">NV-05</refDes>
+            <description>LOX Purge</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">NV-05-CMD</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port3/line1</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port3/line1</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">NV-05-FB</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port0/line1</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port0/line1</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">OV-01</refDes>
+            <description>LOX Vent</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">OV-01-CMD</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port3/line2</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port3/line2</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">OV-01-FB</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port0/line2</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port0/line2</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">OV-03</refDes>
+            <description>LOX Iso</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">OV-03-CMD</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port3/line3</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port3/line3</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">OV-03-FB</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port0/line3</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port0/line3</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">OV-05</refDes>
+            <description>LOX Main</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">OV-05-CMD</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port3/line4</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port3/line4</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">OV-05-FB</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port0/line4</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port0/line4</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">OV-04</refDes>
+            <description>LOX Bleed</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">OV-04-CMD</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port3/line5</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port3/line5</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">OV-04-FB</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port0/line5</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port0/line5</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">OV-02</refDes>
+            <description>LOX Fill</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">OV-02-CMD</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port3/line6</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port3/line6</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">OV-02-FB</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port0/line6</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port0/line6</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">NV-04</refDes>
+            <description>Fuel Press</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">NV-04-CMD</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port3/line7</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port3/line7</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">NV-04-FB</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port0/line7</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port0/line7</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">NV-06</refDes>
+            <description>Fuel Purge</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">NV-06-CMD</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port4/line0</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port4/line0</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">NV-06-FB</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port1/line0</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port1/line0</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">FV-01</refDes>
+            <description>Fuel Vent</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">FV-01-CMD</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port4/line1</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port4/line1</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">FV-01-FB</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port1/line1</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port1/line1</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">FV-02</refDes>
+            <description>Fuel Iso</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">FV-02-CMD</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port4/line2</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port4/line2</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">FV-02-FB</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port1/line2</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port1/line2</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">FV-03</refDes>
+            <description>Fuel Main</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">FV-03-CMD</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port4/line3</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port4/line3</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">FV-02-FB</refDes>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">NI-6528</moduleModelNumber>
+                    <channelNumber required="true">/port1/line3</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">NI-6528/port1/line3</taskName>
                     </daqMx>
                 </channel>
             </channels>
@@ -977,7 +1581,6 @@
                     <slotId>1</slotId>
                     <moduleModelNumber>NI-4353</moduleModelNumber>
                     <description>Thermocouple Module</description>
-                    <ioMode>input</ioMode>
                     <enabled>true</enabled>
                     <sampleRateHz>1000</sampleRateHz>
                     <channels>
@@ -989,7 +1592,6 @@
                     <slotId></slotId>
                     <moduleModelNumber>NI-4302</moduleModelNumber>
                     <description>Analog-input module</description>
-                    <ioMode>input</ioMode>
                     <enabled>true</enabled>
                     <sampleRateHz>1000</sampleRateHz>
                     <channels>
@@ -1001,7 +1603,6 @@
                     <slotId></slotId>
                     <moduleModelNumber>NI-4339</moduleModelNumber>
                     <description>Bridge Completion Module 1</description>
-                    <ioMode>input</ioMode>
                     <enabled>true</enabled>
                     <sampleRateHz>1000</sampleRateHz>
                     <channels>
@@ -1013,7 +1614,6 @@
                     <slotId></slotId>
                     <moduleModelNumber>NI-4339</moduleModelNumber>
                     <description>Bridge Completion Module 2</description>
-                    <ioMode>input</ioMode>
                     <enabled>true</enabled>
                     <sampleRateHz>1000</sampleRateHz>
                     <channels>
@@ -1023,21 +1623,8 @@
 
                 <module>
                     <slotId></slotId>
-                    <moduleModelNumber>NI-6528-INPUT</moduleModelNumber>
+                    <moduleModelNumber>NI-6528</moduleModelNumber>
                     <description>Digital IO Module</description>
-                    <ioMode>input</ioMode>
-                    <enabled>true</enabled>
-                    <sampleRateHz>1000</sampleRateHz>
-                    <channels>
-
-                    </channels>
-                </module>
-
-                <module>
-                    <slotId></slotId>
-                    <moduleModelNumber>NI-6528-OUTPUT</moduleModelNumber>
-                    <description>Digital IO Module</description>
-                    <ioMode>output</ioMode>
                     <enabled>true</enabled>
                     <sampleRateHz>1000</sampleRateHz>
                     <channels>
