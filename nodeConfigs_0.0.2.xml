@@ -1475,7 +1475,7 @@
     <!-- NETWORK / SYSTEM-WIDE SETTINGS -->
     <network>
         <webSocketPort>8080</webSocketPort>
-        <broadcastRateHz>50</broadcastRateHz>
+        <broadcastRateHz>20</broadcastRateHz>
         <connectionManagementRateHz>1</connectionManagementRateHz>
         <loggingRateHz>10</loggingRateHz>
         <lostConnectionHysteresisCount>5</lostConnectionHysteresisCount>

@@ -9,12 +9,13 @@
                     temperature,
                     pressure,
                     valve,
-                    levelSensor,
+                    tank,
                     ignition,
                     bangBang,
                     VFD,
                     flowMeter,
-                    voltage
+                    digitalOut,
+                    thrust
                 -->
             </type>
             <subType>
@@ -71,13 +72,11 @@
                         <voltageExcitationSource></voltageExcitationSource> internal, external
                         <excitationVoltage></excitationVoltage>
                         <nominalBridgeResistance></nominalBridgeResistance>
-                        <scaling>
-                            <firstElectricalValue></firstElectricalValue>
-                            <secondElectricalValue></secondElectricalValue>
-                            <firstPhysicalValue></firstPhysicalValue>
-                            <secondPhysicalValue></secondPhysicalValue>
-                            <electricalUnits></electricalUnits>
-                        </scaling>
+                        <firstElectricalValue></firstElectricalValue>
+                        <secondElectricalValue></secondElectricalValue>
+                        <firstPhysicalValue></firstPhysicalValue>
+                        <secondPhysicalValue></secondPhysicalValue>
+                        <electricalUnits></electricalUnits>
                         <units></units> Pounds
                         -->
                         <!-- Digital Out
@@ -94,6 +93,167 @@
 
     <controlList>
         <control>
+            <refDes required="true">LCC-01</refDes>
+            <description>TC3 Load cell cluster</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">thrust</type>
+            <subType/>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">LCC-01-01</refDes>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Bridge-Completion-2</moduleModelNumber>
+                    <channelNumber required="true">/ai0</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Bridge-Completion-2/ai0</taskName>
+                        <bridgeConfiguration>Full Bridge</bridgeConfiguration>
+                        <voltageExcitationSource>Internal</voltageExcitationSource>
+                        <excitationVoltage>10</excitationVoltage>
+                        <nominalBridgeResistance>350</nominalBridgeResistance>
+                        <firstElectricalValue>0.01355</firstElectricalValue>
+                        <secondElectricalValue>-0.0243</secondElectricalValue>
+                        <firstPhysicalValue>0</firstPhysicalValue>
+                        <secondPhysicalValue>25.15</secondPhysicalValue>
+                        <electricalUnits>mVolts/Volt</electricalUnits>
+                        <units>Pounds</units> 
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">LCC-01-02</refDes>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Bridge-Completion-2</moduleModelNumber>
+                    <channelNumber required="true">/ai1</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Bridge-Completion-2/ai1</taskName>
+                        <bridgeConfiguration>Full Bridge</bridgeConfiguration>
+                        <voltageExcitationSource>Internal</voltageExcitationSource>
+                        <excitationVoltage>10</excitationVoltage>
+                        <nominalBridgeResistance>350</nominalBridgeResistance>
+                        <firstElectricalValue>0.0.008</firstElectricalValue>
+                        <secondElectricalValue>-0.0294</secondElectricalValue>
+                        <firstPhysicalValue>0</firstPhysicalValue>
+                        <secondPhysicalValue>25.15</secondPhysicalValue>
+                        <electricalUnits>mVolts/Volt</electricalUnits>
+                        <units>Pounds</units> 
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">LCC-01-03</refDes>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Bridge-Completion-2</moduleModelNumber>
+                    <channelNumber required="true">/ai2</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Bridge-Completion-2/ai2</taskName>
+                        <bridgeConfiguration>Full Bridge</bridgeConfiguration>
+                        <voltageExcitationSource>Internal</voltageExcitationSource>
+                        <excitationVoltage>10</excitationVoltage>
+                        <nominalBridgeResistance>350</nominalBridgeResistance>
+                        <firstElectricalValue>0.0117</firstElectricalValue>
+                        <secondElectricalValue>-0.0259</secondElectricalValue>
+                        <firstPhysicalValue>0</firstPhysicalValue>
+                        <secondPhysicalValue>25.15</secondPhysicalValue>
+                        <electricalUnits>mVolts/Volt</electricalUnits>
+                        <units>Pounds</units> 
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">LCC-01-04</refDes>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Bridge-Completion-2</moduleModelNumber>
+                    <channelNumber required="true">/ai3</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Bridge-Completion-2/ai3</taskName>
+                        <bridgeConfiguration>Full Bridge</bridgeConfiguration>
+                        <voltageExcitationSource>Internal</voltageExcitationSource>
+                        <excitationVoltage>10</excitationVoltage>
+                        <nominalBridgeResistance>350</nominalBridgeResistance>
+                        <firstElectricalValue>0.01165</firstElectricalValue>
+                        <secondElectricalValue>-0.02618</secondElectricalValue>
+                        <firstPhysicalValue>0</firstPhysicalValue>
+                        <secondPhysicalValue>25.15</secondPhysicalValue>
+                        <electricalUnits>mVolts/Volt</electricalUnits>
+                        <units>Pounds</units> 
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">TRIGGER-01</refDes>
+            <description>Trigger signal</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">digitalOut</type>
+            <subType/>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">TRIGGER-01</refDes>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Analog-Output</moduleModelNumber>
+                    <channelNumber required="true">/port0/line0</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Analog-Output/port0/line0</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">IG-01</refDes>
+            <description>Ignition ciruit</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">ignition</type>
+            <subType>IO-CMD_VAR-FB-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">IG-01-CMD</refDes>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port5/line0</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port5/line0</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">IG-01-FB</refDes>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port2/line0</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port2/line0</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">IG-01-FB-CMD</refDes>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Analog-Output</moduleModelNumber>
+                    <channelNumber required="true">ao11</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Analog-Output/ao11</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
             <refDes required="true">FT-02</refDes>
             <description>Fuel Injectror Temperature</description>
             <enabled>true</enabled> <!-- T/F -->
@@ -107,10 +267,10 @@
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <moduleModelNumber required="true">Thermocouple</moduleModelNumber>
                     <channelNumber required="true">ai13</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4353/ai13</taskName>
+                        <taskName required="true">Thermocouple/ai13</taskName>
                         <type>K</type> <!-- K, E, T -->
                         <units>Deg F</units>
                     </daqMx>
@@ -118,7 +278,7 @@
             </channels>
         </control>
         <control>
-            <refDes required="true">OT-01</refDes>
+            <refDes required="true">FT-01</refDes>
             <description>Fuel Tank Temperature</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">temperature</type>
@@ -131,10 +291,10 @@
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <moduleModelNumber required="true">Thermocouple</moduleModelNumber>
                     <channelNumber required="true">ai12</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4353/ai12</taskName>
+                        <taskName required="true">Thermocouple/ai12</taskName>
                         <type>K</type> <!-- K, E, T -->
                         <units>Deg F</units>
                     </daqMx>
@@ -155,10 +315,10 @@
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <moduleModelNumber required="true">Thermocouple</moduleModelNumber>
                     <channelNumber required="true">ai25</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4353/ai25</taskName>
+                        <taskName required="true">Thermocouple/ai25</taskName>
                         <type>E</type> <!-- K, E, T -->
                         <units>Deg F</units>
                     </daqMx>
@@ -179,10 +339,10 @@
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <moduleModelNumber required="true">Thermocouple</moduleModelNumber>
                     <channelNumber required="true">ai28</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4353/ai28</taskName>
+                        <taskName required="true">Thermocouple/ai28</taskName>
                         <type>E</type> <!-- K, E, T -->
                         <units>Deg F</units>
                     </daqMx>
@@ -203,10 +363,10 @@
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <moduleModelNumber required="true">Thermocouple</moduleModelNumber>
                     <channelNumber required="true">ai29</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4353/ai29</taskName>
+                        <taskName required="true">Thermocouple/ai29</taskName>
                         <type>E</type> <!-- K, E, T -->
                         <units>Deg F</units>
                     </daqMx>
@@ -227,10 +387,10 @@
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <moduleModelNumber required="true">Thermocouple</moduleModelNumber>
                     <channelNumber required="true">ai30</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4353/a30</taskName>
+                        <taskName required="true">Thermocouple/ai30</taskName>
                         <type>E</type> <!-- K, E, T -->
                         <units>Deg F</units>
                     </daqMx>
@@ -251,10 +411,10 @@
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <moduleModelNumber required="true">Thermocouple</moduleModelNumber>
                     <channelNumber required="true">ai31</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4353/ai31</taskName>
+                        <taskName required="true">Thermocouple/ai31</taskName>
                         <type>E</type> <!-- K, E, T -->
                         <units>Deg F</units>
                     </daqMx>
@@ -275,10 +435,10 @@
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <moduleModelNumber required="true">Thermocouple</moduleModelNumber>
                     <channelNumber required="true">ai24</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4353/ai24</taskName>
+                        <taskName required="true">Thermocouple/ai24</taskName>
                         <type>E</type> <!-- K, E, T -->
                         <units>Deg F</units>
                     </daqMx>
@@ -299,10 +459,10 @@
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <moduleModelNumber required="true">Thermocouple</moduleModelNumber>
                     <channelNumber required="true">ai26</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4353/ai26</taskName>
+                        <taskName required="true">Thermocouple/ai26</taskName>
                         <type>E</type> <!-- K, E, T -->
                         <units>Deg F</units>
                     </daqMx>
@@ -323,10 +483,10 @@
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4353</moduleModelNumber>
+                    <moduleModelNumber required="true">Thermocouple</moduleModelNumber>
                     <channelNumber required="true">ai27</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4353/ai27</taskName>
+                        <taskName required="true">Thermocouple/ai27</taskName>
                         <type>E</type> <!-- K, E, T -->
                         <units>Deg F</units>
                     </daqMx>
@@ -349,10 +509,10 @@
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <moduleModelNumber required="true">Analog-Input</moduleModelNumber>
                     <channelNumber required="true">ai02</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4302/ai02</taskName>
+                        <taskName required="true">Analog-Input/ai2</taskName>
                         <sensitivity>73943.66197</sensitivity>
                         <balance>2.21831</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -377,10 +537,10 @@
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <moduleModelNumber required="true">Analog-Input</moduleModelNumber>
                     <channelNumber required="true">ai01</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4302/ai01</taskName>
+                        <taskName required="true">Analog-Input/ai1</taskName>
                         <sensitivity>3002.5</sensitivity>
                         <balance>0.3854</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -405,10 +565,10 @@
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <moduleModelNumber required="true">Analog-Input</moduleModelNumber>
                     <channelNumber required="true">ai13</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4302/ai13</taskName>
+                        <taskName required="true">Analog-Input/ai13</taskName>
                         <sensitivity>-19859.9870910083</sensitivity>
                         <balance>3.61451765056352</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -433,10 +593,10 @@
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <moduleModelNumber required="true">Analog-Input</moduleModelNumber>
                     <channelNumber required="true">ai03</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4302/ai03</taskName>
+                        <taskName required="true">Analog-Input/ai3</taskName>
                         <sensitivity>20309.48</sensitivity>
                         <balance>4.26499</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -461,10 +621,10 @@
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <moduleModelNumber required="true">Analog-Input</moduleModelNumber>
                     <channelNumber required="true">ai07</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4302/ai07</taskName>
+                        <taskName required="true">Analog-Input/ai7</taskName>
                         <sensitivity>20153.55</sensitivity>
                         <balance>-6.2476</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -489,10 +649,10 @@
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <moduleModelNumber required="true">Analog-Input</moduleModelNumber>
                     <channelNumber required="true">ai10</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4302/ai10</taskName>
+                        <taskName required="true">Analog-Input/ai10</taskName>
                         <sensitivity>20063.4231925066</sensitivity>
                         <balance>11.2409341120657</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -517,10 +677,10 @@
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <moduleModelNumber required="true">Analog-Input</moduleModelNumber>
                     <channelNumber required="true">ai12</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4302/ai12</taskName>
+                        <taskName required="true">Analog-Input/ai12</taskName>
                         <sensitivity>10011</sensitivity>
                         <balance>-0.1097</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -545,10 +705,10 @@
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <moduleModelNumber required="true">Analog-Input</moduleModelNumber>
                     <channelNumber required="true">ai00</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4302/ai00</taskName>
+                        <taskName required="true">Analog-Input/ai0</taskName>
                         <sensitivity>20309.48</sensitivity>
                         <balance>4.26499</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -573,10 +733,10 @@
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <moduleModelNumber required="true">Analog-Input</moduleModelNumber>
                     <channelNumber required="true">ai04</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4302/ai04</taskName>
+                        <taskName required="true">Analog-Input/ai4</taskName>
                         <sensitivity>19848.7712665406</sensitivity>
                         <balance>14.88658</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -601,10 +761,10 @@
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <moduleModelNumber required="true">Analog-Input</moduleModelNumber>
                     <channelNumber required="true">ai05</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4302/ai05</taskName>
+                        <taskName required="true">Analog-Input/ai5</taskName>
                         <sensitivity>249.6</sensitivity>
                         <balance>-116.79</balance>
                         <inputTerminalConfiguration>NRSE</inputTerminalConfiguration>
@@ -629,10 +789,10 @@
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <moduleModelNumber required="true">Analog-Input</moduleModelNumber>
                     <channelNumber required="true">ai06</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4302/ai06</taskName>
+                        <taskName required="true">Analog-Input/ai6</taskName>
                         <sensitivity>10038</sensitivity>
                         <balance>-4.5825</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -656,10 +816,10 @@
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <moduleModelNumber required="true">Analog-Input</moduleModelNumber>
                     <channelNumber required="true">ai31</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4302/ai31</taskName>
+                        <taskName required="true">Analog-Input/ai31</taskName>
                         <sensitivity>189.9696</sensitivity>
                         <balance>-250</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -683,10 +843,10 @@
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <moduleModelNumber required="true">Analog-Input</moduleModelNumber>
                     <channelNumber required="true">ai18</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4302/ai18</taskName>
+                        <taskName required="true">Analog-Input/ai18</taskName>
                         <sensitivity>1</sensitivity>
                         <balance>0</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -709,10 +869,10 @@
                     <modelNumber required="true">TM0100</modelNumber>
                     <serialNumber>140040-43</serialNumber>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <moduleModelNumber required="true">Analog-Input</moduleModelNumber>
                     <channelNumber required="true">ai29</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4302/ai29</taskName>
+                        <taskName required="true">Analog-Input/ai29</taskName>
                         <sensitivity>904.46</sensitivity>
                         <balance>0</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -735,10 +895,10 @@
                     <modelNumber required="true">TMC0100</modelNumber>
                     <serialNumber>140566-06</serialNumber>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-4302</moduleModelNumber>
+                    <moduleModelNumber required="true">Analog-Input</moduleModelNumber>
                     <channelNumber required="true">ai30</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">NI-4302/ai30</taskName>
+                        <taskName required="true">Analog-Input/ai30</taskName>
                         <sensitivity>728.9</sensitivity>
                         <balance>0</balance>
                         <inputTerminalConfiguration>Differential</inputTerminalConfiguration>
@@ -748,24 +908,562 @@
             </channels>
         </control>
         <control>
+            <refDes required="true">IFV-01</refDes>
+            <description>ASI Fuel Main</description>
+            <enabled>false</enabled> <!-- T/F -->
+            <type required="true"/>
+            <subType/>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">IFV-01-FB</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port1/line6</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port1/line6</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">IOV-01</refDes>
+            <description>ASI Oxidizer Main</description>
+            <enabled>false</enabled> <!-- T/F -->
+            <type required="true"/>
+            <subType/>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">I0V-01-FB</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port1/line5</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port1/line5</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>        
+        <control>
+            <refDes required="true">INV-01</refDes>
+            <description>ASI Nitorgen Main</description>
+            <enabled>false</enabled> <!-- T/F -->
+            <type required="true"/>
+            <subType/>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">INV-01-FB</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port1/line4</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port1/line4</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
             <refDes required="true">NV-01</refDes>
             <description>LOX Bang Bang</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">bangBang</type>
-            <subType>press</subType>
+            <subType>press2</subType>
             <details>
                 <senseRefDes>OPT-02</senseRefDes>
             </details>
             <channels>
                 <channel>
-                    <refDes required="true">NV-01</refDes>
+                    <refDes required="true">NV-01-POS</refDes>
+                    <description>BBLOX Pos</description>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">NI-6528-OUTPUT</moduleModelNumber>
-                    <channelNumber required="true">ai29</channelNumber>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port5/line2</channelNumber>
                     <daqMx required="true">
-                        <taskName required="true">TODO</taskName>
+                        <taskName required="true">Digital-IO/port5/line2</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">NV-01-NEG</refDes>
+                    <description>BBLOX Neg</description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port5/line3</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port5/line3</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">NV-02</refDes>
+            <description>Fuel Bang Bang</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">bangBang</type>
+            <subType>press2</subType>
+            <details>
+                <senseRefDes>FPT-02</senseRefDes>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">NV-02-POS</refDes>
+                    <description>BBFuel Pos</description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port5/line4</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port5/line4</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">NV-02-NEG</refDes>
+                    <description>BBFuel Neg</description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port5/line5</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port5/line5</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">NV-03</refDes>
+            <description>LOX Press</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">NV-03-CMD</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port3/line0</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port3/line0</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">NV-03-FB</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port0/line0</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port0/line0</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">NV-05</refDes>
+            <description>LOX Purge</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">NV-05-CMD</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port3/line1</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port3/line1</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">NV-05-FB</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port0/line1</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port0/line1</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">OV-01</refDes>
+            <description>LOX Vent</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">OV-01-CMD</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port3/line2</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port3/line2</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">OV-01-FB</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port0/line2</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port0/line2</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">OV-03</refDes>
+            <description>LOX Iso</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">OV-03-CMD</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port3/line3</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port3/line3</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">OV-03-FB</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port0/line3</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port0/line3</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">OV-05</refDes>
+            <description>LOX Main</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">OV-05-CMD</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port3/line4</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port3/line4</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">OV-05-FB</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port0/line4</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port0/line4</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">OV-04</refDes>
+            <description>LOX Bleed</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">OV-04-CMD</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port3/line5</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port3/line5</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">OV-04-FB</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port0/line5</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port0/line5</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">OV-02</refDes>
+            <description>LOX Fill</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">OV-02-CMD</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port3/line6</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port3/line6</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">OV-02-FB</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port0/line6</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port0/line6</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">NV-04</refDes>
+            <description>Fuel Press</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">NV-04-CMD</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port3/line7</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port3/line7</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">NV-04-FB</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port0/line7</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port0/line7</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">NV-06</refDes>
+            <description>Fuel Purge</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">NV-06-CMD</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port4/line0</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port4/line0</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">NV-06-FB</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port1/line0</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port1/line0</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">FV-01</refDes>
+            <description>Fuel Vent</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">FV-01-CMD</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port4/line1</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port4/line1</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">FV-01-FB</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port1/line1</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port1/line1</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">FV-02</refDes>
+            <description>Fuel Iso</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">FV-02-CMD</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port4/line2</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port4/line2</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">FV-02-FB</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port1/line2</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port1/line2</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">FV-03</refDes>
+            <description>Fuel Main</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD_IO-FB</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">FV-03-CMD</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port4/line3</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port4/line3</taskName>
+                    </daqMx>
+                </channel>
+                <channel>
+                    <refDes required="true">FV-03-FB</refDes>
+                    <description/>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber/>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port1/line3</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port1/line3</taskName>
                     </daqMx>
                 </channel>
             </channels>
@@ -800,7 +1498,7 @@
             <refDes>DAQ000</refDes>
             <ip>localhost</ip>
             <description>Testing DAQ node</description>
-            <enabled>true</enabled>
+            <enabled>false</enabled>
 
             <modules>
 
@@ -981,72 +1679,54 @@
 
                 
 
-                <module>
-                    <slotId/>
-                    <moduleModelNumber>NI-4353</moduleModelNumber>
-                    <description>Thermocouple Module</description>
-                    <ioMode>input</ioMode>
-                    <enabled>true</enabled>
-                    <sampleRateHz>1000</sampleRateHz>
-                    <channels>
+                
 
-                    </channels>
-                </module>
-
-                <module>
-                    <slotId/>
-                    <moduleModelNumber>NI-4339</moduleModelNumber>
-                    <description>Bridge Completion Module 2</description>
-                    <ioMode>input</ioMode>
-                    <enabled>true</enabled>
-                    <sampleRateHz>1000</sampleRateHz>
-                    <channels>
-
-                    </channels>
-                </module>
-
-                <module>
-                    <slotId/>
-                    <moduleModelNumber>NI-6528-INPUT</moduleModelNumber>
-                    <description>Digital IO Module</description>
-                    <ioMode>input</ioMode>
-                    <enabled>true</enabled>
-                    <sampleRateHz>1000</sampleRateHz>
-                    <channels>
-
-                    </channels>
-                </module>
-
+                
                 
 
             <module>
                     <slotId/>
-                    <moduleModelNumber>NI-4353</moduleModelNumber>
+                    <moduleModelNumber>Bridge-Completion-2</moduleModelNumber>
+                    <description>Bridge Completion Modules</description>
+                    <enabled>true</enabled>
+                    <sampleRateHz>1000</sampleRateHz>
+                    
+                <channels>
+
+                    <channel><refDes>LCC-01-01</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/ai0</channelNumber><taskName>Bridge-Completion-2/ai0</taskName><bridgeConfiguration>Full Bridge</bridgeConfiguration><voltageExcitationSource>Internal</voltageExcitationSource><excitationVoltage>10</excitationVoltage><nominalBridgeResistance>350</nominalBridgeResistance><firstElectricalValue>0.01355</firstElectricalValue><secondElectricalValue>-0.0243</secondElectricalValue><firstPhysicalValue>0</firstPhysicalValue><secondPhysicalValue>25.15</secondPhysicalValue><electricalUnits>mVolts/Volt</electricalUnits><units>Pounds</units></channel><channel><refDes>LCC-01-02</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/ai1</channelNumber><taskName>Bridge-Completion-2/ai1</taskName><bridgeConfiguration>Full Bridge</bridgeConfiguration><voltageExcitationSource>Internal</voltageExcitationSource><excitationVoltage>10</excitationVoltage><nominalBridgeResistance>350</nominalBridgeResistance><firstElectricalValue>0.0.008</firstElectricalValue><secondElectricalValue>-0.0294</secondElectricalValue><firstPhysicalValue>0</firstPhysicalValue><secondPhysicalValue>25.15</secondPhysicalValue><electricalUnits>mVolts/Volt</electricalUnits><units>Pounds</units></channel><channel><refDes>LCC-01-03</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/ai2</channelNumber><taskName>Bridge-Completion-2/ai2</taskName><bridgeConfiguration>Full Bridge</bridgeConfiguration><voltageExcitationSource>Internal</voltageExcitationSource><excitationVoltage>10</excitationVoltage><nominalBridgeResistance>350</nominalBridgeResistance><firstElectricalValue>0.0117</firstElectricalValue><secondElectricalValue>-0.0259</secondElectricalValue><firstPhysicalValue>0</firstPhysicalValue><secondPhysicalValue>25.15</secondPhysicalValue><electricalUnits>mVolts/Volt</electricalUnits><units>Pounds</units></channel><channel><refDes>LCC-01-04</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/ai3</channelNumber><taskName>Bridge-Completion-2/ai3</taskName><bridgeConfiguration>Full Bridge</bridgeConfiguration><voltageExcitationSource>Internal</voltageExcitationSource><excitationVoltage>10</excitationVoltage><nominalBridgeResistance>350</nominalBridgeResistance><firstElectricalValue>0.01165</firstElectricalValue><secondElectricalValue>-0.02618</secondElectricalValue><firstPhysicalValue>0</firstPhysicalValue><secondPhysicalValue>25.15</secondPhysicalValue><electricalUnits>mVolts/Volt</electricalUnits><units>Pounds</units></channel></channels></module><module>
+                    <slotId/>
+                    <moduleModelNumber>Analog-Output</moduleModelNumber>
+                    <description>Analog-Output Module</description>
+                    <enabled>true</enabled>
+                    <sampleRateHz>1000</sampleRateHz>
+                    
+                <channels>
+
+                    <channel><refDes>TRIGGER-01</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port0/line0</channelNumber><taskName>Analog-Output/port0/line0</taskName></channel><channel><refDes>IG-01-FB-CMD</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ao11</channelNumber><taskName>Analog-Output/ao11</taskName></channel></channels></module><module>
+                    <slotId>1</slotId>
+                    <moduleModelNumber>Thermocouple</moduleModelNumber>
                     <description>Thermocouple Module</description>
-                    <ioMode>input</ioMode>
                     <enabled>true</enabled>
                     <sampleRateHz>1000</sampleRateHz>
                     
                 <channels>
 
-                    <channel><refDes>FT-02</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai13</channelNumber><taskName></taskName><type>NI-4353/ai13</type><units>K</units></channel><channel><refDes>FT-01</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai12</channelNumber><taskName></taskName><type>NI-4353/ai12</type><units>K</units></channel><channel><refDes>OT-01</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai25</channelNumber><taskName></taskName><type>NI-4353/ai25</type><units>E</units></channel><channel><refDes>OT-02</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai28</channelNumber><taskName></taskName><type>NI-4353/ai28</type><units>E</units></channel><channel><refDes>OT-03</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai29</channelNumber><taskName></taskName><type>NI-4353/ai29</type><units>E</units></channel><channel><refDes>OT-04</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai30</channelNumber><taskName></taskName><type>NI-4353/a30</type><units>E</units></channel><channel><refDes>OT-05</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai31</channelNumber><taskName></taskName><type>NI-4353/ai31</type><units>E</units></channel><channel><refDes>OT-06</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai24</channelNumber><taskName></taskName><type>NI-4353/ai24</type><units>E</units></channel><channel><refDes>OT-07</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai26</channelNumber><taskName></taskName><type>NI-4353/ai26</type><units>E</units></channel><channel><refDes>OT-08</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai27</channelNumber><taskName></taskName><type>NI-4353/ai27</type><units>E</units></channel></channels></module><module>
+                    <channel><refDes>FT-02</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai13</channelNumber><taskName>Thermocouple/ai13</taskName><type>K</type><units>Deg F</units></channel><channel><refDes>FT-01</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai12</channelNumber><taskName>Thermocouple/ai12</taskName><type>K</type><units>Deg F</units></channel><channel><refDes>OT-01</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai25</channelNumber><taskName>Thermocouple/ai25</taskName><type>E</type><units>Deg F</units></channel><channel><refDes>OT-02</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai28</channelNumber><taskName>Thermocouple/ai28</taskName><type>E</type><units>Deg F</units></channel><channel><refDes>OT-03</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai29</channelNumber><taskName>Thermocouple/ai29</taskName><type>E</type><units>Deg F</units></channel><channel><refDes>OT-04</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai30</channelNumber><taskName>Thermocouple/ai30</taskName><type>E</type><units>Deg F</units></channel><channel><refDes>OT-05</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai31</channelNumber><taskName>Thermocouple/ai31</taskName><type>E</type><units>Deg F</units></channel><channel><refDes>OT-06</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai24</channelNumber><taskName>Thermocouple/ai24</taskName><type>E</type><units>Deg F</units></channel><channel><refDes>OT-07</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai26</channelNumber><taskName>Thermocouple/ai26</taskName><type>E</type><units>Deg F</units></channel><channel><refDes>OT-08</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai27</channelNumber><taskName>Thermocouple/ai27</taskName><type>E</type><units>Deg F</units></channel></channels></module><module>
                     <slotId/>
-                    <moduleModelNumber>NI-4302</moduleModelNumber>
+                    <moduleModelNumber>Analog-Input</moduleModelNumber>
                     <description>Analog-input module</description>
-                    <ioMode>input</ioMode>
                     <enabled>true</enabled>
                     <sampleRateHz>1000</sampleRateHz>
                     
                 <channels>
 
-                    <channel><refDes>NPT-01</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai02</channelNumber><taskName></taskName><sensitivity>NI-4302/ai02</sensitivity><balance>73943.66197</balance><inputTerminalConfiguration>2.21831</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>NPT-02</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai01</channelNumber><taskName></taskName><sensitivity>NI-4302/ai01</sensitivity><balance>3002.5</balance><inputTerminalConfiguration>0.3854</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>NPT-03</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai13</channelNumber><taskName></taskName><sensitivity>NI-4302/ai13</sensitivity><balance>-19859.9870910083</balance><inputTerminalConfiguration>3.61451765056352</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>FPT-01</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai03</channelNumber><taskName></taskName><sensitivity>NI-4302/ai03</sensitivity><balance>20309.48</balance><inputTerminalConfiguration>4.26499</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>FPT-02</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai07</channelNumber><taskName></taskName><sensitivity>NI-4302/ai07</sensitivity><balance>20153.55</balance><inputTerminalConfiguration>-6.2476</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>FPT-03</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai10</channelNumber><taskName></taskName><sensitivity>NI-4302/ai10</sensitivity><balance>20063.4231925066</balance><inputTerminalConfiguration>11.2409341120657</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>FPT-04</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai12</channelNumber><taskName></taskName><sensitivity>NI-4302/ai12</sensitivity><balance>10011</balance><inputTerminalConfiguration>-0.1097</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>OPT-01</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai00</channelNumber><taskName></taskName><sensitivity>NI-4302/ai00</sensitivity><balance>20309.48</balance><inputTerminalConfiguration>4.26499</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>OPT-02</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai04</channelNumber><taskName></taskName><sensitivity>NI-4302/ai04</sensitivity><balance>19848.7712665406</balance><inputTerminalConfiguration>14.88658</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>OPT-03</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai05</channelNumber><taskName></taskName><sensitivity>NI-4302/ai05</sensitivity><balance>249.6</balance><inputTerminalConfiguration>-116.79</inputTerminalConfiguration><units>NRSE</units></channel><channel><refDes>OPT-04</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai06</channelNumber><taskName></taskName><sensitivity>NI-4302/ai06</sensitivity><balance>10038</balance><inputTerminalConfiguration>-4.5825</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>CPT-01</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai31</channelNumber><taskName></taskName><sensitivity>NI-4302/ai31</sensitivity><balance>189.9696</balance><inputTerminalConfiguration>-250</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>FFM-01</refDes><serialNumber></serialNumber><modelNumber>TM0100</modelNumber><channelNumber>ai29</channelNumber><taskName>140040-43</taskName><sensitivity>NI-4302/ai29</sensitivity><balance>904.46</balance><inputTerminalConfiguration>0</inputTerminalConfiguration><units>Differential</units></channel><channel><refDes>OFM-01</refDes><serialNumber></serialNumber><modelNumber>TMC0100</modelNumber><channelNumber>ai30</channelNumber><taskName>140566-06</taskName><sensitivity>NI-4302/ai30</sensitivity><balance>728.9</balance><inputTerminalConfiguration>0</inputTerminalConfiguration><units>Differential</units></channel></channels></module><module>
+                    <channel><refDes>NPT-01</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai02</channelNumber><taskName>Analog-Input/ai2</taskName><sensitivity>73943.66197</sensitivity><balance>2.21831</balance><inputTerminalConfiguration>Differential</inputTerminalConfiguration><units>psig</units></channel><channel><refDes>NPT-02</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai01</channelNumber><taskName>Analog-Input/ai1</taskName><sensitivity>3002.5</sensitivity><balance>0.3854</balance><inputTerminalConfiguration>Differential</inputTerminalConfiguration><units>psig</units></channel><channel><refDes>NPT-03</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai13</channelNumber><taskName>Analog-Input/ai13</taskName><sensitivity>-19859.9870910083</sensitivity><balance>3.61451765056352</balance><inputTerminalConfiguration>Differential</inputTerminalConfiguration><units>psig</units></channel><channel><refDes>FPT-01</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai03</channelNumber><taskName>Analog-Input/ai3</taskName><sensitivity>20309.48</sensitivity><balance>4.26499</balance><inputTerminalConfiguration>Differential</inputTerminalConfiguration><units>psig</units></channel><channel><refDes>FPT-02</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai07</channelNumber><taskName>Analog-Input/ai7</taskName><sensitivity>20153.55</sensitivity><balance>-6.2476</balance><inputTerminalConfiguration>Differential</inputTerminalConfiguration><units>psig</units></channel><channel><refDes>FPT-03</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai10</channelNumber><taskName>Analog-Input/ai10</taskName><sensitivity>20063.4231925066</sensitivity><balance>11.2409341120657</balance><inputTerminalConfiguration>Differential</inputTerminalConfiguration><units>psig</units></channel><channel><refDes>FPT-04</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai12</channelNumber><taskName>Analog-Input/ai12</taskName><sensitivity>10011</sensitivity><balance>-0.1097</balance><inputTerminalConfiguration>Differential</inputTerminalConfiguration><units>psig</units></channel><channel><refDes>OPT-01</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai00</channelNumber><taskName>Analog-Input/ai0</taskName><sensitivity>20309.48</sensitivity><balance>4.26499</balance><inputTerminalConfiguration>Differential</inputTerminalConfiguration><units>psig</units></channel><channel><refDes>OPT-02</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai04</channelNumber><taskName>Analog-Input/ai4</taskName><sensitivity>19848.7712665406</sensitivity><balance>14.88658</balance><inputTerminalConfiguration>Differential</inputTerminalConfiguration><units>psig</units></channel><channel><refDes>OPT-03</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai05</channelNumber><taskName>Analog-Input/ai5</taskName><sensitivity>249.6</sensitivity><balance>-116.79</balance><inputTerminalConfiguration>NRSE</inputTerminalConfiguration><units>psig</units></channel><channel><refDes>OPT-04</refDes><serialNumber></serialNumber><modelNumber>PX309</modelNumber><channelNumber>ai06</channelNumber><taskName>Analog-Input/ai6</taskName><sensitivity>10038</sensitivity><balance>-4.5825</balance><inputTerminalConfiguration>Differential</inputTerminalConfiguration><units>psig</units></channel><channel><refDes>CPT-01</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai31</channelNumber><taskName>Analog-Input/ai31</taskName><sensitivity>189.9696</sensitivity><balance>-250</balance><inputTerminalConfiguration>Differential</inputTerminalConfiguration><units>psia</units></channel><channel><refDes>FFM-01</refDes><serialNumber>140040-43</serialNumber><modelNumber>TM0100</modelNumber><channelNumber>ai29</channelNumber><taskName>Analog-Input/ai29</taskName><sensitivity>904.46</sensitivity><balance>0</balance><inputTerminalConfiguration>Differential</inputTerminalConfiguration><units>GPM</units></channel><channel><refDes>OFM-01</refDes><serialNumber>140566-06</serialNumber><modelNumber>TMC0100</modelNumber><channelNumber>ai30</channelNumber><taskName>Analog-Input/ai30</taskName><sensitivity>728.9</sensitivity><balance>0</balance><inputTerminalConfiguration>Differential</inputTerminalConfiguration><units>GPM</units></channel></channels></module><module>
                     <slotId/>
-                    <moduleModelNumber>NI-6528-OUTPUT</moduleModelNumber>
+                    <moduleModelNumber>Digital-IO</moduleModelNumber>
                     <description>Digital IO Module</description>
-                    <ioMode>output</ioMode>
                     <enabled>true</enabled>
                     <sampleRateHz>1000</sampleRateHz>
                     
                 <channels>
 
-                    <channel><refDes>NV-01</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>ai29</channelNumber><taskName></taskName></channel></channels></module></modules></daqNode></daqNodes></systemConfig>
+                    <channel><refDes>IG-01-CMD</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port5/line0</channelNumber><taskName>Digital-IO/port5/line0</taskName></channel><channel><refDes>IG-01-FB</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port2/line0</channelNumber><taskName>Digital-IO/port2/line0</taskName></channel><channel><refDes>NV-01-POS</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port5/line2</channelNumber><taskName>Digital-IO/port5/line2</taskName></channel><channel><refDes>NV-01-NEG</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port5/line3</channelNumber><taskName>Digital-IO/port5/line3</taskName></channel><channel><refDes>NV-02-POS</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port5/line4</channelNumber><taskName>Digital-IO/port5/line4</taskName></channel><channel><refDes>NV-02-NEG</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port5/line5</channelNumber><taskName>Digital-IO/port5/line5</taskName></channel><channel><refDes>NV-03-CMD</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port3/line0</channelNumber><taskName>Digital-IO/port3/line0</taskName></channel><channel><refDes>NV-03-FB</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port0/line0</channelNumber><taskName>Digital-IO/port0/line0</taskName></channel><channel><refDes>NV-05-CMD</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port3/line1</channelNumber><taskName>Digital-IO/port3/line1</taskName></channel><channel><refDes>NV-05-FB</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port0/line1</channelNumber><taskName>Digital-IO/port0/line1</taskName></channel><channel><refDes>OV-01-CMD</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port3/line2</channelNumber><taskName>Digital-IO/port3/line2</taskName></channel><channel><refDes>OV-01-FB</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port0/line2</channelNumber><taskName>Digital-IO/port0/line2</taskName></channel><channel><refDes>OV-03-CMD</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port3/line3</channelNumber><taskName>Digital-IO/port3/line3</taskName></channel><channel><refDes>OV-03-FB</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port0/line3</channelNumber><taskName>Digital-IO/port0/line3</taskName></channel><channel><refDes>OV-05-CMD</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port3/line4</channelNumber><taskName>Digital-IO/port3/line4</taskName></channel><channel><refDes>OV-05-FB</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port0/line4</channelNumber><taskName>Digital-IO/port0/line4</taskName></channel><channel><refDes>OV-04-CMD</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port3/line5</channelNumber><taskName>Digital-IO/port3/line5</taskName></channel><channel><refDes>OV-04-FB</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port0/line5</channelNumber><taskName>Digital-IO/port0/line5</taskName></channel><channel><refDes>OV-02-CMD</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port3/line6</channelNumber><taskName>Digital-IO/port3/line6</taskName></channel><channel><refDes>OV-02-FB</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port0/line6</channelNumber><taskName>Digital-IO/port0/line6</taskName></channel><channel><refDes>NV-04-CMD</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port3/line7</channelNumber><taskName>Digital-IO/port3/line7</taskName></channel><channel><refDes>NV-04-FB</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port0/line7</channelNumber><taskName>Digital-IO/port0/line7</taskName></channel><channel><refDes>NV-06-CMD</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port4/line0</channelNumber><taskName>Digital-IO/port4/line0</taskName></channel><channel><refDes>NV-06-FB</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port1/line0</channelNumber><taskName>Digital-IO/port1/line0</taskName></channel><channel><refDes>FV-01-CMD</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port4/line1</channelNumber><taskName>Digital-IO/port4/line1</taskName></channel><channel><refDes>FV-01-FB</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port1/line1</channelNumber><taskName>Digital-IO/port1/line1</taskName></channel><channel><refDes>FV-02-CMD</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port4/line2</channelNumber><taskName>Digital-IO/port4/line2</taskName></channel><channel><refDes>FV-02-FB</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port1/line2</channelNumber><taskName>Digital-IO/port1/line2</taskName></channel><channel><refDes>FV-03-CMD</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port4/line3</channelNumber><taskName>Digital-IO/port4/line3</taskName></channel><channel><refDes>FV-03-FB</refDes><serialNumber></serialNumber><modelNumber>N/A</modelNumber><channelNumber>/port1/line3</channelNumber><taskName>Digital-IO/port1/line3</taskName></channel></channels></module></modules></daqNode></daqNodes></systemConfig>
