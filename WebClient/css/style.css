@@ -1,0 +1,378 @@
+/* =============================================================================
+   RTC Control Panel — Dark theme
+   ============================================================================= */
+
+:root {
+    --bg:           #0d1117;
+    --surface:      #161b22;
+    --card-bg:      #21262d;
+    --border:       #30363d;
+    --text:         #c9d1d9;
+    --muted:        #6e7681;
+    --accent:       #58a6ff;
+
+    /* Type-specific card accent colors */
+    --color-pressure:    #58a6ff;   /* blue */
+    --color-temperature: #f78166;   /* orange */
+    --color-flowMeter:   #3fb950;   /* green */
+    --color-tank:        #a5d6ff;   /* light blue */
+    --color-valve:       #8b949e;   /* gray */
+    --color-bangbang:    #e3b341;   /* amber */
+    --color-ignition:    #f85149;   /* red */
+    --color-digital:     #bc8cff;   /* purple */
+    --color-vfd:         #56d364;   /* green */
+
+    /* Status colors */
+    --status-connected:    #3fb950;
+    --status-disconnected: #f85149;
+    --status-reconnecting: #e3b341;
+    --status-connecting:   #58a6ff;
+    --status-stale:        #e3b341;
+
+    /* LED colors */
+    --led-open:     #3fb950;
+    --led-closed:   #f85149;
+    --led-active:   #f85149;
+    --led-inactive: #3fb950;
+    --led-unknown:  #6e7681;
+}
+
+/* =============================================================================
+   Reset & base
+   ============================================================================= */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+}
+
+/* =============================================================================
+   Header & status bar
+   ============================================================================= */
+
+header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.5px;
+}
+
+#status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: background 0.3s;
+}
+
+.status-connected    { background: var(--status-connected); }
+.status-disconnected { background: var(--status-disconnected); }
+.status-reconnecting { background: var(--status-reconnecting); animation: blink 1s step-start infinite; }
+.status-connecting   { background: var(--status-connecting);   animation: blink 0.5s step-start infinite; }
+.status-stale        { background: var(--status-stale); }
+
+@keyframes blink { 50% { opacity: 0.2; } }
+
+#timestamp {
+    margin-left: 12px;
+    font-family: monospace;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+/* =============================================================================
+   Panel & groups
+   ============================================================================= */
+
+#panel {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+}
+
+#loading {
+    color: var(--muted);
+    text-align: center;
+    margin-top: 60px;
+    font-size: 15px;
+}
+
+.group {}
+
+.group-heading {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+}
+
+/* =============================================================================
+   Grid
+   ============================================================================= */
+
+.grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+/* =============================================================================
+   Cards — base
+   ============================================================================= */
+
+.card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    min-width: 160px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-left: 3px solid var(--border);
+    transition: border-color 0.2s;
+}
+
+.card-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.3;
+}
+
+.card-refdes {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    font-family: monospace;
+}
+
+/* Type-specific left border color */
+.card-pressure    { border-left-color: var(--color-pressure); }
+.card-temperature { border-left-color: var(--color-temperature); }
+.card-flowMeter   { border-left-color: var(--color-flowMeter); }
+.card-tank        { border-left-color: var(--color-tank); }
+.card-valve       { border-left-color: var(--color-valve); }
+.card-bangbang    { border-left-color: var(--color-bangbang); }
+.card-ignition    { border-left-color: var(--color-ignition); }
+.card-digital     { border-left-color: var(--color-digital); }
+.card-vfd         { border-left-color: var(--color-vfd); }
+
+/* =============================================================================
+   Sensor value display
+   ============================================================================= */
+
+.sensor-row {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.value {
+    font-size: 22px;
+    font-weight: 700;
+    font-family: monospace;
+    color: var(--text);
+    transition: color 0.2s;
+}
+
+.value.stale {
+    color: var(--status-stale);
+    opacity: 0.6;
+}
+
+.units {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+/* =============================================================================
+   Feedback rows & LEDs
+   ============================================================================= */
+
+.fb-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.led {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+
+.led-open     { background: var(--led-open);     box-shadow: 0 0 4px var(--led-open); }
+.led-closed   { background: var(--led-closed);   box-shadow: 0 0 4px var(--led-closed); }
+.led-active   { background: var(--led-active);   box-shadow: 0 0 4px var(--led-active); }
+.led-inactive { background: var(--led-inactive); }
+.led-unknown  { background: var(--led-unknown); }
+
+.fb-label {
+    font-size: 12px;
+    font-family: monospace;
+    color: var(--text);
+}
+
+.fb-label.stale {
+    color: var(--status-stale);
+    opacity: 0.6;
+}
+
+.sense-label {
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
+}
+
+/* =============================================================================
+   Buttons
+   ============================================================================= */
+
+.btn-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+
+.btn {
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    cursor: pointer;
+    background: var(--surface);
+    color: var(--text);
+    transition: background 0.15s, border-color 0.15s;
+    letter-spacing: 0.5px;
+}
+
+.btn:hover:not(:disabled)  { background: var(--border); }
+.btn:active:not(:disabled) { transform: scale(0.97); }
+.btn:disabled              { opacity: 0.3; cursor: not-allowed; }
+
+.btn-open  { border-color: var(--led-open);   color: var(--led-open); }
+.btn-close { border-color: var(--led-closed); color: var(--led-closed); }
+
+.btn-open:hover:not(:disabled)  { background: rgba(63, 185, 80, 0.15); }
+.btn-close:hover:not(:disabled) { background: rgba(248, 81, 73, 0.15); }
+
+/* Ignition fire button */
+.btn-fire {
+    border-color: var(--color-ignition);
+    color: var(--color-ignition);
+    font-size: 13px;
+    padding: 6px 16px;
+    letter-spacing: 1px;
+}
+
+.btn-fire:hover:not(:disabled) { background: rgba(248, 81, 73, 0.2); }
+.btn-fire:disabled              { opacity: 0.25; }
+
+/* =============================================================================
+   Ignition arm checkbox
+   ============================================================================= */
+
+.ignition-row {
+    align-items: center;
+}
+
+.arm-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--color-ignition);
+}
+
+.arm-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-ignition);
+    cursor: pointer;
+    margin-right: 6px;
+    letter-spacing: 0.5px;
+}
+
+/* =============================================================================
+   Position slider (POS-CMD)
+   ============================================================================= */
+
+.pos-slider {
+    width: 100%;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.pos-out {
+    font-size: 12px;
+    font-family: monospace;
+    color: var(--muted);
+    min-width: 36px;
+    text-align: right;
+}
+
+/* =============================================================================
+   VFD input
+   ============================================================================= */
+
+.vfd-input {
+    width: 70px;
+    padding: 4px 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: monospace;
+}
+
+.vfd-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+/* =============================================================================
+   Responsive
+   ============================================================================= */
+
+@media (max-width: 600px) {
+    header { flex-direction: column; align-items: flex-start; }
+    #panel { padding: 12px; }
+    .card  { min-width: 140px; }
+}

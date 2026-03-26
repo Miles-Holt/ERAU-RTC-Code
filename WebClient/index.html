@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RTC Control Panel</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <h1>RTC Control Panel</h1>
+        <div id="status-bar">
+            <span id="status-indicator" class="status-disconnected"></span>
+            <span id="status-text">Disconnected</span>
+            <span id="timestamp">--:--:--.---</span>
+        </div>
+    </header>
+
+    <main id="panel">
+        <div id="loading">Waiting for configuration from LabVIEW...</div>
+    </main>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
