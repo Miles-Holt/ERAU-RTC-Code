@@ -45,6 +45,7 @@
             <channels>
                 <channel>
                     <refDes required="true"/> <!-- parent+identifier (ex. OV-03-POS, OV-03-CMD) -->
+                    <role/> <!-- cmd-bool: toggle switch | cmd-pct: text box with % | cmd-float: plain text box | (empty): read-only -->
                     <modelNumber required="true"/>
                     <serialNumber/>
                     <refDesDaq required="true"/>
@@ -103,6 +104,7 @@
             <channels>
                 <channel>
                     <refDes required="true">LCC-01-01</refDes>
+                    <role/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -119,11 +121,12 @@
                         <firstPhysicalValue>0</firstPhysicalValue>
                         <secondPhysicalValue>25.15</secondPhysicalValue>
                         <electricalUnits>mVolts/Volt</electricalUnits>
-                        <units>Pounds</units> 
+                        <units>Pounds</units>
                     </daqMx>
                 </channel>
                 <channel>
                     <refDes required="true">LCC-01-02</refDes>
+                    <role/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -140,11 +143,12 @@
                         <firstPhysicalValue>0</firstPhysicalValue>
                         <secondPhysicalValue>25.15</secondPhysicalValue>
                         <electricalUnits>mVolts/Volt</electricalUnits>
-                        <units>Pounds</units> 
+                        <units>Pounds</units>
                     </daqMx>
                 </channel>
                 <channel>
                     <refDes required="true">LCC-01-03</refDes>
+                    <role/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -161,11 +165,12 @@
                         <firstPhysicalValue>0</firstPhysicalValue>
                         <secondPhysicalValue>25.15</secondPhysicalValue>
                         <electricalUnits>mVolts/Volt</electricalUnits>
-                        <units>Pounds</units> 
+                        <units>Pounds</units>
                     </daqMx>
                 </channel>
                 <channel>
                     <refDes required="true">LCC-01-04</refDes>
+                    <role/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -182,7 +187,7 @@
                         <firstPhysicalValue>0</firstPhysicalValue>
                         <secondPhysicalValue>25.15</secondPhysicalValue>
                         <electricalUnits>mVolts/Volt</electricalUnits>
-                        <units>Pounds</units> 
+                        <units>Pounds</units>
                     </daqMx>
                 </channel>
             </channels>
@@ -198,6 +203,7 @@
             <channels>
                 <channel>
                     <refDes required="true">TRIGGER-01</refDes>
+                    <role>cmd-bool</role>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -220,6 +226,7 @@
             <channels>
                 <channel>
                     <refDes required="true">IG-01-CMD</refDes>
+                    <role>cmd-bool</role>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -231,6 +238,7 @@
                 </channel>
                 <channel>
                     <refDes required="true">IG-01-FB</refDes>
+                    <role/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -242,6 +250,7 @@
                 </channel>
                 <channel>
                     <refDes required="true">IG-01-FB-CMD</refDes>
+                    <role>cmd-bool</role>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -264,6 +273,7 @@
             <channels>
                 <channel>
                     <refDes required="true">FT-02</refDes>
+                    <role/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -288,6 +298,7 @@
             <channels>
                 <channel>
                     <refDes required="true">FT-01</refDes>
+                    <role/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -312,6 +323,7 @@
             <channels>
                 <channel>
                     <refDes required="true">OT-01</refDes>
+                    <role/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -336,6 +348,7 @@
             <channels>
                 <channel>
                     <refDes required="true">OT-02</refDes>
+                    <role/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -360,6 +373,7 @@
             <channels>
                 <channel>
                     <refDes required="true">OT-03</refDes>
+                    <role/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -384,6 +398,7 @@
             <channels>
                 <channel>
                     <refDes required="true">OT-04</refDes>
+                    <role/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -408,6 +423,7 @@
             <channels>
                 <channel>
                     <refDes required="true">OT-05</refDes>
+                    <role/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -432,6 +448,7 @@
             <channels>
                 <channel>
                     <refDes required="true">OT-06</refDes>
+                    <role/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -456,6 +473,7 @@
             <channels>
                 <channel>
                     <refDes required="true">OT-07</refDes>
+                    <role/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -480,6 +498,7 @@
             <channels>
                 <channel>
                     <refDes required="true">OT-08</refDes>
+                    <role/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -506,6 +525,7 @@
             <channels>
                 <channel>
                     <refDes required="true">NPT-01</refDes>
+                    <role/>
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -534,6 +554,7 @@
             <channels>
                 <channel>
                     <refDes required="true">NPT-02</refDes>
+                    <role/>
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -562,6 +583,7 @@
             <channels>
                 <channel>
                     <refDes required="true">NPT-03</refDes>
+                    <role/>
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -590,6 +612,7 @@
             <channels>
                 <channel>
                     <refDes required="true">FPT-01</refDes>
+                    <role/>
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -618,6 +641,7 @@
             <channels>
                 <channel>
                     <refDes required="true">FPT-02</refDes>
+                    <role/>
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -646,6 +670,7 @@
             <channels>
                 <channel>
                     <refDes required="true">FPT-03</refDes>
+                    <role/>
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -674,6 +699,7 @@
             <channels>
                 <channel>
                     <refDes required="true">FPT-04</refDes>
+                    <role/>
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -702,6 +728,7 @@
             <channels>
                 <channel>
                     <refDes required="true">OPT-01</refDes>
+                    <role/>
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -730,6 +757,7 @@
             <channels>
                 <channel>
                     <refDes required="true">OPT-02</refDes>
+                    <role/>
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -758,6 +786,7 @@
             <channels>
                 <channel>
                     <refDes required="true">OPT-03</refDes>
+                    <role/>
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -786,6 +815,7 @@
             <channels>
                 <channel>
                     <refDes required="true">OPT-04</refDes>
+                    <role/>
                     <modelNumber required="true">PX309</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -813,6 +843,7 @@
             <channels>
                 <channel>
                     <refDes required="true">CPT-01</refDes>
+                    <role/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -840,6 +871,7 @@
             <channels>
                 <channel>
                     <refDes required="true">CPT-02</refDes>
+                    <role/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -866,6 +898,7 @@
             <channels>
                 <channel>
                     <refDes required="true">FFM-01</refDes>
+                    <role/>
                     <modelNumber required="true">TM0100</modelNumber>
                     <serialNumber>140040-43</serialNumber>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -892,6 +925,7 @@
             <channels>
                 <channel>
                     <refDes required="true">OFM-01</refDes>
+                    <role/>
                     <modelNumber required="true">TMC0100</modelNumber>
                     <serialNumber>140566-06</serialNumber>
                     <refDesDaq required="true">DAQ001</refDesDaq>
@@ -918,6 +952,7 @@
             <channels>
                 <channel>
                     <refDes required="true">IFV-01-FB</refDes>
+                    <role/>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -941,6 +976,7 @@
             <channels>
                 <channel>
                     <refDes required="true">I0V-01-FB</refDes>
+                    <role/>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -952,7 +988,7 @@
                     </daqMx>
                 </channel>
             </channels>
-        </control>        
+        </control>
         <control>
             <refDes required="true">INV-01</refDes>
             <description>ASI Nitorgen Main</description>
@@ -964,6 +1000,7 @@
             <channels>
                 <channel>
                     <refDes required="true">INV-01-FB</refDes>
+                    <role/>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -988,6 +1025,7 @@
             <channels>
                 <channel>
                     <refDes required="true">NV-01-POS</refDes>
+                    <role>cmd-bool</role>
                     <description>BBLOX Pos</description>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1000,6 +1038,7 @@
                 </channel>
                 <channel>
                     <refDes required="true">NV-01-NEG</refDes>
+                    <role>cmd-bool</role>
                     <description>BBLOX Neg</description>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1024,6 +1063,7 @@
             <channels>
                 <channel>
                     <refDes required="true">NV-02-POS</refDes>
+                    <role>cmd-bool</role>
                     <description>BBFuel Pos</description>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1036,6 +1076,7 @@
                 </channel>
                 <channel>
                     <refDes required="true">NV-02-NEG</refDes>
+                    <role>cmd-bool</role>
                     <description>BBFuel Neg</description>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1059,6 +1100,7 @@
             <channels>
                 <channel>
                     <refDes required="true">NV-03-CMD</refDes>
+                    <role>cmd-bool</role>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1071,6 +1113,7 @@
                 </channel>
                 <channel>
                     <refDes required="true">NV-03-FB</refDes>
+                    <role/>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1094,6 +1137,7 @@
             <channels>
                 <channel>
                     <refDes required="true">NV-05-CMD</refDes>
+                    <role>cmd-bool</role>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1106,6 +1150,7 @@
                 </channel>
                 <channel>
                     <refDes required="true">NV-05-FB</refDes>
+                    <role/>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1129,6 +1174,7 @@
             <channels>
                 <channel>
                     <refDes required="true">OV-01-CMD</refDes>
+                    <role>cmd-bool</role>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1141,6 +1187,7 @@
                 </channel>
                 <channel>
                     <refDes required="true">OV-01-FB</refDes>
+                    <role/>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1164,6 +1211,7 @@
             <channels>
                 <channel>
                     <refDes required="true">OV-03-CMD</refDes>
+                    <role>cmd-bool</role>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1176,6 +1224,7 @@
                 </channel>
                 <channel>
                     <refDes required="true">OV-03-FB</refDes>
+                    <role/>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1199,6 +1248,7 @@
             <channels>
                 <channel>
                     <refDes required="true">OV-05-CMD</refDes>
+                    <role>cmd-bool</role>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1211,6 +1261,7 @@
                 </channel>
                 <channel>
                     <refDes required="true">OV-05-FB</refDes>
+                    <role/>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1234,6 +1285,7 @@
             <channels>
                 <channel>
                     <refDes required="true">OV-04-CMD</refDes>
+                    <role>cmd-bool</role>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1246,6 +1298,7 @@
                 </channel>
                 <channel>
                     <refDes required="true">OV-04-FB</refDes>
+                    <role/>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1269,6 +1322,7 @@
             <channels>
                 <channel>
                     <refDes required="true">OV-02-CMD</refDes>
+                    <role>cmd-bool</role>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1281,6 +1335,7 @@
                 </channel>
                 <channel>
                     <refDes required="true">OV-02-FB</refDes>
+                    <role/>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1304,6 +1359,7 @@
             <channels>
                 <channel>
                     <refDes required="true">NV-04-CMD</refDes>
+                    <role>cmd-bool</role>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1316,6 +1372,7 @@
                 </channel>
                 <channel>
                     <refDes required="true">NV-04-FB</refDes>
+                    <role/>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1339,6 +1396,7 @@
             <channels>
                 <channel>
                     <refDes required="true">NV-06-CMD</refDes>
+                    <role>cmd-bool</role>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1351,6 +1409,7 @@
                 </channel>
                 <channel>
                     <refDes required="true">NV-06-FB</refDes>
+                    <role/>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1374,6 +1433,7 @@
             <channels>
                 <channel>
                     <refDes required="true">FV-01-CMD</refDes>
+                    <role>cmd-bool</role>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1386,6 +1446,7 @@
                 </channel>
                 <channel>
                     <refDes required="true">FV-01-FB</refDes>
+                    <role/>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1409,6 +1470,7 @@
             <channels>
                 <channel>
                     <refDes required="true">FV-02-CMD</refDes>
+                    <role>cmd-bool</role>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1421,6 +1483,7 @@
                 </channel>
                 <channel>
                     <refDes required="true">FV-02-FB</refDes>
+                    <role/>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1444,6 +1507,7 @@
             <channels>
                 <channel>
                     <refDes required="true">FV-03-CMD</refDes>
+                    <role>cmd-bool</role>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
@@ -1456,6 +1520,7 @@
                 </channel>
                 <channel>
                     <refDes required="true">FV-03-FB</refDes>
+                    <role/>
                     <description/>
                     <modelNumber required="true">N/A</modelNumber>
                     <serialNumber/>
