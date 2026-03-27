@@ -34,7 +34,7 @@
 // =============================================================================
 
 const CONFIG = {
-    wsUrl:            'ws://localhost:8000',
+    wsUrl:            `ws://${window.location.hostname || 'localhost'}:8000`,
     staleThresholdMs: 500,    // mark data stale after 500ms (~10 missed frames at 20Hz)
     reconnect: {
         baseMs:  1000,
