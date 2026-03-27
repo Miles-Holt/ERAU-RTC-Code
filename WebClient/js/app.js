@@ -20,12 +20,12 @@
 //       "subType":     "IO-CMD_IO-FB",
 //       "details":     { "senseRefDes": "OPT-02" },  // optional
 //       "channels": [
-//         { "refDes": "NV-03-CMD", "role": "cmd", "units": "" },
-//         { "refDes": "NV-03-FB",  "role": "fb",  "units": "" }
+//         { "refDes": "NV-03-CMD", "role": "cmd-bool", "units": "" },
+//         { "refDes": "NV-03-FB",  "role": "sensor",   "units": "" }
 //       ]
 //     }
 //
-//   Channel roles: "sensor" | "cmd" | "fb" | "pos"
+//   Channel roles: "sensor" | "cmd-bool" | "cmd-pct" | "cmd-float"
 //
 //   TIMESTAMP NOTE:
 //     LabVIEW epoch starts 1904-01-01. Unix epoch starts 1970-01-01.
@@ -147,6 +147,9 @@ const TYPE_ORDER = [
     'valve', 'bangBang', 'ignition', 'digitalOut', 'VFD'
 ];
 
+// Returns true for any commandable channel role
+const isCmd = ch => ch.role === 'cmd-bool' || ch.role === 'cmd-pct' || ch.role === 'cmd-float';
+
 function buildUI(controls) {
     const panel = document.getElementById('panel');
     panel.innerHTML = '';
@@ -222,9 +225,9 @@ function buildValveCard(ctrl) {
     card.appendChild(mkEl('div', 'card-desc', ctrl.description || ctrl.refDes));
     card.appendChild(mkEl('div', 'card-refdes', ctrl.refDes));
 
-    const cmdCh = ctrl.channels.find(c => c.role === 'cmd');
-    const fbCh  = ctrl.channels.find(c => c.role === 'fb');
-    const posCh = ctrl.channels.find(c => c.role === 'pos');
+    const cmdCh = ctrl.channels.find(c => isCmd(c));
+    const fbCh  = ctrl.channels.find(c => !isCmd(c) && c.refDes.endsWith('-FB'));
+    const posCh = ctrl.channels.find(c => !isCmd(c) && c.refDes.endsWith('-POS'));
 
     // Feedback indicator
     if (fbCh) {
@@ -261,7 +264,7 @@ function buildValveCard(ctrl) {
     if (cmdCh) {
         const btnRow = mkEl('div', 'btn-row');
 
-        if (ctrl.subType === 'POS-CMD_POS-FB') {
+        if (cmdCh.role === 'cmd-pct') {
             const slider = document.createElement('input');
             slider.type = 'range'; slider.min = 0; slider.max = 100; slider.value = 0;
             slider.className = 'pos-slider';
@@ -319,7 +322,7 @@ function buildIgnitionCard(ctrl) {
     card.appendChild(mkEl('div', 'card-refdes', ctrl.refDes));
 
     // Status rows for all feedback channels
-    for (const ch of ctrl.channels.filter(c => c.role !== 'cmd')) {
+    for (const ch of ctrl.channels.filter(c => !isCmd(c))) {
         const row = mkEl('div', 'fb-row');
         const led = mkEl('span', 'led led-unknown');
         const lbl = mkEl('span', 'fb-label stale', `${ch.refDes}: --`);
@@ -335,7 +338,7 @@ function buildIgnitionCard(ctrl) {
         };
     }
 
-    const cmdCh = ctrl.channels.find(c => c.role === 'cmd');
+    const cmdCh = ctrl.channels.find(c => isCmd(c));
     if (cmdCh) {
         const btnRow  = mkEl('div', 'btn-row ignition-row');
         const armId   = `arm-${ctrl.refDes}`;
@@ -369,7 +372,7 @@ function buildDigitalOutCard(ctrl) {
     card.appendChild(mkEl('div', 'card-desc', ctrl.description || ctrl.refDes));
     card.appendChild(mkEl('div', 'card-refdes', ctrl.refDes));
 
-    const cmdCh = ctrl.channels.find(c => c.role === 'cmd') ?? ctrl.channels[0];
+    const cmdCh = ctrl.channels.find(c => isCmd(c)) ?? ctrl.channels[0];
     if (cmdCh) {
         const btnRow = mkEl('div', 'btn-row');
         const onBtn  = mkEl('button', 'btn btn-open',  'ON');
@@ -389,7 +392,7 @@ function buildVFDCard(ctrl) {
     card.appendChild(mkEl('div', 'card-desc', ctrl.description || ctrl.refDes));
     card.appendChild(mkEl('div', 'card-refdes', ctrl.refDes));
 
-    const cmdCh = ctrl.channels.find(c => c.role === 'cmd');
+    const cmdCh = ctrl.channels.find(c => isCmd(c));
     if (cmdCh) {
         const row     = mkEl('div', 'btn-row');
         const input   = document.createElement('input');
