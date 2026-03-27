@@ -124,7 +124,7 @@ function sendCommand(refDes, value) {
 
 function applyConfig(msg) {
     channelUpdaters = {};
-    buildUI(msg.controls.filter(c => c.enabled));
+    buildUI(msg.controls);
     configApplied = true;
     setStatus('connected', 'Connected');
 }
@@ -133,6 +133,7 @@ const TYPE_LABELS = {
     pressure:   'Pressures',
     temperature:'Temperatures',
     flowMeter:  'Flow Meters',
+    thrust:     'Thrust',
     tank:       'Tanks',
     valve:      'Valves',
     bangBang:   'Bang-Bang Controllers',
@@ -143,7 +144,7 @@ const TYPE_LABELS = {
 
 // Controls what order sections appear on the page
 const TYPE_ORDER = [
-    'pressure', 'temperature', 'flowMeter', 'tank',
+    'pressure', 'temperature', 'flowMeter', 'thrust', 'tank',
     'valve', 'bangBang', 'ignition', 'digitalOut', 'VFD'
 ];
 
