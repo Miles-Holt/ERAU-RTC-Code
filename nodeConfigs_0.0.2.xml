@@ -1534,6 +1534,54 @@
                 </channel>
             </channels>
         </control>
+        <control>
+            <refDes required="true">FV-BLANK-01</refDes>
+            <description>Fuel Blank 1</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">FV-BLANK-01</refDes>
+                    <role>cmd-bool</role>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port4/line4</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port4/line4</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
+        <control>
+            <refDes required="true">FV-BLANK-02</refDes>
+            <description>Fuel Blank 2</description>
+            <enabled>true</enabled> <!-- T/F -->
+            <type required="true">valve</type>
+            <subType>IO-CMD</subType>
+            <details>
+            </details>
+            <channels>
+                <channel>
+                    <refDes required="true">FV-BLANK-02</refDes>
+                    <role>cmd-bool</role>
+                    <description></description>
+                    <modelNumber required="true">N/A</modelNumber>
+                    <serialNumber></serialNumber>
+                    <refDesDaq required="true">DAQ001</refDesDaq>
+                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
+                    <channelNumber required="true">/port4/line5</channelNumber>
+                    <daqMx required="true">
+                        <taskName required="true">Digital-IO/port4/line5</taskName>
+                    </daqMx>
+                </channel>
+            </channels>
+        </control>
 
     </controlList>
 
