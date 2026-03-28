@@ -12,7 +12,7 @@ The client is a static HTML file — no web server is required.
 2. Open `index.html` directly in a browser (double-click, or `File → Open` in browser)
 3. The URL bar will show something like `file:///C:/path/to/WebClient/index.html`
 
-> **Requirement:** Graph tabs use Chart.js loaded from CDN — internet access is required for graphs to render.
+> **No internet required.** Chart.js is bundled locally at `js/chart.umd.min.js`.
 
 ---
 
