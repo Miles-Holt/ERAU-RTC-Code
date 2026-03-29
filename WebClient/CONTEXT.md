@@ -152,7 +152,7 @@ so multiple Data View tabs can each maintain independent live-updating DOM eleme
 
 ## Key Implementation Decisions
 
-- **No build system** — `index.html` opened directly via `file://`; Chart.js loaded from CDN (requires internet)
+- **No build system** — `index.html` opened directly via `file://`; Chart.js bundled locally at `js/chart.umd.min.js` (no internet required)
 - **Per-tab channelUpdaters** — each tab has its own `{ refDes: fn }` map so multiple Data View tabs work independently
 - **Graph buffers only for active channels** — `channelBuffers` only exists for refDes values currently selected in a graph cell; cleaned up when channel is removed
 - **Auth is client-side only** — no server validation; `user` field on cmd messages is for LabVIEW logging only
@@ -164,7 +164,7 @@ so multiple Data View tabs can each maintain independent live-updating DOM eleme
 ## Known Issues / Active Bugs
 
 - **Graph grid rendering** — canvas height not rendering correctly in some grid configurations; CSS height constraints on `.graph-cell` / `.graph-canvas` need investigation
-- **Chart.js CDN** — graph tab will not function without internet access; consider bundling for offline/test-stand use
+- ~~**Chart.js CDN**~~ — resolved; Chart.js is now bundled locally at `js/chart.umd.min.js`
 
 ---
 

@@ -49,6 +49,7 @@ let ws             = null;
 let reconnectDelay = CONFIG.reconnect.baseMs;
 let reconnectTimer = null;
 let stalenessTimer = null;
+let simActive      = false;
 
 // --- Config ---
 let configControls = [];
@@ -92,6 +93,7 @@ let consoleTabs  = [];
 // =============================================================================
 
 function connect() {
+    if (simActive) return;
     setStatus('connecting', 'Connecting...');
     try {
         ws           = new WebSocket(CONFIG.wsUrl);
@@ -144,11 +146,16 @@ function scheduleReconnect() {
 }
 
 function sendCommand(refDes, value) {
+    const msg = { type: 'cmd', refDes, value };
+    if (simActive) {
+        logConsole('out', msg);
+        if (typeof simReceiveCommand === 'function') simReceiveCommand(refDes, value);
+        return;
+    }
     if (!ws || ws.readyState !== WebSocket.OPEN) {
         console.warn('Cannot send command: not connected');
         return;
     }
-    const msg = { type: 'cmd', refDes, value };
     ws.send(JSON.stringify(msg));
     logConsole('out', msg);
 }
@@ -241,6 +248,7 @@ function addTab(type = 'frontPanel') {
 
 function buildTabContent(tab) {
     tab.contentEl.innerHTML = '';
+    tab.contentEl.classList.remove('tab-content--fixed');
     tab.channelUpdaters = {};
     switch (tab.type) {
         case 'frontPanel': buildFrontPanelContent(tab); break;
@@ -314,16 +322,18 @@ function renderTabBar() {
 
         el.appendChild(nameEl);
         el.appendChild(closeEl);
-        el.addEventListener('click', () => activateTab(tab.id));
-        el.addEventListener('dblclick', (e) => { e.stopPropagation(); startRename(tab, nameEl); });
+        el.addEventListener('click', (e) => {
+            if (tab.id === activeTabId) { e.stopPropagation(); startRename(tab, nameEl); }
+            else activateTab(tab.id);
+        });
         el.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             showContextMenu(e.clientX, e.clientY, [
                 { label: 'Front Panel', action: () => changeTabType(tab.id, 'frontPanel') },
-                { label: 'Data View',   action: () => changeTabType(tab.id, 'dataView')   },
                 { label: 'Graph',       action: () => changeTabType(tab.id, 'graph')      },
-                { label: 'Dev',         action: () => changeTabType(tab.id, 'dev')        },
+                { label: 'Data View',   action: () => changeTabType(tab.id, 'dataView')   },
                 { label: 'Console',     action: () => changeTabType(tab.id, 'console')    },
+                { label: 'Dev',         action: () => changeTabType(tab.id, 'dev')        },
             ]);
         });
         container.appendChild(el);
@@ -476,42 +486,52 @@ function rebuildDataView(tab) {
 // Graph tab
 // =============================================================================
 
+const GRID_PRESETS = [
+    { rows: 1, cols: 1 }, { rows: 1, cols: 2 }, { rows: 1, cols: 3 },
+    { rows: 2, cols: 1 }, { rows: 2, cols: 2 }, { rows: 2, cols: 3 },
+    { rows: 2, cols: 4 }, { rows: 3, cols: 2 }, { rows: 3, cols: 3 },
+    { rows: 3, cols: 4 }, { rows: 4, cols: 3 }, { rows: 4, cols: 4 },
+];
+
 function buildGraphContent(tab) {
-    graphState[tab.id] = { rows: 1, cols: 1, gridEl: null, cells: [] };
+    graphState[tab.id] = { rows: 1, cols: 1, gridEl: null, cells: [], sizeBtn: null, _dismissHandler: null };
 
-    const wrapper  = mkEl('div', 'graph-tab');
-    const toolbar  = mkEl('div', 'graph-toolbar');
+    const wrapper = mkEl('div', 'graph-tab');
+    const toolbar = mkEl('div', 'graph-toolbar');
 
-    const rowInput = document.createElement('input');
-    rowInput.type = 'number'; rowInput.min = 1; rowInput.max = 4; rowInput.value = 1;
-    rowInput.className = 'graph-size-input';
-    const colInput = document.createElement('input');
-    colInput.type = 'number'; colInput.min = 1; colInput.max = 8; colInput.value = 1;
-    colInput.className = 'graph-size-input';
+    // Grid size dropdown button
+    const sizeWrap = mkEl('div', 'graph-size-wrap');
+    const sizeBtn  = mkEl('button', 'graph-size-btn', '1 × 1');
+    graphState[tab.id].sizeBtn = sizeBtn;
 
-    const rowLbl = mkEl('label', 'graph-size-lbl');
-    rowLbl.appendChild(mkEl('span', null, 'Rows '));
-    rowLbl.appendChild(rowInput);
-    const colLbl = mkEl('label', 'graph-size-lbl');
-    colLbl.appendChild(mkEl('span', null, 'Cols '));
-    colLbl.appendChild(colInput);
-    toolbar.appendChild(rowLbl);
-    toolbar.appendChild(colLbl);
+    const popover = mkEl('div', 'graph-size-popover');
+    popover.style.display = 'none';
+    for (const p of GRID_PRESETS) {
+        const item = mkEl('button', 'graph-size-item', `${p.rows} × ${p.cols}`);
+        item.addEventListener('click', () => {
+            popover.style.display = 'none';
+            resizeGraphGrid(tab.id, p.rows, p.cols);
+        });
+        popover.appendChild(item);
+    }
+    sizeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popover.style.display = popover.style.display === 'none' ? '' : 'none';
+    });
+    sizeWrap.appendChild(sizeBtn);
+    sizeWrap.appendChild(popover);
+    toolbar.appendChild(sizeWrap);
     wrapper.appendChild(toolbar);
 
     const gridEl = mkEl('div', 'graph-grid');
     wrapper.appendChild(gridEl);
     tab.contentEl.appendChild(wrapper);
+    tab.contentEl.classList.add('tab-content--fixed');
     graphState[tab.id].gridEl = gridEl;
 
-    const applyGrid = () => {
-        const r = Math.min(4, Math.max(1, parseInt(rowInput.value) || 1));
-        const c = Math.min(8, Math.max(1, parseInt(colInput.value) || 1));
-        rowInput.value = r; colInput.value = c;
-        resizeGraphGrid(tab.id, r, c);
-    };
-    rowInput.addEventListener('change', applyGrid);
-    colInput.addEventListener('change', applyGrid);
+    const dismiss = (e) => { if (!sizeWrap.contains(e.target)) popover.style.display = 'none'; };
+    document.addEventListener('mousedown', dismiss);
+    graphState[tab.id]._dismissHandler = dismiss;
 
     resizeGraphGrid(tab.id, 1, 1);
 }
@@ -531,6 +551,7 @@ function resizeGraphGrid(tabId, rows, cols) {
 
     state.rows  = rows;
     state.cols  = cols;
+    if (state.sizeBtn) state.sizeBtn.textContent = `${rows} × ${cols}`;
     state.cells = preserved;
 
     gridEl.innerHTML = '';
@@ -780,6 +801,7 @@ function cleanupGraphTab(tabId) {
     const state = graphState[tabId];
     if (!state) return;
     for (const cell of state.cells) cell.chart?.destroy();
+    if (state._dismissHandler) document.removeEventListener('mousedown', state._dismissHandler);
     delete graphState[tabId];
     updateActiveGraphChannels();
 }
@@ -1187,7 +1209,7 @@ connect();
         <div class="boot-hint">
             <div>Right-click any tab to change its type</div>
             <div><span class="boot-hint-types">Front Panel &nbsp;·&nbsp; Data View &nbsp;·&nbsp; Graph &nbsp;·&nbsp; Console &nbsp;·&nbsp; Dev</span></div>
-            <div style="margin-top:10px"><span class="boot-hint-dismiss">Double-click a tab to rename &nbsp;·&nbsp; Click anywhere to dismiss</span></div>
+            <div style="margin-top:10px"><span class="boot-hint-dismiss">Click an active tab to rename &nbsp;·&nbsp; Click anywhere to dismiss</span></div>
         </div>`;
     document.body.appendChild(overlay);
     overlay.addEventListener('click', () => overlay.remove(), { once: true });
