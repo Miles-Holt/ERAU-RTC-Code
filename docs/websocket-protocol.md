@@ -173,7 +173,7 @@ For example: 1 s → 2 s → 4 s → 8 s → 10 s → 10 s → ...
 
 ### Staleness Detection
 
-If no `data` message is received within **500 ms**, the browser marks channels as stale (values shown with reduced opacity). This threshold is configurable via `CONFIG.staleThresholdMs` in `app.js`.
+If no `data` message is received within **500 ms**, the browser marks channels as stale (values shown with reduced opacity). This threshold is configurable via `CONFIG.staleThresholdMs` in `js/state.js`.
 
 ### On Reconnect
 

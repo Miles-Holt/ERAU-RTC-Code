@@ -18,11 +18,12 @@ The client is a static HTML file — no web server is required.
 
 ## Connecting to the Test Stand
 
-1. In the **connection bar** at the top of the page, enter the IP address or hostname of the PXIe chassis
-   - Example: `192.168.1.100` or `tc3-pxie.local`
-   - If opening the client on the chassis itself, `localhost` is used automatically
-2. Click **Connect**
-3. The status indicator shows the connection state:
+The client connects automatically on load — there is no manual IP input. The WebSocket URL is derived from the page's hostname:
+
+- Open `index.html` on the PXIe chassis → connects to `ws://localhost:8000`
+- Open `index.html` from another machine on the network → load the file from the chassis (e.g. via a shared folder or `file://\\<chassis-ip>\...`) so the hostname resolves correctly
+
+The status indicator shows the connection state:
 
 | Indicator | Meaning |
 |---|---|
@@ -89,22 +90,24 @@ The graph tab displays Chart.js line charts with a rolling **15-minute data buff
 
 ### Grid Layout
 
-- Right-click inside the graph area to adjust the grid dimensions (rows × columns)
+- Click the **grid size button** (shows current dimensions, e.g. `1 × 1`) in the toolbar at the top of the graph tab to open a preset picker
 - Grid size: 1–4 rows, 1–8 columns
 
 ### Adding Channels to a Cell
 
-1. Click a graph cell to select it
-2. Type a **channel refDes** or **regex pattern** in the search box (e.g. `OPT-.*` matches all LOX pressure channels)
-3. Matching channels appear in a list — click to add them to the cell
+1. Type a **channel refDes** or **regex pattern** in the search box at the bottom of a cell's left panel (e.g. `OPT-.*` matches all LOX pressure channels)
+2. Matching channels appear in a dropdown — click to add
 
 ### Per-Channel Controls
 
+Each added channel appears in the left panel with the following controls:
+
 | Control | Description |
 |---|---|
-| Color swatch | Click to open a color picker |
-| Eye icon | Toggle channel visibility (hide/show without removing) |
-| ✕ button | Remove channel from the cell |
+| **Y-axis badge** (number) | Left-click to cycle up, right-click to cycle down through 6 independent Y-axes |
+| **Color swatch** | Click to open a color picker (preset palette + custom color input) |
+| **Channel name** | Click to toggle visibility (hide/show without removing) |
+| **× button** | Remove channel from the cell |
 
 ### Chart Behavior
 
@@ -123,7 +126,7 @@ The Console tab logs all incoming and outgoing WebSocket messages in real time.
 | **Filter toggle** | When enabled, hides high-frequency `data` messages (default: on) |
 | Scroll area | Chronological message log with timestamps and direction indicators |
 
-The buffer holds the last **500 messages** (configurable in `app.js` via `CONFIG.consoleBufferLimit`). Older messages are discarded as new ones arrive.
+The buffer holds the last **500 messages** (configurable via `CONFIG.consoleBufferLimit` in `js/state.js`). Older messages are discarded as new ones arrive.
 
 ---
 

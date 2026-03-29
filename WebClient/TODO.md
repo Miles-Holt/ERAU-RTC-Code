@@ -30,7 +30,7 @@ See `CONTEXT.md` for full project/architecture context.
 
 ### Graph Tab
 - [ ] **data not collected when tab/window isnt focused**
-- [ ] **time ago lines not displaing correctly** rather than rolling in and out of the viewable chart, they snap in and out before/after exiting/entering the viewable chart
+- [ ] **data lines snap at chart boundary** — rather than smoothly entering/exiting the viewable x-range, line segments snap in/out at the chart edges; likely a Chart.js clipping issue with explicit `x.min`/`x.max` bounds
 
 ---
 
@@ -47,14 +47,13 @@ See `CONTEXT.md` for full project/architecture context.
 ---
 
 ## Done
-- [ ] **Offline Chart.js** — Chart.js currently loaded from CDN (`cdn.jsdelivr.net`); test stand may not have internet; consider downloading and bundling `chart.umd.min.js` locally in `WebClient/js/`
-- [ ] **Fix graph grid** — canvas height not rendering correctly in some grid size configurations; `.graph-cell` uses flexbox but the canvas inside doesn't respect the available height; investigate `height: 100%` vs explicit pixel constraints on `.graph-canvas` and `.graph-cell`; Chart.js `maintainAspectRatio: false` is already set but the containing element may not have a defined height
-
+- [x] **Offline Chart.js** — `chart.umd.min.js` bundled locally in `WebClient/js/`; no CDN dependency
+- [x] **Fix graph grid** — canvas height now renders correctly; `maintainAspectRatio: false` + explicit flex constraints on `.graph-canvas` and `.graph-cell`
 - [x] **Channel roles in XML** — added explicit `<role>` nodes to all `<channel>` elements in `nodeConfigs_0.0.2.xml`; cmd-bool assigned to all command channels; sensor assigned to all read-only channels
 - [x] **Update channel roles in app.js** — replaced `role === 'cmd'` checks with `isCmd(ch)` helper covering `cmd-bool`, `cmd-pct`, `cmd-float`; widget type driven from channel role instead of control subType
-- [x] **Tab system** — VS Code-style tab bar implemented; `+` adds Front Panel tab; right-click to change type; double-click to rename; ✕ to close; first tab of each type has no number suffix
-- [x] **Front Panel tab** — placeholder implemented (empty canvas); boot-time overlay explains tab interactions
+- [x] **Tab system** — VS Code-style tab bar implemented; `+` adds Front Panel tab; right-click to change type (with clickable shortcuts in boot overlay); double-click to rename; ✕ to close; first tab of each type has no number suffix
+- [x] **Front Panel tab** — placeholder implemented (empty canvas); boot-time overlay explains tab interactions with clickable type shortcuts
 - [x] **Data View tab** — commandable controls rendered as cards (top section); sensor-only controls rendered as a live-updating table with refDes / description / value / units (bottom section)
-- [x] **Graph tab** — adjustable grid (1–4 rows × 1–8 cols); per-cell regex channel search with dropdown; Chart.js line charts; 15-minute rolling buffer per channel; legend with color picker, click-to-hide, remove button
+- [x] **Graph tab** — adjustable grid (1–4 rows × 1–8 cols); per-cell regex channel search with body-appended dropdown (appears above search bar); Chart.js line charts; 15-minute rolling buffer per channel; left-side panel with channel list; up to 6 independent Y-axes (left-click badge to increment, right-click to decrement); custom themed color picker popup; scroll-to-zoom (30s–20min, anchored to cursor, smooth exponential); live-follow auto-scroll with 5s snap-back tolerance; relative time x-axis; proximity tooltip (28px threshold)
 - [x] **Console tab** — live log of all WS messages; data messages hidden by default (toggle); configurable buffer limit; clear button
 - [x] **Dev tab** — WS stats (endpoint, state, uptime, message count, rate, missed cycles) + browser memory (Chrome only)

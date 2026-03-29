@@ -26,11 +26,25 @@ ERAU-RTC_Code/
 │       └── CTR_webSocketConfig_XML-JSON.vi  — converts XML config to JSON for WebSocket
 └── WebClient/
     ├── index.html
-    ├── js/app.js               — all client logic (single file, no build system)
+    ├── js/
+    │   ├── state.js            — CONFIG constant + all global state variables
+    │   ├── utils.js            — mkEl, debounce, setStatus, updateTimestamp
+    │   ├── ws.js               — WebSocket management + config/data handling
+    │   ├── tabs.js             — tab CRUD, renderTabBar, Front Panel tab
+    │   ├── dataview.js         — Data View tab (pending full restructure per TODO)
+    │   ├── graph.js            — Graph tab (grid, Chart.js, buffering, zoom/tooltip)
+    │   ├── console.js          — Console tab
+    │   ├── dev.js              — Dev tab + fmtUptime/fmtBytes helpers
+    │   ├── cards.js            — all buildCard* functions (valve, ignition, VFD, etc.)
+    │   ├── app.js              — protocol docs header + init (wiring + boot overlay)
+    │   ├── sim.js              — simulation mode (independent)
+    │   └── chart.umd.min.js   — Chart.js bundled locally (no CDN)
     ├── css/style.css
     ├── TODO.md                 — open action items
     └── CONTEXT.md              — this file
 ```
+
+Scripts are loaded via `<script>` tags in the order above. All state is shared through globals — no ES modules (required for `file://` compatibility). `state.js` must load first; `app.js` must load last (calls all other modules at init time).
 
 ---
 
@@ -107,9 +121,9 @@ The VI overwrites empty `<role>` nodes to `"sensor"` before serializing.
 
 ---
 
-## app.js Architecture
+## JavaScript Architecture
 
-Single file, no build system. Key globals:
+No build system — files are loaded via `<script>` tags, opened directly via `file://`. Key globals (all defined in `state.js`):
 
 | variable | purpose |
 |---|---|
@@ -163,8 +177,8 @@ so multiple Data View tabs can each maintain independent live-updating DOM eleme
 
 ## Known Issues / Active Bugs
 
-- **Graph grid rendering** — canvas height not rendering correctly in some grid configurations; CSS height constraints on `.graph-cell` / `.graph-canvas` need investigation
-- ~~**Chart.js CDN**~~ — resolved; Chart.js is now bundled locally at `js/chart.umd.min.js`
+- **Graph data when unfocused** — data is not buffered when the browser tab/window loses focus; browser throttles or suspends activity in background tabs
+- **Graph line snap at boundary** — line segments snap in/out at the chart edges rather than smoothly; likely a Chart.js clipping issue with explicit `x.min`/`x.max` bounds
 
 ---
 

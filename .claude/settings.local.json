@@ -5,7 +5,8 @@
       "Bash(find c:UsersmilesmyrepoERAU-RTC-Code -type f -name *.py -o -name *.js -o -name *.json -o -name *.xml -o -name *.cpp -o -name *.c -o -name *.h)",
       "Bash(grep -E \"\\\\.xml$\")",
       "Bash(curl -L \"https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js\" -o \"c:/Users/miles/myrepo/ERAU-RTC-Code/WebClient/js/chart.umd.min.js\")",
-      "Bash(grep -E '\\\\.\\(json|xml|yml|yaml|conf\\)$')"
+      "Bash(grep -E '\\\\.\\(json|xml|yml|yaml|conf\\)$')",
+      "Bash(wc -l c:/Users/miles/myrepo/ERAU-RTC_Code/WebClient/js/*.js)"
     ]
   }
 }

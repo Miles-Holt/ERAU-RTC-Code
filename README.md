@@ -24,8 +24,8 @@ PXIe Chassis (LabVIEW 2024)
              ▼
     Browser (file:// or network)
     └── WebClient/index.html
-        ├── app.js   — tabs, live data, graphs, command sending
-        └── style.css
+        ├── js/  — tabs, live data, graphs, command sending (split across state/ws/tabs/graph/cards/etc.)
+        └── css/style.css
 ```
 
 **Data flow:**
@@ -54,10 +54,10 @@ PXIe Chassis (LabVIEW 2024)
 ### Open the WebClient
 
 1. Open `WebClient/index.html` directly in a browser (`file://` — no server needed)
-2. Enter the IP address or hostname of the PXIe chassis in the connection bar
-3. Click **Connect** — the status indicator turns green when the WebSocket handshake succeeds
+2. The client connects automatically to `ws://<hostname>:8000` using the page's hostname (defaults to `localhost` for local file opens)
+3. The status indicator turns green when the WebSocket handshake succeeds and config is received
 
-> **Note:** Graph tabs require Chart.js, which is loaded from CDN. Internet access is needed for graphs to render.
+> **No internet required.** Chart.js is bundled locally at `WebClient/js/chart.umd.min.js`.
 
 ### Connect to the Test Stand
 
