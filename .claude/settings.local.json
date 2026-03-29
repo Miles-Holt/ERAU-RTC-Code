@@ -6,7 +6,8 @@
       "Bash(grep -E \"\\\\.xml$\")",
       "Bash(curl -L \"https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js\" -o \"c:/Users/miles/myrepo/ERAU-RTC-Code/WebClient/js/chart.umd.min.js\")",
       "Bash(grep -E '\\\\.\\(json|xml|yml|yaml|conf\\)$')",
-      "Bash(wc -l c:/Users/miles/myrepo/ERAU-RTC_Code/WebClient/js/*.js)"
+      "Bash(wc -l c:/Users/miles/myrepo/ERAU-RTC_Code/WebClient/js/*.js)",
+      "Read(//c/Users/miles/myrepo/ERAU-RTC_Code//**)"
     ]
   }
 }

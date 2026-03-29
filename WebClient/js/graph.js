@@ -93,6 +93,7 @@ function resizeGraphGrid(tabId, rows, cols) {
         attachProximityTooltip(canvas, cell);
 
         for (const ch of cell.channels) addDatasetToChart(cell.chart, ch.refDes, ch.color, ch.hidden, ch);
+        syncYAxisVisibility(cell);
         updateCellPanel(tabId, i);
     }
 
@@ -190,10 +191,14 @@ function createCellChart(canvas) {
                         color:         '#8d969e',
                         maxTicksLimit: 12,
                         maxRotation:   0,
-                        callback: (v) => {
-                            const ago = Math.round(Date.now() / 1000 - v);
+                        callback: function(v) {
+                            const offset = this.chart.options._timeOffset ?? 0;
+                            const ago = Math.round(-(v + offset));
+                            if (ago <= 0) return 'now';
                             if (ago < 60) return ago + 's';
-                            return Math.round(ago / 60) + 'm';
+                            const m = Math.floor(ago / 60);
+                            const s = ago % 60;
+                            return s > 0 ? `${m}m ${s}s` : `${m}m`;
                         }
                     },
                     grid: { color: '#30363d' }
@@ -208,7 +213,9 @@ function createCellChart(canvas) {
                     callbacks: {
                         title: (items) => {
                             if (!items.length) return '';
-                            const ago  = Math.round(Date.now() / 1000 - items[0].parsed.x);
+                            const chart = items[0].chart;
+                            const offset = chart.options._timeOffset ?? 0;
+                            const ago = Math.round(-(items[0].parsed.x + offset));
                             if (ago < 60) return ago + 's ago';
                             const m = Math.floor(ago / 60);
                             const s = ago % 60;
@@ -360,25 +367,55 @@ function bufferGraphData(data) {
     }
 }
 
+function buildChartData(buf, displayEnd, viewWindowSec) {
+    const { ts, vals } = buf;
+    if (!ts.length) return [];
+    const absMin = displayEnd - viewWindowSec;
+    const absMax = displayEnd;
+    const out = [];
+    for (let i = 0; i < ts.length; i++) {
+        const t = ts[i], v = vals[i];
+        // Interpolate entry at left boundary
+        if (i > 0 && ts[i - 1] < absMin && t >= absMin) {
+            const frac = (absMin - ts[i - 1]) / (t - ts[i - 1]);
+            out.push({ x: -viewWindowSec, y: vals[i - 1] + frac * (v - vals[i - 1]) });
+        }
+        if (t >= absMin && t <= absMax) out.push({ x: t - displayEnd, y: v });
+        // Interpolate exit at right boundary
+        if (i + 1 < ts.length && t <= absMax && ts[i + 1] > absMax) {
+            const frac = (absMax - t) / (ts[i + 1] - t);
+            out.push({ x: 0, y: v + frac * (vals[i + 1] - v) });
+            break;
+        }
+    }
+    return out;
+}
+
 function updateAllGraphs() {
     for (const [tabId, state] of Object.entries(graphState)) {
         const tab = tabs.find(t => t.id === tabId);
         if (!tab || tab.contentEl.style.display === 'none') continue;
         for (const cell of state.cells) {
             if (!cell.chart) continue;
+            // Determine latest timestamp across all channels in this cell
             let latestTs = Date.now() / 1000;
             for (const ds of cell.chart.data.datasets) {
                 const buf = channelBuffers[ds.label];
-                if (!buf) continue;
-                ds.data = buf.ts.map((t, i) => ({ x: t, y: buf.vals[i] }));
-                if (buf.ts.length) latestTs = Math.max(latestTs, buf.ts[buf.ts.length - 1]);
+                if (buf?.ts.length) latestTs = Math.max(latestTs, buf.ts[buf.ts.length - 1]);
             }
-            // Snap back to live-follow if pinned view is within 5s of the live edge
-            if (cell.viewEnd !== null && latestTs - cell.viewEnd < 5) cell.viewEnd = null;
-            // viewEnd === null means live-follow; never write latestTs back so it keeps advancing
+            // Snap back to live-follow when pinned view is within 10% of the live edge
+            if (cell.viewEnd !== null && latestTs - cell.viewEnd < cell.viewWindowSec * 0.1) cell.viewEnd = null;
             const displayEnd = cell.viewEnd ?? latestTs;
-            cell.chart.options.scales.x.min = displayEnd - cell.viewWindowSec;
-            cell.chart.options.scales.x.max = displayEnd;
+            // Build relative-coord data for each dataset
+            for (const ds of cell.chart.data.datasets) {
+                const buf = channelBuffers[ds.label];
+                ds.data = buf ? buildChartData(buf, displayEnd, cell.viewWindowSec) : [];
+            }
+            // Offset used by tick/tooltip callbacks: how far displayEnd is behind real now
+            cell.chart.options._timeOffset = displayEnd - Date.now() / 1000;
+            // Axis range is always fixed; only changes when viewWindowSec changes
+            cell.chart.options.scales.x.min = -cell.viewWindowSec;
+            cell.chart.options.scales.x.max = 0;
             cell.chart.update('none');
         }
     }
@@ -420,9 +457,15 @@ function attachScrollZoom(canvas, cell) {
             rafPending = true;
             requestAnimationFrame(() => {
                 rafPending = false;
-                const end = cell.viewEnd ?? Date.now() / 1000;
-                cell.chart.options.scales.x.min = end - cell.viewWindowSec;
-                cell.chart.options.scales.x.max = end;
+                const now2 = Date.now() / 1000;
+                const displayEnd = cell.viewEnd ?? now2;
+                for (const ds of cell.chart.data.datasets) {
+                    const buf = channelBuffers[ds.label];
+                    ds.data = buf ? buildChartData(buf, displayEnd, cell.viewWindowSec) : [];
+                }
+                cell.chart.options._timeOffset = displayEnd - now2;
+                cell.chart.options.scales.x.min = -cell.viewWindowSec;
+                cell.chart.options.scales.x.max = 0;
                 cell.chart.update('none');
             });
         }

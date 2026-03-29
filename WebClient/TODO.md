@@ -31,6 +31,9 @@ See `CONTEXT.md` for full project/architecture context.
 ### Graph Tab
 - [ ] **data not collected when tab/window isnt focused**
 - [ ] **data lines snap at chart boundary** — rather than smoothly entering/exiting the viewable x-range, line segments snap in/out at the chart edges; likely a Chart.js clipping issue with explicit `x.min`/`x.max` bounds
+- [ ] Data tool isnt rendering correctly (not next to the user mouse)
+- [ ] add feature to lock y-axis min or max and input custom min or max by clicking the min or max value on a specific y-axis
+- [x] **resume auto-scroll threshold** — "snap back to live" should trigger when the view is within a percentage of the total displayed time window (e.g. within 5% of the right edge) rather than a fixed number of seconds
 
 ---
 

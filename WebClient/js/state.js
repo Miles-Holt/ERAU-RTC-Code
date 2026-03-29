@@ -16,6 +16,10 @@ let reconnectDelay = CONFIG.reconnect.baseMs;
 let reconnectTimer = null;
 let stalenessTimer = null;
 let simActive      = false;
+let devMode        = true;
+
+// --- Auth ---
+let operatorName = '';
 
 // --- Config ---
 let configControls = [];

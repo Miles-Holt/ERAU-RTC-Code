@@ -2,6 +2,22 @@
 // Dev tab
 // =============================================================================
 
+function forceReconnect() {
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+    reconnectDelay = CONFIG.reconnect.baseMs;
+    if (ws) { ws.onclose = null; ws.close(); }
+    connect();
+}
+
+function setDevMode(enabled) {
+    devMode = enabled;
+    document.getElementById('sim-btn').style.display = enabled ? '' : 'none';
+    document.querySelectorAll('.dev-mode-section').forEach(el => {
+        el.style.display = enabled ? '' : 'none';
+    });
+    document.querySelectorAll('.dev-mode-toggle').forEach(cb => { cb.checked = enabled; });
+}
+
 function buildDevContent(tab) {
     devTabs.push(tab);
     const hasMem = !!performance.memory;
@@ -27,6 +43,33 @@ function buildDevContent(tab) {
                     <tr><td>JS Heap Total</td> <td class="dev-heap-total">--</td></tr>
                 </table>
             </div>` : ''}
+            <div class="dev-section">
+                <h3 class="dev-heading">Developer Options</h3>
+                <table class="dev-table">
+                    <tr>
+                        <td>Dev mode</td>
+                        <td><label class="dev-toggle-label">
+                            <input type="checkbox" class="dev-mode-toggle" ${devMode ? 'checked' : ''}>
+                            <span class="dev-toggle-hint">enables sim + force reconnect</span>
+                        </label></td>
+                    </tr>
+                </table>
+            </div>
+            <div class="dev-mode-section" style="display:${devMode ? '' : 'none'}">
+                <div class="dev-section">
+                    <h3 class="dev-heading">Actions</h3>
+                    <table class="dev-table">
+                        <tr>
+                            <td>WebSocket</td>
+                            <td><button class="dev-reconnect-btn">Force reconnect</button></td>
+                        </tr>
+                        <tr>
+                            <td>Simulation</td>
+                            <td><button class="dev-sim-toggle-btn">${simActive ? 'Stop Sim' : 'Start Sim'}</button></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
         </div>`;
 
     tab._devEls = {
@@ -38,6 +81,13 @@ function buildDevContent(tab) {
         heapUsed:  tab.contentEl.querySelector('.dev-heap-used'),
         heapTotal: tab.contentEl.querySelector('.dev-heap-total'),
     };
+
+    tab.contentEl.querySelector('.dev-mode-toggle')
+        .addEventListener('change', e => setDevMode(e.target.checked));
+    tab.contentEl.querySelector('.dev-reconnect-btn')
+        .addEventListener('click', forceReconnect);
+    tab.contentEl.querySelector('.dev-sim-toggle-btn')
+        .addEventListener('click', () => simActive ? stopSim() : startSim());
 }
 
 function refreshDevTabs() {
@@ -61,6 +111,9 @@ function refreshDevTabs() {
             e.heapTotal.textContent = fmtBytes(performance.memory.totalJSHeapSize);
         }
     }
+
+    document.querySelectorAll('.dev-sim-toggle-btn')
+        .forEach(btn => btn.textContent = simActive ? 'Stop Sim' : 'Start Sim');
 }
 
 function fmtUptime(s) {

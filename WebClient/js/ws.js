@@ -56,7 +56,7 @@ function scheduleReconnect() {
 }
 
 function sendCommand(refDes, value) {
-    const msg = { type: 'cmd', refDes, value };
+    const msg = { type: 'cmd', refDes, value, user: operatorName };
     if (simActive) {
         logConsole('out', msg);
         if (typeof simReceiveCommand === 'function') simReceiveCommand(refDes, value);
@@ -82,6 +82,7 @@ function applyConfig(msg) {
         if (tab.type === 'dataView') rebuildDataView(tab);
     }
     setStatus('connected', 'Connected');
+    updateCommandWidgets();
 }
 
 function applyData(msg) {

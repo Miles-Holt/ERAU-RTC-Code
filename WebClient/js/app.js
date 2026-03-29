@@ -39,7 +39,23 @@
 
 document.getElementById('tab-add').addEventListener('click', () => addTab('frontPanel'));
 
-addTab('frontPanel');                               // default tab on load
+(function restoreTabLayout() {
+    try {
+        const saved = JSON.parse(localStorage.getItem('rtc-tab-layout') || 'null');
+        if (Array.isArray(saved) && saved.length) {
+            for (const { type, name } of saved) {
+                const tab = addTab(type);
+                if (name) { tab.name = name; renderTabBar(); }
+            }
+            return;
+        }
+    } catch {}
+    addTab('frontPanel');
+}());
+
+buildOperatorButton();
+updateCommandWidgets();
+
 setInterval(updateAllGraphs,  500);                // graph refresh at 2 Hz
 setInterval(refreshDevTabs,  2000);                // dev stats refresh every 2s
 connect();
