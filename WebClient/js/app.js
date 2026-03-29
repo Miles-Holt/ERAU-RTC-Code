@@ -541,25 +541,31 @@ function resizeGraphGrid(tabId, rows, cols) {
     const gridEl = state.gridEl;
     const total  = rows * cols;
 
-    // Destroy excess chart instances
+    // Destroy excess chart instances and clean up body-appended dropdowns
     for (let i = total; i < state.cells.length; i++) {
         state.cells[i].chart?.destroy();
+        state.cells[i].cellEl?._dropdown?.remove();
     }
 
     const preserved = state.cells.slice(0, total);
-    while (preserved.length < total) preserved.push({ cellEl: null, chart: null, channels: [] });
+    while (preserved.length < total) preserved.push({ cellEl: null, chart: null, channels: [], viewWindowSec: 60, viewEnd: null });
 
     state.rows  = rows;
     state.cols  = cols;
     if (state.sizeBtn) state.sizeBtn.textContent = `${rows} × ${cols}`;
     state.cells = preserved;
 
+    // Clean up body-appended dropdowns for cells being rebuilt
+    for (const cell of preserved) cell.cellEl?._dropdown?.remove();
     gridEl.innerHTML = '';
     gridEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
     gridEl.style.gridTemplateRows    = `repeat(${rows}, 1fr)`;
 
     for (let i = 0; i < total; i++) {
-        const cell   = state.cells[i];
+        const cell = state.cells[i];
+        if (!('viewWindowSec' in cell)) cell.viewWindowSec = 60;
+        if (!('viewEnd'       in cell)) cell.viewEnd       = null;
+
         const cellEl = buildGraphCell(tabId, i);
         gridEl.appendChild(cellEl);
         cell.cellEl = cellEl;
@@ -567,43 +573,49 @@ function resizeGraphGrid(tabId, rows, cols) {
         const canvas = cellEl.querySelector('canvas');
         cell.chart   = createCellChart(canvas);
 
-        for (const ch of cell.channels) addDatasetToChart(cell.chart, ch.refDes, ch.color, ch.hidden);
-        updateCellLegend(tabId, i);
+        attachScrollZoom(canvas, cell);
+        attachProximityTooltip(canvas, cell);
+
+        for (const ch of cell.channels) addDatasetToChart(cell.chart, ch.refDes, ch.color, ch.hidden, ch);
+        updateCellPanel(tabId, i);
     }
 
     updateActiveGraphChannels();
 }
 
 function buildGraphCell(tabId, cellIdx) {
-    const cellEl  = mkEl('div', 'graph-cell');
-    const header  = mkEl('div', 'graph-cell-header');
+    const cellEl = mkEl('div', 'graph-cell');
 
-    const searchWrap = mkEl('div', 'graph-search-wrap');
+    // ── Left panel ──────────────────────────────────────────────────────────
+    const panel       = mkEl('div', 'graph-cell-panel');
+    const channelList = mkEl('div', 'graph-channel-list');
+    panel.appendChild(channelList);
+
+    const searchWrap  = mkEl('div', 'graph-search-wrap');
     const searchInput = document.createElement('input');
     searchInput.type        = 'text';
     searchInput.placeholder = 'Add channel (regex)...';
     searchInput.className   = 'graph-search';
     const dropdown = mkEl('div', 'graph-dropdown');
     dropdown.style.display = 'none';
+    document.body.appendChild(dropdown);   // appended to body so fixed positioning is unambiguous
     searchWrap.appendChild(searchInput);
-    searchWrap.appendChild(dropdown);
+    panel.appendChild(searchWrap);
 
-    const legendEl = mkEl('div', 'graph-legend');
-    header.appendChild(searchWrap);
-    header.appendChild(legendEl);
+    // ── Chart area ──────────────────────────────────────────────────────────
+    const chartArea = mkEl('div', 'graph-chart-area');
+    const canvas    = document.createElement('canvas');
+    chartArea.appendChild(canvas);
 
-    const canvas = document.createElement('canvas');
-    canvas.className = 'graph-canvas';
-
-    cellEl.appendChild(header);
-    cellEl.appendChild(canvas);
+    cellEl.appendChild(panel);
+    cellEl.appendChild(chartArea);
 
     searchInput.addEventListener('input', () => {
         const q = searchInput.value.trim();
         if (!q) { dropdown.style.display = 'none'; return; }
         let re;
         try { re = new RegExp(q, 'i'); } catch { dropdown.style.display = 'none'; return; }
-        const all     = configControls.flatMap(c => c.channels.map(ch => ch.refDes));
+        const all     = configControls.flatMap(c => (c.channels ?? []).map(ch => ch.refDes));
         const matches = all.filter(r => re.test(r)).slice(0, 20);
         dropdown.innerHTML = '';
         if (!matches.length) { dropdown.style.display = 'none'; return; }
@@ -617,45 +629,73 @@ function buildGraphCell(tabId, cellIdx) {
             });
             dropdown.appendChild(item);
         }
-        dropdown.style.display = '';
+        // Position dropdown above the search bar
+        const r = searchInput.getBoundingClientRect();
+        dropdown.style.left       = r.left + 'px';
+        dropdown.style.width      = r.width + 'px';
+        dropdown.style.top        = '-9999px';   // off-screen while measuring
+        dropdown.style.bottom     = '';
+        dropdown.style.display    = '';
+        const h = dropdown.offsetHeight;
+        dropdown.style.top        = Math.max(4, r.top - h) + 'px';
     });
-    searchInput.addEventListener('blur', () => setTimeout(() => { dropdown.style.display = 'none'; }, 150));
+    searchInput.addEventListener('blur', () => setTimeout(() => { dropdown.style.display = 'none' }, 150));
 
+    cellEl._dropdown = dropdown;  // track for cleanup on grid rebuild
     return cellEl;
 }
 
 function createCellChart(canvas) {
+    const yAxes = {};
+    for (let i = 1; i <= 6; i++) {
+        const isLeft = i % 2 === 1;
+        yAxes['y' + i] = {
+            position: isLeft ? 'left' : 'right',
+            display:  false,
+            ticks:    { color: '#8d969e' },
+            grid:     isLeft ? { color: '#30363d' } : { drawOnChartArea: false }
+        };
+    }
     return new Chart(canvas, {
         type: 'line',
         data: { datasets: [] },
         options: {
-            animation:  false,
-            responsive: true,
+            animation:           false,
+            responsive:          true,
             maintainAspectRatio: false,
-            parsing:    false,
+            parsing:             false,
+            events:              [],
             scales: {
                 x: {
                     type: 'linear',
                     ticks: {
-                        color: '#6e7681',
-                        maxTicksLimit: 6,
-                        maxRotation: 0,
-                        callback: (v) => new Date(v * 1000).toLocaleTimeString('en-US', { hour12: false })
+                        color:         '#8d969e',
+                        maxTicksLimit: 12,
+                        maxRotation:   0,
+                        callback: (v) => {
+                            const ago = Math.round(Date.now() / 1000 - v);
+                            if (ago < 60) return ago + 's';
+                            return Math.round(ago / 60) + 'm';
+                        }
                     },
-                    grid: { color: '#21262d' }
+                    grid: { color: '#30363d' }
                 },
-                y: {
-                    ticks: { color: '#6e7681' },
-                    grid:  { color: '#21262d' }
-                }
+                ...yAxes
             },
             plugins: {
                 legend:  { display: false },
                 tooltip: {
-                    mode: 'index', intersect: false,
+                    mode:      'index',
+                    intersect: false,
                     callbacks: {
-                        title: (items) => new Date(items[0].parsed.x * 1000)
-                            .toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 })
+                        title: (items) => {
+                            if (!items.length) return '';
+                            const ago  = Math.round(Date.now() / 1000 - items[0].parsed.x);
+                            if (ago < 60) return ago + 's ago';
+                            const m = Math.floor(ago / 60);
+                            const s = ago % 60;
+                            return s > 0 ? `${m}m ${s}s ago` : `${m}m ago`;
+                        }
                     }
                 }
             },
@@ -673,13 +713,15 @@ function addChannelToCell(tabId, cellIdx, refDes) {
 
     const used  = cell.channels.map(c => c.color);
     const color = CHART_COLORS.find(c => !used.includes(c)) ?? CHART_COLORS[cell.channels.length % CHART_COLORS.length];
-    cell.channels.push({ refDes, color, hidden: false });
+    const ch = { refDes, color, hidden: false, yAxisId: 1 };
+    cell.channels.push(ch);
 
     if (!channelBuffers[refDes]) channelBuffers[refDes] = { ts: [], vals: [] };
     activeGraphChannels.add(refDes);
 
-    addDatasetToChart(cell.chart, refDes, color, false);
-    updateCellLegend(tabId, cellIdx);
+    addDatasetToChart(cell.chart, refDes, color, false, ch);
+    syncYAxisVisibility(cell);
+    updateCellPanel(tabId, cellIdx);
 }
 
 function removeChannelFromCell(tabId, cellIdx, refDes) {
@@ -687,12 +729,13 @@ function removeChannelFromCell(tabId, cellIdx, refDes) {
     if (!cell) return;
     cell.channels = cell.channels.filter(c => c.refDes !== refDes);
     const dsIdx = cell.chart.data.datasets.findIndex(d => d.label === refDes);
-    if (dsIdx !== -1) { cell.chart.data.datasets.splice(dsIdx, 1); cell.chart.update('none'); }
-    updateCellLegend(tabId, cellIdx);
+    if (dsIdx !== -1) cell.chart.data.datasets.splice(dsIdx, 1);
+    syncYAxisVisibility(cell);
+    updateCellPanel(tabId, cellIdx);
     updateActiveGraphChannels();
 }
 
-function addDatasetToChart(chart, refDes, color, hidden) {
+function addDatasetToChart(chart, refDes, color, hidden, ch) {
     const buf  = channelBuffers[refDes];
     const data = buf ? buf.ts.map((t, i) => ({ x: t, y: buf.vals[i] })) : [];
     chart.data.datasets.push({
@@ -701,49 +744,75 @@ function addDatasetToChart(chart, refDes, color, hidden) {
         borderColor:     color,
         backgroundColor: color + '22',
         hidden,
-        fill:            false
+        fill:            false,
+        yAxisID:         'y' + (ch?.yAxisId ?? 1)
     });
     chart.update('none');
 }
 
-function updateCellLegend(tabId, cellIdx) {
-    const cell   = graphState[tabId]?.cells[cellIdx];
+function updateCellPanel(tabId, cellIdx) {
+    const cell = graphState[tabId]?.cells[cellIdx];
     if (!cell?.cellEl) return;
-    const legend = cell.cellEl.querySelector('.graph-legend');
-    legend.innerHTML = '';
+    const list = cell.cellEl.querySelector('.graph-channel-list');
+    list.innerHTML = '';
 
     for (const ch of cell.channels) {
-        const item = mkEl('div', 'legend-item');
+        const item = mkEl('div', 'panel-channel-item');
 
-        const swatch = document.createElement('input');
-        swatch.type  = 'color';
-        swatch.value = ch.color;
-        swatch.className = 'legend-swatch';
-        swatch.title = 'Change color';
-        swatch.addEventListener('input', () => {
-            ch.color = swatch.value;
+        // Y-axis badge
+        const badge = mkEl('span', 'y-axis-badge', String(ch.yAxisId));
+        badge.title = 'Left-click / right-click to change Y axis';
+        badge.addEventListener('click', () => {
+            ch.yAxisId = (ch.yAxisId % 6) + 1;
+            badge.textContent = String(ch.yAxisId);
             const ds = cell.chart.data.datasets.find(d => d.label === ch.refDes);
-            if (ds) { ds.borderColor = ch.color; ds.backgroundColor = ch.color + '22'; }
-            cell.chart.update('none');
+            if (ds) ds.yAxisID = 'y' + ch.yAxisId;
+            syncYAxisVisibility(cell);
+        });
+        badge.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            ch.yAxisId = ((ch.yAxisId - 2 + 6) % 6) + 1;
+            badge.textContent = String(ch.yAxisId);
+            const ds = cell.chart.data.datasets.find(d => d.label === ch.refDes);
+            if (ds) ds.yAxisID = 'y' + ch.yAxisId;
+            syncYAxisVisibility(cell);
         });
 
-        const lbl = mkEl('span', `legend-label${ch.hidden ? ' legend-hidden' : ''}`, ch.refDes);
+        // Color swatch
+        const swatch = mkEl('div', 'color-swatch');
+        swatch.style.background = ch.color;
+        swatch.title = 'Click to change color';
+        swatch.addEventListener('click', () => {
+            openColorPalette(swatch, ch.color, (newColor) => {
+                ch.color = newColor;
+                swatch.style.background = newColor;
+                const ds = cell.chart.data.datasets.find(d => d.label === ch.refDes);
+                if (ds) { ds.borderColor = newColor; ds.backgroundColor = newColor + '22'; }
+                cell.chart.update('none');
+            });
+        });
+
+        // Channel name
+        const lbl = mkEl('span', `channel-name${ch.hidden ? ' channel-hidden' : ''}`, ch.refDes);
         lbl.title = 'Click to toggle visibility';
         lbl.addEventListener('click', () => {
             ch.hidden = !ch.hidden;
-            lbl.classList.toggle('legend-hidden', ch.hidden);
+            lbl.classList.toggle('channel-hidden', ch.hidden);
             const ds = cell.chart.data.datasets.find(d => d.label === ch.refDes);
-            if (ds) { ds.hidden = ch.hidden; cell.chart.update('none'); }
+            if (ds) ds.hidden = ch.hidden;
+            syncYAxisVisibility(cell);
         });
 
-        const rmBtn = mkEl('button', 'legend-remove', '×');
+        // Remove button
+        const rmBtn = mkEl('button', 'channel-remove', '×');
         rmBtn.title = 'Remove';
         rmBtn.addEventListener('click', () => removeChannelFromCell(tabId, cellIdx, ch.refDes));
 
+        item.appendChild(badge);
         item.appendChild(swatch);
         item.appendChild(lbl);
         item.appendChild(rmBtn);
-        legend.appendChild(item);
+        list.appendChild(item);
     }
 }
 
@@ -779,14 +848,20 @@ function updateAllGraphs() {
         if (!tab || tab.contentEl.style.display === 'none') continue;
         for (const cell of state.cells) {
             if (!cell.chart) continue;
-            let dirty = false;
+            let latestTs = Date.now() / 1000;
             for (const ds of cell.chart.data.datasets) {
                 const buf = channelBuffers[ds.label];
                 if (!buf) continue;
                 ds.data = buf.ts.map((t, i) => ({ x: t, y: buf.vals[i] }));
-                dirty = true;
+                if (buf.ts.length) latestTs = Math.max(latestTs, buf.ts[buf.ts.length - 1]);
             }
-            if (dirty) cell.chart.update('none');
+            // Snap back to live-follow if pinned view is within 5s of the live edge
+            if (cell.viewEnd !== null && latestTs - cell.viewEnd < 5) cell.viewEnd = null;
+            // viewEnd === null means live-follow; never write latestTs back so it keeps advancing
+            const displayEnd = cell.viewEnd ?? latestTs;
+            cell.chart.options.scales.x.min = displayEnd - cell.viewWindowSec;
+            cell.chart.options.scales.x.max = displayEnd;
+            cell.chart.update('none');
         }
     }
 }
@@ -795,6 +870,133 @@ function resizeGraphCharts(tabId) {
     const state = graphState[tabId];
     if (!state) return;
     for (const cell of state.cells) cell.chart?.resize();
+}
+
+function syncYAxisVisibility(cell) {
+    for (let i = 1; i <= 6; i++) {
+        const active = cell.channels.some(c => !c.hidden && c.yAxisId === i);
+        cell.chart.options.scales['y' + i].display = active;
+    }
+    cell.chart.update('none');
+}
+
+function attachScrollZoom(canvas, cell) {
+    let rafPending = false;
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const rect    = canvas.getBoundingClientRect();
+        const ratio   = (e.clientX - rect.left) / rect.width;
+        // Normalize delta across scroll modes (pixel / line / page)
+        const dy      = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * 800 : e.deltaY;
+        const scale   = Math.exp(dy * 0.002);          // smooth continuous zoom
+        const newWin  = Math.min(1200, Math.max(30, cell.viewWindowSec * scale));
+        const edge    = cell.viewEnd ?? Date.now() / 1000;
+        const mouseTs = (edge - cell.viewWindowSec) + ratio * cell.viewWindowSec;
+        const rawEnd = mouseTs + (1 - ratio) * newWin;
+        const now    = Date.now() / 1000;
+        // null = live-follow mode; snap back when the unclamped right edge reaches now
+        cell.viewEnd = rawEnd >= now ? null : rawEnd;
+        cell.viewWindowSec = newWin;
+        // Redraw immediately rather than waiting for the 500ms interval
+        if (!rafPending) {
+            rafPending = true;
+            requestAnimationFrame(() => {
+                rafPending = false;
+                const end = cell.viewEnd ?? Date.now() / 1000;
+                cell.chart.options.scales.x.min = end - cell.viewWindowSec;
+                cell.chart.options.scales.x.max = end;
+                cell.chart.update('none');
+            });
+        }
+    }, { passive: false });
+}
+
+function attachProximityTooltip(canvas, cell) {
+    const HOVER_PX = 28;
+    canvas.addEventListener('mousemove', (e) => {
+        const chart = cell.chart;
+        const rect  = canvas.getBoundingClientRect();
+        const cx    = e.clientX - rect.left;
+        const cy    = e.clientY - rect.top;
+
+        let closestDist = Infinity;
+        let closestIdx  = -1;
+
+        for (let di = 0; di < chart.data.datasets.length; di++) {
+            const meta = chart.getDatasetMeta(di);
+            if (meta.hidden) continue;
+            for (let pi = 0; pi < meta.data.length; pi++) {
+                const pt   = meta.data[pi];
+                const dx   = cx - pt.x;
+                const dy   = cy - pt.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < closestDist) { closestDist = dist; closestIdx = pi; }
+            }
+        }
+
+        if (closestDist <= HOVER_PX && closestIdx !== -1) {
+            const activeEls = [];
+            for (let di = 0; di < chart.data.datasets.length; di++) {
+                const meta = chart.getDatasetMeta(di);
+                if (meta.hidden || !meta.data.length) continue;
+                activeEls.push({ datasetIndex: di, index: Math.min(closestIdx, meta.data.length - 1) });
+            }
+            chart.tooltip.setActiveElements(activeEls, { x: cx, y: cy });
+        } else {
+            chart.tooltip.setActiveElements([], {});
+        }
+        chart.update('none');
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+        cell.chart.tooltip.setActiveElements([], {});
+        cell.chart.update('none');
+    });
+}
+
+function openColorPalette(anchorEl, currentColor, onSelect) {
+    const existing = document.querySelector('.color-palette-popup');
+    if (existing) existing.remove();
+
+    const popup = mkEl('div', 'color-palette-popup');
+
+    for (const c of CHART_COLORS) {
+        const opt = mkEl('div', `color-palette-option${c === currentColor ? ' active' : ''}`);
+        opt.style.background = c;
+        opt.title = c;
+        opt.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            popup.remove();
+            onSelect(c);
+        });
+        popup.appendChild(opt);
+    }
+
+    // Custom color option
+    const customBtn  = mkEl('div', 'color-palette-custom');
+    customBtn.title  = 'Custom color';
+    customBtn.textContent = '✎';
+    const hiddenInput = document.createElement('input');
+    hiddenInput.type  = 'color';
+    hiddenInput.value = currentColor;
+    hiddenInput.style.cssText = 'position:absolute;width:0;height:0;opacity:0;pointer-events:none';
+    hiddenInput.addEventListener('input', () => { popup.remove(); onSelect(hiddenInput.value); });
+    customBtn.appendChild(hiddenInput);
+    customBtn.addEventListener('mousedown', (e) => { e.preventDefault(); hiddenInput.click(); });
+    popup.appendChild(customBtn);
+
+    document.body.appendChild(popup);
+    const rect = anchorEl.getBoundingClientRect();
+    popup.style.top  = (rect.bottom + 4) + 'px';
+    popup.style.left = rect.left + 'px';
+
+    const dismiss = (e) => {
+        if (!popup.contains(e.target) && e.target !== anchorEl) {
+            popup.remove();
+            document.removeEventListener('mousedown', dismiss);
+        }
+    };
+    setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
 }
 
 function cleanupGraphTab(tabId) {
@@ -1207,11 +1409,25 @@ connect();
     overlay.className = 'boot-overlay';
     overlay.innerHTML = `
         <div class="boot-hint">
-            <div>Right-click any tab to change its type</div>
-            <div><span class="boot-hint-types">Front Panel &nbsp;·&nbsp; Data View &nbsp;·&nbsp; Graph &nbsp;·&nbsp; Console &nbsp;·&nbsp; Dev</span></div>
+            <div>Right-click any tab to change its type, or click a shortcut below</div>
+            <div style="margin-top:6px">
+                <span class="boot-hint-type-btn" data-type="frontPanel">Front Panel</span>
+                &nbsp;·&nbsp;
+                <span class="boot-hint-type-btn" data-type="dataView">Data View</span>
+                &nbsp;·&nbsp;
+                <span class="boot-hint-type-btn" data-type="graph">Graph</span>
+                &nbsp;·&nbsp;
+                <span class="boot-hint-type-btn" data-type="console">Console</span>
+                &nbsp;·&nbsp;
+                <span class="boot-hint-type-btn" data-type="dev">Dev</span>
+            </div>
             <div style="margin-top:10px"><span class="boot-hint-dismiss">Click an active tab to rename &nbsp;·&nbsp; Click anywhere to dismiss</span></div>
         </div>`;
     document.body.appendChild(overlay);
-    overlay.addEventListener('click', () => overlay.remove(), { once: true });
+    overlay.addEventListener('click', (e) => {
+        const btn = e.target.closest('.boot-hint-type-btn');
+        if (btn) changeTabType(activeTabId, btn.dataset.type);
+        overlay.remove();
+    }, { once: true });
     document.addEventListener('keydown', () => overlay.remove(), { once: true });
 }());

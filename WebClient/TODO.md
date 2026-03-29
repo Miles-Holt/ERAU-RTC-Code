@@ -19,20 +19,18 @@ See `CONTEXT.md` for full project/architecture context.
 ### Front Panel Tab
 - [ ] **P&ID background** — load a P&ID image or SVG as the canvas background; support multiple P&ID views selectable per tab (e.g. LOX panel, fuel panel, engine)
 - [ ] **Front panel objects** — interactive overlay components (valve symbol, sensor readout, pipe segment, tank level) that sit on top of the P&ID; each object is bound to one or more `refDes` channels for live data and commands
-- [ ] **Front panel interactive editor** — in-browser drag-and-drop editor to place, move, resize, and configure front panel objects on the P&ID canvas; object config (position, bound refDes, type) saved to `localStorage` or exported as JSON
+- [ ] **Front panel interactive editor** — in-browser drag-and-drop editor to place, move, resize, and configure front panel objects on the P&ID canvas; object config (position, bound refDes, type) exported as JSON to user storage. the user can upload the JSON to the repo and will be sent by the websocket manager for each new webclient connection in the labview CTR node similar to the config JSON.
 
 ---
 
 ### Data View Tab
-- [ ] **Redesign UI cards** — current cards are functional but visually basic; redesign layouts for each commandable control type (valve, bangBang, ignition, digitalOut); consider consistent sizing, status LED placement, and label hierarchy
-- [ ] **Update UI colors** — revise color scheme in `css/style.css`; current palette works but hasn't been intentionally designed
-- [ ] **Data View filtering** — allow each Data View tab instance to show a user-selected subset of controls (e.g. "LOX valves only", "all pressures"); filter by control type and/or manually include/exclude individual refDes entries
+- [ ] **complete restructure** — rather than displaying all data, make this a top regex search bar where rows can be added below. Each row will be read only OR commanable depending on the type. each row shall include the refDes and description stacked vertically justified left, and a line graph of the current value including the previous 10 seconds with either the value readout or a commandable object justfied right.
 
 ---
 
 ### Graph Tab
-- [ ] **Fix graph grid** — canvas height not rendering correctly in some grid size configurations; `.graph-cell` uses flexbox but the canvas inside doesn't respect the available height; investigate `height: 100%` vs explicit pixel constraints on `.graph-canvas` and `.graph-cell`; Chart.js `maintainAspectRatio: false` is already set but the containing element may not have a defined height
-- [ ] **Offline Chart.js** — Chart.js currently loaded from CDN (`cdn.jsdelivr.net`); test stand may not have internet; consider downloading and bundling `chart.umd.min.js` locally in `WebClient/js/`
+- [ ] **data not collected when tab/window isnt focused**
+- [ ] **time ago lines not displaing correctly** rather than rolling in and out of the viewable chart, they snap in and out before/after exiting/entering the viewable chart
 
 ---
 
@@ -42,13 +40,15 @@ See `CONTEXT.md` for full project/architecture context.
 ---
 
 ### Dev Tab
-- [ ] **Force reconnect button** — add a button that calls `connect()` immediately, bypassing the exponential backoff reconnect timer; useful during development or after a known LabVIEW restart
+- [ ] **Force reconnect button** — add a button that calls `connect()` immediately, bypassing the exponential backoff reconnect timer; useful during development or after a known restart
 - [ ] **WebSocket stats** — the following are already implemented: connection state, endpoint URL, uptime timer, total messages received, message rate, missed cycle counter; verify these are accurate and updating correctly
-- [ ] **Browser memory** — JS heap used / total via `performance.memory` (Chrome only); already implemented; hidden on non-Chrome browsers
+- [ ] **Browser memory** — JS heap used / total via `performance.memory` (Chrome only); already implemented; hidden on non-Chrome browsers. not 100% sure this is working, always stuck at 10MB
 
 ---
 
 ## Done
+- [ ] **Offline Chart.js** — Chart.js currently loaded from CDN (`cdn.jsdelivr.net`); test stand may not have internet; consider downloading and bundling `chart.umd.min.js` locally in `WebClient/js/`
+- [ ] **Fix graph grid** — canvas height not rendering correctly in some grid size configurations; `.graph-cell` uses flexbox but the canvas inside doesn't respect the available height; investigate `height: 100%` vs explicit pixel constraints on `.graph-canvas` and `.graph-cell`; Chart.js `maintainAspectRatio: false` is already set but the containing element may not have a defined height
 
 - [x] **Channel roles in XML** — added explicit `<role>` nodes to all `<channel>` elements in `nodeConfigs_0.0.2.xml`; cmd-bool assigned to all command channels; sensor assigned to all read-only channels
 - [x] **Update channel roles in app.js** — replaced `role === 'cmd'` checks with `isCmd(ch)` helper covering `cmd-bool`, `cmd-pct`, `cmd-float`; widget type driven from channel role instead of control subType
