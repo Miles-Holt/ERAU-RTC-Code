@@ -17,28 +17,50 @@ var upgrader = websocket.Upgrader{
 }
 
 // Server listens for browser WebSocket connections on the configured port.
+// It also serves static files from webRoot for plain HTTP requests.
 type Server struct {
 	port       int
 	configJSON []byte
 	b          *broker.Broker
+	fileServer http.Handler
 }
 
-// New creates a Server.
-func New(port int, configJSON string, b *broker.Broker) *Server {
+// New creates a Server.  webRoot is the directory containing index.html and
+// other static assets; pass an empty string to disable static file serving.
+func New(port int, configJSON string, b *broker.Broker, webRoot string) *Server {
+	var fs http.Handler
+	if webRoot != "" {
+		fs = http.FileServer(http.Dir(webRoot))
+	}
 	return &Server{
 		port:       port,
 		configJSON: []byte(configJSON),
 		b:          b,
+		fileServer: fs,
 	}
 }
 
 // ListenAndServe starts the HTTP/WebSocket server.  Blocks until the process exits.
 func (s *Server) ListenAndServe() error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", s.handleWS)
+	mux.HandleFunc("/", s.handle)
 	addr := fmt.Sprintf(":%d", s.port)
-	log.Printf("webclient: listening on ws://0.0.0.0%s", addr)
+	log.Printf("webclient: listening on http://0.0.0.0%s", addr)
 	return http.ListenAndServe(addr, mux)
+}
+
+// handle routes WebSocket upgrade requests to the WS handler and all other
+// requests to the static file server.
+func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
+	if websocket.IsWebSocketUpgrade(r) {
+		s.handleWS(w, r)
+		return
+	}
+	if s.fileServer != nil {
+		s.fileServer.ServeHTTP(w, r)
+		return
+	}
+	http.NotFound(w, r)
 }
 
 // handleWS upgrades the HTTP connection to WebSocket, then runs the client loop.

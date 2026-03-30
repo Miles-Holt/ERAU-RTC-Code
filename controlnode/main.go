@@ -13,6 +13,7 @@ import (
 
 func main() {
 	configPath := flag.String("config", "../nodeConfigs_0.0.2.xml", "path to nodeConfigs XML file")
+	webRoot := flag.String("webroot", "../WebClient", "directory to serve as the web client UI (empty to disable)")
 	flag.Parse()
 
 	// ── Parse XML config ──────────────────────────────────────────────────
@@ -78,7 +79,7 @@ func main() {
 	}
 
 	// ── Web client WebSocket server (blocks forever) ──────────────────────
-	srv := webclient.New(cfg.Network.WebSocketPort, wcConfigJSON, b)
+	srv := webclient.New(cfg.Network.WebSocketPort, wcConfigJSON, b, *webRoot)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("webclient server: %v", err)
 	}
