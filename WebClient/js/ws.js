@@ -91,11 +91,17 @@ function applyData(msg) {
     updateTimestamp(msg.t);
     setStatus('connected', 'Connected');
     trackDataTiming(msg.t);
-    bufferGraphData(msg.d);
+
+    // Normalize array format [{ r, v }, ...] to flat object { refDes: value }
+    const d = Array.isArray(msg.d)
+        ? Object.fromEntries(msg.d.map(e => [e.r, e.v]))
+        : msg.d;
+
+    bufferGraphData(d);
 
     for (const tab of tabs) {
         if (!tab.channelUpdaters) continue;
-        for (const [refDes, value] of Object.entries(msg.d)) {
+        for (const [refDes, value] of Object.entries(d)) {
             tab.channelUpdaters[refDes]?.(value);
         }
     }
