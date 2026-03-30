@@ -1601,6 +1601,39 @@
         <ip>localhost</ip>
         <description>Central control and routing node</description>
         <enabled>true</enabled>
+
+        <!-- Health sensors exposed to web clients as virtual read-only channels -->
+        <health>
+            <sensors>
+                <sensor>
+                    <refDes>CTR001-uptime</refDes>
+                    <description>CTR Node Uptime</description>
+                    <units>s</units>
+                </sensor>
+                <sensor>
+                    <refDes>CTR001-loopTime</refDes>
+                    <description>CTR Broker Loop Time</description>
+                    <units>ms</units>
+                </sensor>
+                <sensor>
+                    <refDes>CTR001-daqConnected</refDes>
+                    <description>DAQ Nodes Connected</description>
+                    <units>count</units>
+                </sensor>
+                <sensor>
+                    <refDes>CTR001-wcConnected</refDes>
+                    <description>Web Clients Connected</description>
+                    <units>count</units>
+                </sensor>
+            </sensors>
+            <commands>
+                <command>
+                    <refDes>CTR001-restart</refDes>
+                    <description>Force Restart CTR Node</description>
+                    <role>cmd-bool</role>
+                </command>
+            </commands>
+        </health>
     </ctrNode>
 
     <!-- DAQ NODES -->
@@ -1609,6 +1642,7 @@
         <daqNode> <!-- DAQ000, Testing Node -->
             <refDes>DAQ000</refDes>
             <ip>localhost</ip>
+            <wsPort>8001</wsPort>
             <description>Testing DAQ node</description>
             <enabled>false</enabled>
 
@@ -1779,6 +1813,7 @@
         <daqNode> <!-- DAQ001, TC3 PXIe Placeholder Node -->
             <refDes>DAQ001</refDes>
             <ip>localhost</ip>
+            <wsPort>8001</wsPort>
             <description>PXIe configuration file</description>
             <enabled>true</enabled>
 
