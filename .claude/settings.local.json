@@ -7,7 +7,19 @@
       "Bash(curl -L \"https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js\" -o \"c:/Users/miles/myrepo/ERAU-RTC-Code/WebClient/js/chart.umd.min.js\")",
       "Bash(grep -E '\\\\.\\(json|xml|yml|yaml|conf\\)$')",
       "Bash(wc -l c:/Users/miles/myrepo/ERAU-RTC_Code/WebClient/js/*.js)",
-      "Read(//c/Users/miles/myrepo/ERAU-RTC_Code//**)"
+      "Read(//c/Users/miles/myrepo/ERAU-RTC_Code//**)",
+      "Read(//c/Users/miles/myrepo/ERAU-RTC_Code/**)",
+      "Bash(go version:*)",
+      "Bash(find c:/Users/miles/myrepo/ERAU-RTC_Code -name *.go -o -name go.mod)",
+      "Read(//c/Users/miles/myrepo/ERAM-RTC_Code/controlnode/webclient/**)",
+      "Read(//c/Users/miles/myrepo/ERAM-RTC_Code/**)",
+      "Bash(go mod:*)",
+      "Bash(go get:*)",
+      "Bash(go build:*)",
+      "Bash(timeout 3 ./controlnode.exe)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\miles\\myrepo\\ERAM-RTC_Code"
     ]
   }
 }
