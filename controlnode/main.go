@@ -28,11 +28,14 @@ func main() {
 
 	// ── Collect restart command refDes values ─────────────────────────────
 	var restartRefDes []string
+	var allCtrCmdRefDes []string
 	for _, cmd := range cfg.CtrNode.Health.Commands {
+		rd := strings.TrimSpace(cmd.RefDes)
 		if strings.EqualFold(strings.TrimSpace(cmd.Role), "cmd-bool") {
+			allCtrCmdRefDes = append(allCtrCmdRefDes, rd)
 			// Convention: any CTR command with "restart" in refDes triggers exit.
-			if strings.Contains(strings.ToLower(cmd.RefDes), "restart") {
-				restartRefDes = append(restartRefDes, strings.TrimSpace(cmd.RefDes))
+			if strings.Contains(strings.ToLower(rd), "restart") {
+				restartRefDes = append(restartRefDes, rd)
 			}
 		}
 	}
@@ -50,7 +53,7 @@ func main() {
 	// ── Health publisher ──────────────────────────────────────────────────
 	sensorRefDes := buildHealthSensorMap(cfg)
 	if len(sensorRefDes) > 0 {
-		hp := health.New(b, sensorRefDes)
+		hp := health.New(b, sensorRefDes, allCtrCmdRefDes)
 		go hp.Run(cfg.Network.BroadcastRateHz)
 	}
 

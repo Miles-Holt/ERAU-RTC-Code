@@ -59,7 +59,7 @@ type Broker struct {
 	// Atomic health counters — readable from outside the Run goroutine.
 	DaqConnected atomic.Int32
 	WcConnected  atomic.Int32
-	LoopTimeUs   atomic.Int64 // microseconds for last broadcast loop
+	LoopTimeNs   atomic.Int64 // nanoseconds for last broadcast loop
 }
 
 // New creates a Broker.  refDesMap maps channel refDes → DAQ node refDes.
@@ -116,7 +116,7 @@ func (b *Broker) Run(broadcastRateHz int) {
 					// slow client — drop frame rather than block
 				}
 			}
-			b.LoopTimeUs.Store(time.Since(start).Microseconds())
+			b.LoopTimeNs.Store(time.Since(start).Nanoseconds())
 
 		// ── Web client subscribe / unsubscribe ────────────────────────────
 		case req := <-b.subIn:

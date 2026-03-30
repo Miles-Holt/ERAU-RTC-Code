@@ -46,9 +46,12 @@ func New(refDes, ip string, port int, configJSON string, b *broker.Broker) *Clie
 func (c *Client) Run() {
 	for {
 		c.b.RegisterDaq(c.refDes, c.cmdCh)
-		err := c.connect()
+		connected, err := c.connect()
 		c.b.RegisterDaq(c.refDes, nil) // deregister while disconnected
-		c.b.DaqConnected.Add(-1)
+		if connected {
+			// Only decrement if we actually incremented on a successful connect.
+			c.b.DaqConnected.Add(-1)
+		}
 		if err != nil {
 			log.Printf("daqnode %s: disconnected: %v — retrying in %s", c.refDes, err, reconnectDelay)
 		}
@@ -57,13 +60,15 @@ func (c *Client) Run() {
 }
 
 // connect dials, does the handshake, then runs read/write loops until an error.
-func (c *Client) connect() error {
+// Returns (true, err) if the connection was established (DaqConnected was incremented),
+// or (false, err) if it failed before that point.
+func (c *Client) connect() (connected bool, err error) {
 	u := url.URL{Scheme: "ws", Host: c.addr, Path: "/"}
 	log.Printf("daqnode %s: connecting to %s", c.refDes, u.String())
 
 	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
-		return fmt.Errorf("dial: %w", err)
+		return false, fmt.Errorf("dial: %w", err)
 	}
 	defer conn.Close()
 
@@ -71,7 +76,7 @@ func (c *Client) connect() error {
 	conn.SetReadDeadline(time.Now().Add(readTimeout))
 	_, msg, err := conn.ReadMessage()
 	if err != nil {
-		return fmt.Errorf("config_req read: %w", err)
+		return false, fmt.Errorf("config_req read: %w", err)
 	}
 	conn.SetReadDeadline(time.Time{}) // clear deadline for normal operation
 
@@ -80,13 +85,13 @@ func (c *Client) connect() error {
 		RefDes string `json:"refDes"`
 	}
 	if err := json.Unmarshal(msg, &req); err != nil || req.Type != "config_req" {
-		return fmt.Errorf("expected config_req, got: %s", msg)
+		return false, fmt.Errorf("expected config_req, got: %s", msg)
 	}
 	log.Printf("daqnode %s: received config_req, sending config", c.refDes)
 
 	conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 	if err := conn.WriteMessage(websocket.TextMessage, c.configJSON); err != nil {
-		return fmt.Errorf("send config: %w", err)
+		return false, fmt.Errorf("send config: %w", err)
 	}
 	conn.SetWriteDeadline(time.Time{})
 
@@ -97,7 +102,7 @@ func (c *Client) connect() error {
 	errCh := make(chan error, 2)
 	go c.readLoop(conn, errCh)
 	go c.writeLoop(conn, errCh)
-	return <-errCh // first error wins; defer closes conn
+	return true, <-errCh // first error wins; defer closes conn
 }
 
 // readLoop reads data JSON from the DAQ node and publishes to the broker.
