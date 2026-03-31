@@ -1,4 +1,4 @@
 pin: "1750"
 users:
-  - name: mholt
-  - name: mkelly
+  - mholt
+  - mkelly

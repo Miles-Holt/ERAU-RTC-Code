@@ -43,6 +43,13 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Scrollbar styling — dark theme */
+::-webkit-scrollbar              { width: 6px; height: 6px; }
+::-webkit-scrollbar-track        { background: var(--surface); }
+::-webkit-scrollbar-thumb        { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover  { background: var(--muted); }
+::-webkit-scrollbar-corner       { background: var(--surface); }
+
 body {
     background: var(--bg);
     color: var(--text);
@@ -1361,6 +1368,10 @@ header h1 {
     background: var(--bg);
     min-width: 0;
     position: relative;
+    cursor: grab;
+}
+.pid-canvas-wrap:active {
+    cursor: grabbing;
 }
 
 .pid-svg {
@@ -1592,6 +1603,90 @@ header h1 {
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
+}
+
+/* Errored connection — amber dashed */
+.pid-conn-error {
+    stroke: var(--status-stale);
+    stroke-dasharray: 8 4;
+}
+
+/* ── Warning button ── */
+.pid-warn-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 8px;
+    font-size: 12px;
+    font-family: inherit;
+    background: transparent;
+    border: 1px solid var(--status-stale);
+    border-radius: 4px;
+    color: var(--status-stale);
+    cursor: pointer;
+    transition: background 0.12s;
+    user-select: none;
+}
+
+.pid-warn-btn:hover { background: rgba(227, 179, 65, 0.10); }
+
+.pid-warn-icon {
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 1;
+}
+
+.pid-warn-count {
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Dropdown */
+.pid-warn-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 280px;
+    max-width: 400px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    z-index: 200;
+    overflow: hidden;
+}
+
+.pid-warn-btn.pid-warn-open .pid-warn-dropdown { display: block; }
+
+.pid-warn-title {
+    padding: 8px 12px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--status-stale);
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    border-bottom: 1px solid var(--border);
+}
+
+.pid-warn-item {
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.pid-warn-item:last-child { border-bottom: none; }
+
+.pid-warn-conn {
+    font-size: 12px;
+    color: var(--text);
+    font-family: monospace;
+}
+
+.pid-warn-msg {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
 }
 
 /* Port hit circles (edit mode) */

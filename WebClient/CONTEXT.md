@@ -234,7 +234,7 @@ Tabs do **not** persist across page refresh — every load opens a single fresh 
 ## Key Implementation Decisions
 
 - **No build system** — `index.html` opened directly via `file://` or served from the control node; Chart.js bundled locally (no internet required)
-- **Go control node, not LabVIEW** — `controlnode/` is a Go binary that serves the WebClient and bridges DAQ nodes; the old LabVIEW CTR VI is deprecated
+- **Go control node** — `controlnode/` is a Go binary that serves the WebClient and bridges DAQ nodes
 - **Per-tab channelUpdaters** — each tab owns `{ refDes: fn }` so multiple tabs update independently from the same data stream
 - **Graph buffers only for active channels** — `channelBuffers` is allocated when a channel is added to any graph cell and freed when removed from all cells
 - **Auth is client-side only** — no server validation; `user` field on `cmd` messages is for DAQ node logging only; command widgets are disabled until a name is entered

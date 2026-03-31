@@ -46,7 +46,7 @@ Browser (file:// or http://<chassis>:8000)
 | `WebClient/` | Browser front-end (HTML + vanilla JS + CSS, no build system) |
 | `docs/` | Documentation |
 | `DAQ_msgHandler/` | Legacy LabVIEW DAQ handler (deprecated) |
-| `CTRsample/` | Legacy LabVIEW control node sample (deprecated) |
+| `CTRsample/` | Legacy control node sample (deprecated) |
 | `DAQsample/` | Legacy LabVIEW DAQ node sample (deprecated) |
 
 ---
