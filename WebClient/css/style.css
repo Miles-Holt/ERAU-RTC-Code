@@ -3,12 +3,12 @@
    ============================================================================= */
 
 :root {
-    --bg:           #0d1117;
-    --surface:      #161b22;
-    --card-bg:      #21262d;
-    --border:       #30363d;
-    --text:         #8d969e;
-    --muted:        #6e7681;
+    --bg:           #080808;
+    --surface:      #101010;
+    --card-bg:      #181818;
+    --border:       #242424;
+    --text:         #7d8080;
+    --muted:        #5a5d5d;
     --accent:       #58a6ff;
 
     /* Type-specific card accent colors */
@@ -1019,7 +1019,7 @@ header h1 {
     flex: 1;
     min-width: 0;
     min-height: 0;
-    background: #090c10;
+    background: #060606;
     position: relative;
     padding: 8px;
 }
