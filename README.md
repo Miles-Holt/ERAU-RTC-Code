@@ -7,31 +7,33 @@ Real-time control and monitoring software for **TC3 (Test Cell 3)**, a liquid ro
 ## Architecture
 
 ```
-PXIe Chassis (LabVIEW 2024)
-├── NI DAQ Modules  ──────────────────────────────────────────────────┐
-│   (thermocouples, pressure transducers, load cells, flow meters)    │
-│                                                                      ▼
-├── DAQ_msgHandler Main.vi                                      Acquire.vi
-│   ├── Acquisition Loop  (DAQmx hardware I/O)                        │
-│   ├── Streaming Loop    (network transmission)                       │
-│   └── Logging Loop      (TDMS file)                                  │
-│                                                                      │
-└── CTRnode.vi  ──────────────────────────────────────────────────────┘
-    ├── CTR_webSocketConfig_XML-JSON.vi  (XML → JSON config)
-    └── WebSocket Server  :8000
-             │
-             │  JSON over WebSocket (~20 Hz data, config on connect)
-             ▼
-    Browser (file:// or network)
-    └── WebClient/index.html
-        ├── js/  — tabs, live data, graphs, command sending (split across state/ws/tabs/graph/cards/etc.)
-        └── css/style.css
+NI PXIe Chassis
+├── NI DAQ Modules
+│   (thermocouples, pressure transducers, load cells, flow meters, valves)
+│
+└── DAQ Node (LabVIEW or future Go)
+    ├── Acquisition Loop  (DAQmx, 1000 Hz)
+    ├── Streaming Loop    (WebSocket → Control Node, ~20 Hz)
+    └── Logging Loop      (TDMS file)
+
+Control Node  (Go — controlnode/)
+├── Parses nodeConfigs_0.0.2.xml at startup
+├── Connects to DAQ nodes over WebSocket (one goroutine per node)
+├── Serves WebClient static files (HTTP) + WebSocket server on :8000
+├── Broker — fans data to all connected browsers, routes commands to DAQ
+└── Health publisher — uptime, loop time, DAQ/WC connection counts
+
+Browser (file:// or http://<chassis>:8000)
+└── WebClient/index.html
+    ├── js/   — state, websocket, P&ID editor, tabs, graphs, console, auth, …
+    └── css/style.css
 ```
 
 **Data flow:**
-1. LabVIEW reads `nodeConfigs_0.0.2.xml` → converts `<controlList>` to JSON → sends as `config` message on connect
-2. Hardware sensors → DAQ acquisition → streaming loop → `data` messages at ~20 Hz
-3. Browser command → `cmd` message → LabVIEW → valve/actuator driver
+1. Control node reads `nodeConfigs_0.0.2.xml` → builds JSON config → sends as `config` message on every browser connect
+2. DAQ node streams hardware readings → control node broker → `data` messages to all browsers at configured Hz
+3. Browser command → `cmd` message → control node → routed to correct DAQ node → valve/actuator driver
+4. Front panel layouts → `.yaml` files on disk → control node reads them → `pid_layout` messages to browsers on connect
 
 ---
 
@@ -39,30 +41,35 @@ PXIe Chassis (LabVIEW 2024)
 
 | Path | Description |
 |---|---|
-| `nodeConfigs_0.0.2.xml` | Primary system configuration — control definitions + DAQ hardware mapping |
-| `CTRsample/` | LabVIEW Control/Routing node (CTRnode.vi + supporting VIs) |
-| `DAQsample/` | LabVIEW DAQ node for initial testing (Depricated) (DAQ-node.vi + supporting VIs) |
-| `DAQ_msgHandler/` | Message-driven DAQ handler with separate acquisition, streaming, and logging loops. Used for initial testing, currently depricated. |
-| `WebClient/` | Browser-based front-end (HTML + vanilla JS + CSS, no build system) |
-| `parsedConfigs/` | Generated/parsed config outputs |
+| `nodeConfigs_0.0.2.xml` | Primary system configuration — control definitions, channel bounds, DAQ hardware mapping |
+| `controlnode/` | Go control node — WebSocket server, broker, DAQ client, XML config parser |
+| `WebClient/` | Browser front-end (HTML + vanilla JS + CSS, no build system) |
 | `docs/` | Documentation |
+| `DAQ_msgHandler/` | Legacy LabVIEW DAQ handler (deprecated) |
+| `CTRsample/` | Legacy LabVIEW control node sample (deprecated) |
+| `DAQsample/` | Legacy LabVIEW DAQ node sample (deprecated) |
 
 ---
 
 ## Quick Start
 
+### Run the Control Node
+
+```bash
+cd controlnode
+go build -o controlnode.exe .
+./controlnode.exe --config ../nodeConfigs_0.0.2.xml
+```
+
+The control node serves the WebClient at `http://localhost:8000` and the WebSocket at `ws://localhost:8000`.
+
+> To serve a live-edited WebClient instead of the embedded one: `--webroot ../WebClient`
+
 ### Open the WebClient
 
-1. Open `WebClient/index.html` directly in a browser (`file://` — no server needed)
-2. The client connects automatically to `ws://<hostname>:8000` using the page's hostname (defaults to `localhost` for local file opens)
-3. The status indicator turns green when the WebSocket handshake succeeds and config is received
+Navigate to `http://<chassis-hostname>:8000` in a browser, or open `WebClient/index.html` directly via `file://` for local development (the WebSocket URL is derived from `window.location.hostname`, defaulting to `localhost`).
 
-> **No internet required.** Chart.js is bundled locally at `WebClient/js/chart.umd.min.js`.
-
-### Connect to the Test Stand
-
-- Default WebSocket endpoint: `ws://<chassis-hostname>:8000`
-- If opening locally on the chassis, hostname defaults to `localhost`
+> **No internet required.** Chart.js is bundled at `WebClient/js/chart.umd.min.js`.
 
 ---
 
@@ -70,10 +77,11 @@ PXIe Chassis (LabVIEW 2024)
 
 | Doc | Description |
 |---|---|
-| [docs/websocket-protocol.md](docs/websocket-protocol.md) | WebSocket message format (config, data, cmd) |
+| [docs/websocket-protocol.md](docs/websocket-protocol.md) | WebSocket message format (config, data, cmd, pid_layout) |
 | [docs/webclient-guide.md](docs/webclient-guide.md) | Browser client user guide |
-| [docs/xml-config-reference.md](docs/xml-config-reference.md) | nodeConfigs XML format reference |
-| [WebClient/TODO.md](WebClient/TODO.md) | Open feature items and known issues |
+| [docs/xml-config-reference.md](docs/xml-config-reference.md) | `nodeConfigs_0.0.2.xml` format reference |
+| [docs/TODO.md](docs/TODO.md) | Open feature items and known issues |
+| [WebClient/CONTEXT.md](WebClient/CONTEXT.md) | AI/developer context for the WebClient codebase |
 
 ---
 
@@ -89,7 +97,7 @@ PXIe Chassis (LabVIEW 2024)
 | Ignition | IG-01 |
 | Bang-bang controllers | NV-01/02 (press/vent) |
 
-- **Propellants:** LOX (liquid oxygen) + Keroscene or Ethanol fuel
+- **Propellants:** LOX (liquid oxygen) + Kerosene or Ethanol fuel
 - **DAQ chassis:** NI PXIe running LabVIEW 2024 Q3
-- **Communication rate:** 20 Hz continuous
-- **Aquisition rate:** 1000 Hz continuous
+- **Broadcast rate:** ~20 Hz (configurable in XML)
+- **Acquisition rate:** 1000 Hz continuous
