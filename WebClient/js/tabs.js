@@ -171,20 +171,4 @@ function showContextMenu(x, y, items) {
 }
 
 
-// =============================================================================
-// Front Panel tab
-// =============================================================================
-
-const FP_SVG = `<svg viewBox="0 0 200 400" width="160" height="320" fill="none" stroke="currentColor"
-     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.5">
-  <!-- Injector dome -->
-  <path d="M62,24 C62,6 138,6 138,24"/>
-  <!-- Left profile: chamber → converging → bell nozzle -->
-  <path d="M62,24 L62,105 C62,132 76,148 80,163 C82,182 22,305 6,390"/>
-  <!-- Right profile: mirror -->
-  <path d="M138,24 L138,105 C138,132 124,148 120,163 C118,182 178,305 194,390"/>
-</svg>`;
-
-function buildFrontPanelContent(tab) {
-    tab.contentEl.innerHTML = `<div class="fp-wrapper"></div>`;
-}
+// Front Panel tab content is built by pid.js → buildFrontPanelContent(tab)

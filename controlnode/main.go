@@ -6,9 +6,12 @@ import (
 	"controlnode/daqnode"
 	"controlnode/health"
 	"controlnode/webclient"
+	"encoding/json"
 	"flag"
 	"io/fs"
 	"log"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -86,11 +89,47 @@ client := daqnode.New(node.RefDes, node.IP, node.WSPort, nodeConfigJSON, b)
 		log.Printf("daqnode %s: client started → ws://%s:%d", node.RefDes, node.IP, node.WSPort)
 	}
 
+	// ── Load front panel layout files ─────────────────────────────────────
+	panelMessages := loadPanelMessages(cfg, *configPath)
+
 	// ── Web client WebSocket server (blocks forever) ──────────────────────
-	srv := webclient.New(cfg.Network.WebSocketPort, wcConfigJSON, b, *webRoot, embeddedSub)
+	srv := webclient.New(cfg.Network.WebSocketPort, wcConfigJSON, panelMessages, b, *webRoot, embeddedSub)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("webclient server: %v", err)
 	}
+}
+
+// loadPanelMessages reads each enabled front-panel YAML from disk and builds
+// the pid_layout JSON payloads that are broadcast to browsers on connect.
+// Paths in <file> are resolved relative to the directory of configPath.
+func loadPanelMessages(cfg *config.SystemConfig, configPath string) [][]byte {
+	configDir := filepath.Dir(configPath)
+	var msgs [][]byte
+	for _, p := range cfg.FrontPanels.Panels {
+		if !isEnabled(p.Enabled) {
+			log.Printf("front panel %q: disabled, skipping", p.Name)
+			continue
+		}
+		absPath := filepath.Join(configDir, p.File)
+		content, err := os.ReadFile(absPath)
+		if err != nil {
+			log.Printf("front panel %q: read %s: %v", p.Name, absPath, err)
+			continue
+		}
+		payload, err := json.Marshal(map[string]interface{}{
+			"type":     "pid_layout",
+			"name":     p.Name,
+			"filename": filepath.Base(p.File),
+			"content":  string(content),
+		})
+		if err != nil {
+			log.Printf("front panel %q: marshal: %v", p.Name, err)
+			continue
+		}
+		msgs = append(msgs, payload)
+		log.Printf("front panel loaded: %q (%s)", p.Name, p.File)
+	}
+	return msgs
 }
 
 // buildHealthSensorMap maps the well-known metric keys to refDes values from

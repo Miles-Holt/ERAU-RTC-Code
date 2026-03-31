@@ -31,9 +31,10 @@ function onMessage(event) {
     logConsole('in', msg);
 
     switch (msg.type) {
-        case 'config': applyConfig(msg); break;
-        case 'data':   applyData(msg);   break;
-        default:       console.warn('Unknown message type:', msg.type);
+        case 'config':     applyConfig(msg);    break;
+        case 'data':       applyData(msg);      break;
+        case 'pid_layout': applyPidLayout(msg); break;
+        default:           console.warn('Unknown message type:', msg.type);
     }
 }
 
@@ -114,8 +115,22 @@ function resetStalenessTimer() {
 }
 
 function markStale() {
-    document.querySelectorAll('.value, .fb-label').forEach(el => el.classList.add('stale'));
+    document.querySelectorAll('.value, .fb-label, .pid-sensor-value').forEach(el => el.classList.add('stale'));
     setStatus('stale', 'Data stale');
+}
+
+function applyPidLayout(msg) {
+    if (!msg.filename || !msg.content) return;
+    pidLayouts[msg.filename] = { name: msg.name || msg.filename, filename: msg.filename, content: msg.content };
+    // Refresh any open front panel tabs that have selected this layout
+    for (const tab of tabs) {
+        if (tab.type === 'frontPanel' && tab.pid) {
+            refreshPidLayoutPicker(tab);
+            if (tab.pid.layoutFilename === msg.filename) {
+                loadPidLayout(tab, pidLayouts[msg.filename]);
+            }
+        }
+    }
 }
 
 function trackDataTiming(t) {
