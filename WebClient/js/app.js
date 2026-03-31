@@ -39,19 +39,7 @@
 
 document.getElementById('tab-add').addEventListener('click', () => addTab('frontPanel'));
 
-(function restoreTabLayout() {
-    try {
-        const saved = JSON.parse(localStorage.getItem('rtc-tab-layout') || 'null');
-        if (Array.isArray(saved) && saved.length) {
-            for (const { type, name } of saved) {
-                const tab = addTab(type);
-                if (name) { tab.name = name; renderTabBar(); }
-            }
-            return;
-        }
-    } catch {}
-    addTab('frontPanel');
-}());
+addTab('frontPanel');
 
 buildOperatorButton();
 updateCommandWidgets();

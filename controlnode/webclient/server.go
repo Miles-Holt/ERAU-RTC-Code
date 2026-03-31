@@ -20,17 +20,19 @@ var upgrader = websocket.Upgrader{
 // Server listens for browser WebSocket connections on the configured port.
 // It also serves static files from webRoot for plain HTTP requests.
 type Server struct {
-	port       int
-	configJSON []byte
-	b          *broker.Broker
-	fileServer http.Handler
-	userAuth   *UserAuthConfig
+	port          int
+	configJSON    []byte
+	panelMessages [][]byte // pid_layout messages sent on each new connection
+	b             *broker.Broker
+	fileServer    http.Handler
+	userAuth      *UserAuthConfig
 }
 
 // New creates a Server. Pass an empty webRoot to serve from embedded instead.
 // Pass embedded=nil to disable static file serving entirely.
+// panelMessages is the list of pre-built pid_layout JSON payloads to send on connect.
 // Pass userAuth=nil to disable authentication (all connections approved).
-func New(port int, configJSON string, b *broker.Broker, webRoot string, embedded fs.FS, userAuth *UserAuthConfig) *Server {
+func New(port int, configJSON string, panelMessages [][]byte, b *broker.Broker, webRoot string, embedded fs.FS, userAuth *UserAuthConfig) *Server {
 	var fsh http.Handler
 	if webRoot != "" {
 		fsh = http.FileServer(http.Dir(webRoot))
@@ -38,11 +40,12 @@ func New(port int, configJSON string, b *broker.Broker, webRoot string, embedded
 		fsh = http.FileServer(http.FS(embedded))
 	}
 	return &Server{
-		port:       port,
-		configJSON: []byte(configJSON),
-		b:          b,
-		fileServer: fsh,
-		userAuth:   userAuth,
+		port:          port,
+		configJSON:    []byte(configJSON),
+		panelMessages: panelMessages,
+		b:             b,
+		fileServer:    fsh,
+		userAuth:      userAuth,
 	}
 }
 
@@ -83,6 +86,14 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	if err := conn.WriteMessage(websocket.TextMessage, s.configJSON); err != nil {
 		log.Printf("webclient: send config to %s: %v", r.RemoteAddr, err)
 		return
+	}
+
+	// Send front panel layout messages (one per configured panel).
+	for _, msg := range s.panelMessages {
+		if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+			log.Printf("webclient: send panel layout to %s: %v", r.RemoteAddr, err)
+			return
+		}
 	}
 
 	// Subscribe to broker broadcasts.

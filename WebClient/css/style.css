@@ -726,6 +726,7 @@ header h1 {
 }
 
 .dv-row-value.stale { color: var(--status-stale); opacity: 0.6; }
+.dv-row-value.bad   { color: var(--color-ignition); }
 
 .dv-row-units {
     font-size: 11px;
@@ -1032,27 +1033,58 @@ header h1 {
     display: flex;
     flex-direction: column;
     height: 100%;
-    gap: 8px;
+    gap: 6px;
 }
 
 .console-toolbar {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     flex-shrink: 0;
     flex-wrap: wrap;
 }
 
-.console-chk { cursor: pointer; accent-color: var(--accent); }
+.console-toolbar-row2 { gap: 10px; }
 
 .console-lbl {
-    display: flex;
-    align-items: center;
-    gap: 6px;
     font-size: 12px;
     color: var(--muted);
-    cursor: pointer;
+    flex-shrink: 0;
 }
+
+/* Toggle filter buttons (Dir / Type) */
+.console-filter-btn {
+    padding: 2px 8px;
+    font-size: 11px;
+    font-family: monospace;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.console-filter-btn.console-filter-active {
+    background: var(--border);
+    color: var(--text);
+    border-color: var(--muted);
+}
+
+/* Free-text / regex search */
+.console-search {
+    flex: 1;
+    min-width: 140px;
+    padding: 3px 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 12px;
+    font-family: monospace;
+}
+
+.console-search:focus { outline: none; border-color: var(--accent); }
 
 .console-buf-input {
     width: 64px;
@@ -1065,7 +1097,7 @@ header h1 {
     text-align: center;
 }
 
-.console-clear { flex-shrink: 0; }
+.console-clear { flex-shrink: 0; margin-left: auto; }
 
 .console-log {
     flex: 1;
@@ -1235,40 +1267,350 @@ header h1 {
 }
 
 .op-pop-name:focus { outline: none; border-color: var(--accent); }
+/* =============================================================================
+   P&ID Front Panel
+   ============================================================================= */
 
-.op-pop-pin {
-    width: 100%;
-    padding: 5px 8px;
+/* ── Layout shell ── */
+.pid-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.pid-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.pid-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* ── Left sidebar ── */
+.pid-lsb {
+    width: 140px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    transition: width 0.18s ease, opacity 0.18s ease;
+}
+
+.pid-lsb-hidden {
+    width: 0 !important;
+    opacity: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.pid-sb-title {
+    padding: 8px 12px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.pid-obj-item {
+    margin: 8px 8px 0;
+    cursor: grab;
+    user-select: none;
+}
+
+.pid-obj-item:active { cursor: grabbing; }
+
+.pid-obj-preview {
+    padding: 6px 10px;
     background: var(--card-bg);
     border: 1px solid var(--border);
-    border-radius: 5px;
+    border-radius: 4px;
+    font-size: 12px;
+    text-align: center;
     color: var(--text);
-    font-size: 13px;
-    font-family: inherit;
+    transition: border-color 0.15s;
 }
 
-.op-pop-pin:focus { outline: none; border-color: var(--accent); }
-
-.op-pop-submit {
-    padding: 5px 10px;
-    background: var(--accent);
-    color: var(--bg);
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 13px;
-    font-family: inherit;
-    font-weight: 600;
-    align-self: flex-end;
+.pid-obj-preview-node {
+    color: var(--muted);
 }
 
-.op-pop-submit:hover { opacity: 0.85; }
-.op-pop-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+.pid-obj-item:hover .pid-obj-preview {
+    border-color: var(--accent);
+    color: var(--accent);
+}
 
-.op-pop-status {
+/* ── Canvas ── */
+.pid-canvas-wrap {
+    flex: 1;
+    overflow: auto;
+    background: var(--bg);
+    min-width: 0;
+    position: relative;
+}
+
+.pid-svg {
+    display: block;
+}
+
+/* ── Right sidebar ── */
+.pid-rsb {
+    width: 192px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+}
+
+.pid-rsb-content {
+    padding: 12px;
+}
+
+.pid-sb-heading {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+}
+
+.pid-sb-field {
+    margin-bottom: 10px;
+}
+
+.pid-sb-field label {
+    display: block;
     font-size: 11px;
-    min-height: 14px;
+    color: var(--muted);
+    margin-bottom: 3px;
 }
 
-.op-pop-status.pending { color: var(--muted); }
-.op-pop-status.error   { color: #e3b341; }
+.pid-sb-field input,
+.pid-sb-field select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    padding: 4px 7px;
+    font-size: 12px;
+    font-family: monospace;
+    box-sizing: border-box;
+}
+
+.pid-sb-field input:focus,
+.pid-sb-field select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.pid-apply-btn {
+    display: block;
+    width: 100%;
+    padding: 5px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-family: inherit;
+    background: var(--accent);
+    border: none;
+    border-radius: 4px;
+    color: #0d1117;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.pid-apply-btn:hover { opacity: 0.88; }
+
+.pid-delete-btn {
+    display: block;
+    width: 100%;
+    padding: 5px;
+    font-size: 12px;
+    font-family: inherit;
+    background: transparent;
+    border: 1px solid var(--status-disconnected);
+    border-radius: 4px;
+    color: var(--status-disconnected);
+    cursor: pointer;
+}
+
+.pid-delete-btn:hover { background: rgba(248,81,73,0.1); }
+
+.pid-sb-hint {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-top: 6px;
+}
+
+.pid-name-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    padding: 4px 7px;
+    font-size: 12px;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.pid-name-input:focus { outline: none; border-color: var(--accent); }
+
+/* ── Toolbar controls ── */
+.pid-picker {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    padding: 3px 7px;
+    font-size: 12px;
+    font-family: inherit;
+    max-width: 180px;
+}
+
+.pid-mode-toggle {
+    display: flex;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.pid-mode-btn {
+    padding: 3px 12px;
+    font-size: 12px;
+    font-family: inherit;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+}
+
+.pid-mode-btn:hover { color: var(--text); }
+
+.pid-mode-active {
+    background: var(--border) !important;
+    color: var(--text) !important;
+}
+
+.pid-save-btn {
+    padding: 3px 12px;
+    font-size: 12px;
+    font-family: inherit;
+    background: transparent;
+    border: 1px solid var(--muted);
+    border-radius: 4px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: border-color 0.12s, color 0.12s;
+}
+
+.pid-save-btn:hover { border-color: var(--text); color: var(--text); }
+
+/* ── SVG object styles ── */
+
+/* Sensor box */
+.pid-sensor-rect {
+    fill: var(--card-bg);
+    stroke: var(--border);
+    stroke-width: 1.5;
+}
+
+.pid-sensor text {
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: none;
+}
+
+.pid-sensor-label {
+    font-size: 10px;
+    fill: var(--muted);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.pid-sensor-value {
+    font-size: 15px;
+    font-weight: 700;
+    fill: var(--text);
+    font-family: monospace;
+}
+
+.pid-sensor-value.stale {
+    fill: var(--status-stale);
+}
+
+.pid-sensor-units {
+    font-size: 10px;
+    fill: var(--muted);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+/* Node junction dot */
+.pid-node-dot {
+    fill: var(--muted);
+    stroke: none;
+}
+
+/* Selected state */
+.pid-selected .pid-sensor-rect {
+    stroke: var(--accent);
+    stroke-width: 2;
+}
+
+.pid-selected .pid-node-dot {
+    fill: var(--accent);
+}
+
+/* Hidden node dot in view mode */
+.pid-node-hidden .pid-node-dot {
+    display: none;
+}
+
+/* Connection pipes */
+.pid-conn-path {
+    fill: none;
+    stroke: var(--text);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Port hit circles (edit mode) */
+.pid-port {
+    fill: var(--surface);
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    cursor: crosshair;
+    transition: fill 0.1s;
+}
+
+.pid-port:hover { fill: var(--accent); }
+
+.pid-port-hidden { display: none; }
+
+/* Preview line during connection drawing */
+.pid-preview-line {
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    stroke-dasharray: 6 3;
+    pointer-events: none;
+}

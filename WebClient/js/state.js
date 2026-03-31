@@ -56,3 +56,7 @@ let devTabs = [];
 // --- Console ---
 const consoleLog = [];   // [{ time, dir: 'in'|'out', msg }]
 let consoleTabs  = [];
+
+// --- Front Panel layouts ---
+// Keyed by filename; value = { name, filename, content } (content is raw YAML string)
+const pidLayouts = {};

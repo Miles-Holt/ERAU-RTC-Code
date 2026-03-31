@@ -10,11 +10,6 @@ const TAB_TYPE_LABELS = {
     console:    'Console'
 };
 
-function saveTabLayout() {
-    const layout = tabs.map(t => ({ type: t.type, name: t.name }));
-    try { localStorage.setItem('rtc-tab-layout', JSON.stringify(layout)); } catch {}
-}
-
 function nextTabName(type) {
     tabCounts[type] = (tabCounts[type] || 0) + 1;
     const n = tabCounts[type];
@@ -33,7 +28,6 @@ function addTab(type = 'frontPanel') {
     buildTabContent(tab);
     renderTabBar();
     activateTab(id);
-    saveTabLayout();
     return tab;
 }
 
@@ -66,7 +60,6 @@ function removeTab(id) {
     renderTabBar();
     if (next) activateTab(next);
     else      addTab('frontPanel');
-    saveTabLayout();
 }
 
 function changeTabType(id, newType) {
@@ -81,7 +74,6 @@ function changeTabType(id, newType) {
     tab.name = nextTabName(newType);
     buildTabContent(tab);
     renderTabBar();
-    saveTabLayout();
 }
 
 function activateTab(id) {
@@ -139,7 +131,7 @@ function startRename(tab, nameEl) {
     inp.value = tab.name;
     nameEl.replaceWith(inp);
     inp.focus(); inp.select();
-    const commit = () => { tab.name = inp.value.trim() || tab.name; renderTabBar(); saveTabLayout(); };
+    const commit = () => { tab.name = inp.value.trim() || tab.name; renderTabBar(); };
     inp.addEventListener('blur', commit);
     inp.addEventListener('keydown', (e) => {
         if (e.key === 'Enter')  inp.blur();
@@ -171,20 +163,4 @@ function showContextMenu(x, y, items) {
 }
 
 
-// =============================================================================
-// Front Panel tab
-// =============================================================================
-
-const FP_SVG = `<svg viewBox="0 0 200 400" width="160" height="320" fill="none" stroke="currentColor"
-     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.5">
-  <!-- Injector dome -->
-  <path d="M62,24 C62,6 138,6 138,24"/>
-  <!-- Left profile: chamber → converging → bell nozzle -->
-  <path d="M62,24 L62,105 C62,132 76,148 80,163 C82,182 22,305 6,390"/>
-  <!-- Right profile: mirror -->
-  <path d="M138,24 L138,105 C138,132 124,148 120,163 C118,182 178,305 194,390"/>
-</svg>`;
-
-function buildFrontPanelContent(tab) {
-    tab.contentEl.innerHTML = `<div class="fp-wrapper"></div>`;
-}
+// Front Panel tab content is built by pid.js → buildFrontPanelContent(tab)

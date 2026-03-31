@@ -9,16 +9,21 @@ This document is the primary reference for the TC3 system configuration file. Th
 ```
 <systemConfig>
   <controlListTemplate>  ← in-file schema reminder (not parsed)
-  <controlList>          ← parsed by LabVIEW; defines all controls
+  <controlList>          ← parsed by the control node; defines all controls
     <control> ... </control>
     <control> ... </control>
     ...
   </controlList>
-  <daqNodes>             ← hardware module definitions (not sent to browser)
+  <network>              ← WebSocket port, broadcast rate, connection settings
+  <daqNodes>             ← DAQ node IP/port definitions (not sent to browser)
+  <frontPanels>          ← P&ID layout YAML files to load and send to browsers
+    <panel> ... </panel>
+    ...
+  </frontPanels>
 </systemConfig>
 ```
 
-Only `<controlList>` is converted to JSON and sent to the WebClient. `<daqNodes>` is used exclusively by LabVIEW for hardware configuration.
+The control node parses the entire file at startup. `<controlList>` is converted to JSON and sent as the `config` message on every browser connection. `<daqNodes>` is used only for DAQ node connectivity. `<frontPanels>` tells the control node which YAML layout files to read from disk and send as `pid_layout` messages.
 
 ---
 
@@ -30,7 +35,7 @@ Every `<control>` block uses these top-level fields:
 |---|---|---|---|
 | `<refDes>` | Yes | string | Unique reference designator (e.g. `NV-03`, `OPT-01`) |
 | `<description>` | No | string | Human-readable label shown in the UI |
-| `<enabled>` | Yes | `true` / `false` | If `false`, LabVIEW omits this control from the WebSocket config — it will not appear in the browser |
+| `<enabled>` | Yes | `true` / `false` | If `false`, the control node omits this control from the `config` message — it will not appear in the browser |
 | `<type>` | Yes | see [Control Types](#control-types) | Determines UI rendering and channel expectations |
 | `<subType>` | Varies | see per-type | Sub-variant that refines behavior (required for some types) |
 | `<details>` | Varies | child elements | Type-specific extra configuration |
@@ -379,6 +384,22 @@ Each `<channel>` inside a `<channels>` block:
 | `<moduleModelNumber>` | Yes | NI module name (e.g. `Thermocouple`, `Analog-Input`, `Digital-IO`) |
 | `<channelNumber>` | Yes | Module-relative channel identifier (e.g. `ai02`, `/port3/line0`) |
 | `<daqMx>` | Yes | DAQmx task configuration — see type-specific fields above |
+| `<validMin>` | No | Lower bound in engineering units. Values below this threshold are flagged as bad data in the WebClient (red LED + red value text). Omit or leave empty to disable the lower bound check. |
+| `<validMax>` | No | Upper bound in engineering units. Values above this threshold are flagged as bad data. Omit or leave empty to disable the upper bound check. |
+
+**Bad data detection example** — flag a 4–20 mA pressure transducer as bad when the converted output falls below 0 psi (sensor wire fault) or above 1500 psi (over-range):
+
+```xml
+<channel>
+    <refDes>OPT-01</refDes>
+    <role>sensor</role>
+    ...
+    <validMin>0</validMin>
+    <validMax>1500</validMax>
+</channel>
+```
+
+The control node passes `validMin` and `validMax` to the browser as part of the `config` message. The Channel List tab's LED turns red and the value text turns red when a live reading falls outside the configured range. If no data has been received recently the LED turns amber (stale) regardless of range.
 
 ---
 
@@ -420,8 +441,37 @@ The `<role>` field controls how the WebClient renders the channel:
    - Set `<refDesDaq>` to the target DAQ node (e.g. `DAQ001`)
    - Set `<moduleModelNumber>` and `<channelNumber>` to match the physical wiring
    - Fill in the `<daqMx>` block using the [daqMx Summary](#daqmx-summary-by-signal-type) table
-6. **Save the file** — LabVIEW reads it on startup (or on reconnect if the VI supports hot reload)
-7. **Verify in the WebClient** — connect and confirm the new channel appears in the Data View or can be found via graph channel search
+6. **Save the file** — the control node reads it on startup; restart the control node to pick up changes
+7. **Verify in the WebClient** — connect and confirm the new channel appears in the Channel List or can be found via graph channel search
+
+---
+
+## Front Panels
+
+The `<frontPanels>` section lists P&ID layout YAML files that the control node reads from disk and sends to every new browser connection as `pid_layout` WebSocket messages.
+
+```xml
+<frontPanels>
+    <panel>
+        <name>LOX Panel</name>
+        <file>lox_panel.yaml</file>
+        <enabled>true</enabled>
+    </panel>
+    <panel>
+        <name>Fuel Panel</name>
+        <file>fuel_panel.yaml</file>
+        <enabled>true</enabled>
+    </panel>
+</frontPanels>
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `<name>` | Yes | Display name shown in the Front Panel tab's layout picker |
+| `<file>` | Yes | Path to the YAML file, relative to the XML config file's directory |
+| `<enabled>` | Yes | If `false`, the panel is skipped — not read or sent to browsers |
+
+YAML layout files are created and downloaded from the Front Panel editor in the WebClient, then added to the repository and referenced here. See [webclient-guide.md](webclient-guide.md) for the save workflow.
 
 ---
 

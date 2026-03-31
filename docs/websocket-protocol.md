@@ -1,6 +1,6 @@
 # WebSocket Protocol
 
-All communication between the LabVIEW backend and the browser client uses **JSON over WebSocket** on port 8000.
+All communication between the **Go control node** and browser clients uses **JSON over WebSocket** on port 8000.
 
 **Endpoint:** `ws://<chassis-hostname>:8000`
 
@@ -10,19 +10,21 @@ All communication between the LabVIEW backend and the browser client uses **JSON
 
 | Direction | Type | When |
 |---|---|---|
-| LabVIEW → Browser | `config` | Once on connect (or reconnect); defines all controls |
-| LabVIEW → Browser | `data` | 20 Hz continuously; live sensor values |
-| Browser → LabVIEW | `cmd` | On user action; sends a command to an actuator |
+| Control Node → Browser | `config` | Once on every new connection; defines all controls |
+| Control Node → Browser | `data` | At `broadcastRateHz` (default 20 Hz); live sensor values |
+| Control Node → Browser | `pid_layout` | Once per configured front panel, sent after `config` on every new connection |
+| Browser → Control Node | `cmd` | On user action; sends a command to an actuator |
 
 ---
 
 ## `config` — Control Configuration
 
-Sent by LabVIEW immediately after the WebSocket connection is established. Defines every control/sensor the browser should render.
+Sent by the control node immediately after the WebSocket connection is established. Defines every control and sensor the browser should render.
 
 ```json
 {
   "type": "config",
+  "broadcastRateHz": 20,
   "controls": [
     {
       "refDes":      "NV-03",
@@ -31,8 +33,8 @@ Sent by LabVIEW immediately after the WebSocket connection is established. Defin
       "subType":     "IO-CMD_IO-FB",
       "details":     {},
       "channels": [
-        { "refDes": "NV-03-CMD", "role": "cmd-bool", "units": "" },
-        { "refDes": "NV-03-FB",  "role": "sensor",   "units": "" }
+        { "refDes": "NV-03-CMD", "role": "cmd-bool", "units": "", "validMin": null, "validMax": null },
+        { "refDes": "NV-03-FB",  "role": "sensor",   "units": "", "validMin": null, "validMax": null }
       ]
     },
     {
@@ -42,12 +44,19 @@ Sent by LabVIEW immediately after the WebSocket connection is established. Defin
       "subType":     "",
       "details":     { "absolute": true, "absoluteSensorRefDes": "" },
       "channels": [
-        { "refDes": "OPT-01", "role": "sensor", "units": "psi" }
+        { "refDes": "OPT-01", "role": "sensor", "units": "psi", "validMin": 0, "validMax": 1500 }
       ]
     }
   ]
 }
 ```
+
+### Top-Level Fields
+
+| Field | Type | Description |
+|---|---|---|
+| `broadcastRateHz` | number | Data broadcast rate in Hz (default 20). Drives chart render intervals in the browser. |
+| `controls` | array | Array of control objects — see [Control Object Fields](#control-object-fields) |
 
 ### Control Object Fields
 
@@ -67,6 +76,10 @@ Sent by LabVIEW immediately after the WebSocket connection is established. Defin
 | `refDes` | string | Channel-level reference designator (e.g. `NV-03-CMD`, `NV-03-FB`) |
 | `role` | string | How this channel is used — see [Channel Roles](#channel-roles) |
 | `units` | string | Engineering units string (e.g. `psi`, `Deg F`, `GPM`); may be empty |
+| `validMin` | number \| null | Lower bound for bad-data detection; `null` if not configured |
+| `validMax` | number \| null | Upper bound for bad-data detection; `null` if not configured |
+
+Bad-data detection is performed client-side: if a live value falls outside `[validMin, validMax]`, the Channel List tab shows a red LED and red value text. Either bound being `null` disables that side of the check.
 
 ### Channel Roles
 
@@ -90,18 +103,19 @@ Sent by LabVIEW immediately after the WebSocket connection is established. Defin
 | `flowMeter` | Turbine flow meter (read-only) |
 | `thrust` | Load cell cluster (read-only) |
 | `VFD` | Variable frequency drive |
+| `ctrNode` | Control node health sensors and commands (auto-appended by the control node) |
 
-### Server-side Filtering
+### Server-Side Filtering
 
-LabVIEW strips controls where `<enabled>false</enabled>` before building the JSON. The browser renders everything it receives — there is no client-side filter.
+The control node strips controls where `<enabled>false</enabled>` before building the JSON config. The browser renders everything it receives — there is no client-side filter.
 
 ---
 
 ## `data` — Live Sensor Data
 
-Sent at **20 Hz** by LabVIEW. Contains a map of all active channel refDes values to their current readings.
+Broadcast by the control node at `broadcastRateHz` (default 20 Hz). Contains a map of all active channel refDes values and their current readings.
 
-> **Note:** Hardware acquisition runs at **1000 Hz**. The streaming loop decimates to 20 Hz before sending over WebSocket.
+> **Note:** Hardware acquisition on the DAQ node runs at **1000 Hz**. The DAQ streaming loop decimates to the configured broadcast rate before forwarding to the control node.
 
 ```json
 {
@@ -125,13 +139,56 @@ Sent at **20 Hz** by LabVIEW. Contains a map of all active channel refDes values
 
 ### Timestamp Note
 
-LabVIEW's internal clock uses the **LV epoch (1904-01-01)**. Before sending, the VI converts to Unix epoch:
+The DAQ node's LabVIEW clock uses the **LV epoch (1904-01-01)**. Before forwarding, the DAQ node converts to Unix epoch:
 
 ```
 unix_t = lv_t - 2082844800
 ```
 
 The browser receives standard Unix timestamps and does not need to convert.
+
+---
+
+## `pid_layout` — Front Panel Layout
+
+Sent by the control node after the `config` message on every new browser connection — one message per `<panel>` entry in `<frontPanels>` of the XML config. Delivers the raw YAML content of each P&ID layout file.
+
+```json
+{
+  "type":     "pid_layout",
+  "name":     "LOX Panel",
+  "filename": "lox_panel.yaml",
+  "content":  "name: LOX Panel\nversion: 1\nobjects:\n  - id: obj_1\n    type: sensor\n    ..."
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | string | Display name for the layout (from `<name>` in XML) |
+| `filename` | string | YAML filename (from `<file>` in XML); used as a unique key in the browser |
+| `content` | string | Full raw YAML content of the layout file |
+
+The browser stores all received layouts in `pidLayouts{}` (keyed by `filename`). Each Front Panel tab can load any received layout via the toolbar picker. Layouts can be edited in the browser and downloaded as `.yaml` files via the Save YAML button.
+
+### Front Panel YAML Schema
+
+```yaml
+name: LOX Panel
+version: 1
+objects:
+  - id: "obj_1234"
+    type: sensor        # sensor | node
+    refDes: OPT-01      # channel refDes (sensor objects only)
+    units: psi          # overrides config units if set
+    gridX: 10           # position in 20 px grid cells
+    gridY: 5
+connections:
+  - id: "conn_5678"
+    fromId: "obj_1234"
+    fromPort: bottom    # top | right | bottom | left
+    toId: "node_9012"
+    toPort: top
+```
 
 ---
 
@@ -153,11 +210,19 @@ Sent by the browser when a user interacts with a commandable control (button, sl
 | `type` | string | Always `"cmd"` |
 | `refDes` | string | Channel-level refDes of the target channel (must have a `cmd-*` role) |
 | `value` | number or bool | Command value — `1`/`0` for `cmd-bool`, `0`–`100` for `cmd-pct`, float for `cmd-float` |
-| `user` | string | Operator name (entered on the client); used by LabVIEW for logging — no server-side auth |
+| `user` | string | Operator name entered in the browser; forwarded to the DAQ node for logging — no server-side auth |
+
+The control node routes each `cmd` message to the appropriate DAQ node based on the channel's `refDesDaq` mapping from the XML config. Command widgets in the browser are disabled until the operator enters a name.
 
 ---
 
 ## Connection Behavior
+
+### On Connect
+
+When a browser connects, the control node immediately sends:
+1. One `config` message (all enabled controls)
+2. One `pid_layout` message per enabled `<panel>` in `<frontPanels>` of the XML config
 
 ### Reconnect
 
@@ -169,12 +234,12 @@ The browser uses **exponential backoff** on disconnect:
 | Backoff factor | 2× |
 | Maximum delay | 10 000 ms |
 
-For example: 1 s → 2 s → 4 s → 8 s → 10 s → 10 s → ...
+Sequence: 1 s → 2 s → 4 s → 8 s → 10 s → 10 s → …
 
 ### Staleness Detection
 
-If no `data` message is received within **500 ms**, the browser marks channels as stale (values shown with reduced opacity). This threshold is configurable via `CONFIG.staleThresholdMs` in `js/state.js`.
+If no `data` message is received within **500 ms** of the expected interval, the browser marks all channels as stale — values are shown with reduced opacity and amber color. The threshold is derived from `broadcastRateHz` and configurable via `CONFIG.staleThresholdMs` in `js/state.js`.
 
 ### On Reconnect
 
-When the connection is re-established, LabVIEW re-sends the `config` message. The browser rebuilds all Data View tabs from the new config.
+When the connection is re-established, the control node re-sends the `config` message followed by all `pid_layout` messages. The browser rebuilds all Channel List tabs from the new config and refreshes all open Front Panel layout pickers.
