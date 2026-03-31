@@ -5,6 +5,7 @@ import (
 	"controlnode/broker"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 
@@ -26,17 +27,20 @@ type Server struct {
 }
 
 // New creates a Server.  webRoot is the directory containing index.html and
-// other static assets; pass an empty string to disable static file serving.
-func New(port int, configJSON string, b *broker.Broker, webRoot string) *Server {
-	var fs http.Handler
+// other static assets; pass an empty string to fall back to embedded.
+// embedded is the fallback fs.FS used when webRoot is empty (pass nil to disable static serving).
+func New(port int, configJSON string, b *broker.Broker, webRoot string, embedded fs.FS) *Server {
+	var fsh http.Handler
 	if webRoot != "" {
-		fs = http.FileServer(http.Dir(webRoot))
+		fsh = http.FileServer(http.Dir(webRoot))
+	} else if embedded != nil {
+		fsh = http.FileServer(http.FS(embedded))
 	}
 	return &Server{
 		port:       port,
 		configJSON: []byte(configJSON),
 		b:          b,
-		fileServer: fs,
+		fileServer: fsh,
 	}
 }
 

@@ -7,14 +7,21 @@ import (
 	"controlnode/health"
 	"controlnode/webclient"
 	"flag"
+	"io/fs"
 	"log"
 	"strings"
 )
 
 func main() {
 	configPath := flag.String("config", "../nodeConfigs_0.0.2.xml", "path to nodeConfigs XML file")
-	webRoot := flag.String("webroot", "../WebClient", "directory to serve as the web client UI (empty to disable)")
+	webRoot := flag.String("webroot", "", "directory to serve as web client UI (empty = use embedded)")
 	flag.Parse()
+
+	// Strip the "static/" prefix from the embedded FS so index.html is at the root.
+	embeddedSub, err := fs.Sub(staticFiles, "static")
+	if err != nil {
+		log.Fatalf("embedded FS sub: %v", err)
+	}
 
 	// ── Parse XML config ──────────────────────────────────────────────────
 	cfg, err := config.Parse(*configPath)
@@ -82,7 +89,7 @@ client := daqnode.New(node.RefDes, node.IP, node.WSPort, nodeConfigJSON, b)
 	}
 
 	// ── Web client WebSocket server (blocks forever) ──────────────────────
-	srv := webclient.New(cfg.Network.WebSocketPort, wcConfigJSON, b, *webRoot)
+	srv := webclient.New(cfg.Network.WebSocketPort, wcConfigJSON, b, *webRoot, embeddedSub)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("webclient server: %v", err)
 	}

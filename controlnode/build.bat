@@ -1,16 +1,19 @@
 @echo off
-REM Run this script once after cloning on a machine with internet access (or
-REM a machine that has already downloaded the Go module cache).
-REM After running, the vendor/ folder contains all dependencies and the binary
-REM can be built on the airgapped LAN with no network access.
+REM Run this script from the controlnode\ directory.
+REM On first run (internet-connected machine): downloads deps and vendors them.
+REM On subsequent / airgap builds: vendors already present, just copies + builds.
 
-echo [1/3] Downloading dependencies...
+echo [1/4] Downloading dependencies...
 go mod download
 
-echo [2/3] Vendoring dependencies for airgap builds...
+echo [2/4] Vendoring dependencies for airgap builds...
 go mod vendor
 
-echo [3/3] Building controlnode.exe...
+echo [3/4] Copying WebClient into static/ for embedding...
+if exist static rmdir /S /Q static
+xcopy /E /I /Y ..\WebClient static
+
+echo [4/4] Building controlnode.exe...
 go build -mod=vendor -o controlnode.exe .
 
-echo Done. Copy controlnode.exe and nodeConfigs_0.0.2.xml to the target machine.
+echo Done. controlnode.exe contains the embedded WebClient — copy it and nodeConfigs_0.0.2.xml to the target machine.

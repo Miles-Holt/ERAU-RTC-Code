@@ -237,8 +237,9 @@ func BuildWebClientConfigJSON(cfg *SystemConfig) (string, error) {
 	}
 
 	msg := map[string]interface{}{
-		"type":     "config",
-		"controls": controls,
+		"type":            "config",
+		"broadcastRateHz": cfg.Network.BroadcastRateHz,
+		"controls":        controls,
 	}
 	b, err := json.Marshal(msg)
 	if err != nil {

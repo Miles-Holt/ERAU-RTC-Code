@@ -56,8 +56,17 @@ document.getElementById('tab-add').addEventListener('click', () => addTab('front
 buildOperatorButton();
 updateCommandWidgets();
 
-setInterval(updateAllGraphs,  500);                // graph refresh at 2 Hz
-setInterval(refreshDevTabs,  2000);                // dev stats refresh every 2s
+let _graphInterval = setInterval(updateAllGraphs,    500);
+let _dvInterval    = setInterval(updateAllDataViews, 500);
+setInterval(refreshDevTabs, 2000);
+
+function setLiveUpdateRate(hz) {
+    const ms = Math.round(1000 / Math.max(1, hz));
+    clearInterval(_graphInterval);
+    clearInterval(_dvInterval);
+    _graphInterval = setInterval(updateAllGraphs,    ms);
+    _dvInterval    = setInterval(updateAllDataViews, ms);
+}
 connect();
 
 // One-time boot hint overlay
@@ -70,7 +79,7 @@ connect();
             <div style="margin-top:6px">
                 <span class="boot-hint-type-btn" data-type="frontPanel">Front Panel</span>
                 &nbsp;·&nbsp;
-                <span class="boot-hint-type-btn" data-type="dataView">Data View</span>
+                <span class="boot-hint-type-btn" data-type="dataView">Channel List</span>
                 &nbsp;·&nbsp;
                 <span class="boot-hint-type-btn" data-type="graph">Graph</span>
                 &nbsp;·&nbsp;

@@ -4,7 +4,7 @@
 
 const TAB_TYPE_LABELS = {
     frontPanel: 'Front Panel',
-    dataView:   'Data View',
+    dataView:   'Channel List',
     graph:      'Graph',
     dev:        'Dev',
     console:    'Console'
@@ -124,7 +124,7 @@ function renderTabBar() {
             showContextMenu(e.clientX, e.clientY, [
                 { label: 'Front Panel', action: () => changeTabType(tab.id, 'frontPanel') },
                 { label: 'Graph',       action: () => changeTabType(tab.id, 'graph')      },
-                { label: 'Data View',   action: () => changeTabType(tab.id, 'dataView')   },
+                { label: 'Channel List', action: () => changeTabType(tab.id, 'dataView')   },
                 { label: 'Console',     action: () => changeTabType(tab.id, 'console')    },
                 { label: 'Dev',         action: () => changeTabType(tab.id, 'dev')        },
             ]);

@@ -23,8 +23,9 @@ See `CONTEXT.md` for full project/architecture context.
 
 ---
 
-### Data View Tab
-- [ ] **complete restructure** — rather than displaying all data, make this a top regex search bar where rows can be added below. Each row will be read only OR commanable depending on the type. each row shall include the refDes and description stacked vertically justified left, and a line graph of the current value including the previous 10 seconds with either the value readout or a commandable object justfied right.
+### Channel List Tab
+- [x] **complete restructure** — regex search bar adds individual channel rows; each row shows a status LED, refDes + description (left), 15 s sparkline (center), and value readout or numeric command input (right)
+- [ ] **Bad data detection** — define "bad data" criteria (out-of-range, sensor fault flag, etc.) and wire up `.dv-led-bad` (red LED) state on channel rows
 
 ---
 

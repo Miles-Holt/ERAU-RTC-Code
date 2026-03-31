@@ -143,17 +143,6 @@ header h1 {
 
 .group {}
 
-.group-heading {
-    font-size: 13px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--muted);
-    margin-bottom: 12px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--border);
-}
-
 /* =============================================================================
    Grid
    ============================================================================= */
@@ -631,46 +620,135 @@ header h1 {
 }
 
 /* =============================================================================
-   Data View tab
+   Channel List tab
    ============================================================================= */
 
-.dv-section {
-    margin-bottom: 32px;
+.dv-search-wrap {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
-.sensor-table {
+.dv-search-input {
     width: 100%;
-    border-collapse: collapse;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 6px;
     font-size: 13px;
+    box-sizing: border-box;
 }
 
-.sensor-table th {
-    text-align: left;
-    padding: 6px 12px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    color: var(--muted);
-    border-bottom: 1px solid var(--border);
+.dv-search-input:focus {
+    outline: none;
+    border-color: var(--accent);
 }
 
-.sensor-table td {
-    padding: 6px 12px;
+.dv-rows {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.dv-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 12px;
     border-bottom: 1px solid var(--border);
+    min-height: 44px;
+}
+
+.dv-row:hover { background: var(--surface); }
+
+.dv-led {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.dv-led-online { background: var(--status-connected); box-shadow: 0 0 4px var(--status-connected); }
+.dv-led-stale  { background: var(--status-stale); }
+.dv-led-bad    { background: var(--color-ignition); box-shadow: 0 0 4px var(--color-ignition); }
+
+.dv-row-left {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 130px;
+    width: 130px;
+}
+
+.dv-row-refdes {
+    font-family: monospace;
+    font-size: 12px;
     color: var(--text);
 }
 
-.sensor-table tr:hover td { background: var(--card-bg); }
+.dv-row-desc {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
-.tbl-val {
+.dv-row-chart {
+    flex: 1;
+    height: 32px;
+    min-width: 80px;
+    position: relative;
+}
+
+.dv-row-chart canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+}
+
+.dv-row-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 150px;
+    justify-content: flex-end;
+}
+
+.dv-row-value {
     font-family: monospace;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
+    min-width: 72px;
     text-align: right;
 }
 
-.tbl-val.stale { color: var(--status-stale); opacity: 0.6; }
+.dv-row-value.stale { color: var(--status-stale); opacity: 0.6; }
+
+.dv-row-units {
+    font-size: 11px;
+    color: var(--muted);
+    min-width: 28px;
+}
+
+.dv-row-input {
+    width: 76px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    text-align: right;
+}
+
+.dv-row-input:focus { outline: none; border-color: var(--accent); }
+.dv-row-input.input-error { border-color: var(--color-ignition); }
+
+.dv-row .tab-close { color: transparent; }
+.dv-row:hover .tab-close { color: var(--muted); }
 
 .mono  { font-family: monospace; }
 .muted { color: var(--muted); }

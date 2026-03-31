@@ -78,6 +78,7 @@ function sendCommand(refDes, value) {
 function applyConfig(msg) {
     configControls = msg.controls ?? [];
     configApplied  = true;
+    if (msg.broadcastRateHz) setLiveUpdateRate(msg.broadcastRateHz);
     for (const tab of tabs) {
         if (tab.type === 'dataView') rebuildDataView(tab);
     }
