@@ -26,9 +26,8 @@ type Server struct {
 	fileServer http.Handler
 }
 
-// New creates a Server.  webRoot is the directory containing index.html and
-// other static assets; pass an empty string to fall back to embedded.
-// embedded is the fallback fs.FS used when webRoot is empty (pass nil to disable static serving).
+// New creates a Server. Pass an empty webRoot to serve from embedded instead.
+// Pass embedded=nil to disable static file serving entirely.
 func New(port int, configJSON string, b *broker.Broker, webRoot string, embedded fs.FS) *Server {
 	var fsh http.Handler
 	if webRoot != "" {

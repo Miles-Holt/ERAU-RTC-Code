@@ -14,6 +14,12 @@ function rebuildDataView(tab) {
     if (!tab.dvBuffers) tab.dvBuffers = {};
     if (!tab.dvCharts)  tab.dvCharts  = {};
 
+    // Destroy existing Chart.js instances before wiping the DOM
+    for (const refDes of Object.keys(tab.dvCharts)) {
+        tab.dvCharts[refDes].destroy();
+    }
+    tab.dvCharts = {};
+
     tab.contentEl.innerHTML = '';
     tab.contentEl.classList.add('tab-content--fixed');
     tab.channelUpdaters = {};
@@ -37,11 +43,11 @@ function rebuildDataView(tab) {
     tab.contentEl.appendChild(rowsEl);
     tab._dvRowsEl = rowsEl;
 
-    // Re-render any rows that survived a config reload
-    // Filter out refDes that no longer exist in the new config
-    tab.dvRows = tab.dvRows.filter(r => _dvFindChannel(r) !== null);
-    for (const refDes of [...tab.dvRows]) {
-        tab.dvRows.splice(tab.dvRows.indexOf(refDes), 1); // addDvRow will re-push
+    // Re-render rows that survived a config reload; drop any whose refDes
+    // no longer exists in the new config.
+    const validRows = tab.dvRows.filter(r => _dvFindChannel(r) !== null);
+    tab.dvRows = [];
+    for (const refDes of validRows) {
         _addDvRow(tab, refDes);
     }
 
@@ -56,20 +62,14 @@ function _renderDvSearchDropdown(tab, input) {
     const dropdown = mkEl('div', 'graph-dropdown');
     document.body.appendChild(dropdown);
 
-    let dropdownOpen = false;
-
-    const closeDropdown = () => {
-        dropdown.style.display = 'none';
-        dropdownOpen = false;
-    };
+    const closeDropdown = () => { dropdown.style.display = 'none'; };
 
     const openDropdown = () => {
         const rect = input.getBoundingClientRect();
-        dropdown.style.top    = `${rect.bottom + window.scrollY + 2}px`;
-        dropdown.style.left   = `${rect.left   + window.scrollX}px`;
-        dropdown.style.width  = `${rect.width}px`;
+        dropdown.style.top   = `${rect.bottom + window.scrollY + 2}px`;
+        dropdown.style.left  = `${rect.left   + window.scrollX}px`;
+        dropdown.style.width = `${rect.width}px`;
         dropdown.style.display = '';
-        dropdownOpen = true;
     };
 
     const populateDropdown = debounce(() => {
@@ -112,14 +112,15 @@ function _renderDvSearchDropdown(tab, input) {
     input.addEventListener('focus', populateDropdown);
     input.addEventListener('blur', () => setTimeout(closeDropdown, 150));
 
-    // Clean up dropdown when tab is destroyed (contentEl replaced)
+    // Remove the body-appended dropdown when this tab's content is replaced.
+    // Observe only tab.contentEl (not the whole body) to keep the callback cheap.
     const observer = new MutationObserver(() => {
-        if (!document.body.contains(input)) {
+        if (!tab.contentEl.contains(input)) {
             dropdown.remove();
             observer.disconnect();
         }
     });
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(tab.contentEl, { childList: true });
 }
 
 // ---------------------------------------------------------------------------
@@ -141,8 +142,6 @@ function _addDvRow(tab, refDes) {
     const { ctrl, ch } = found;
 
     tab.dvRows.push(refDes);
-
-    // Init buffer (reset on config reload)
     tab.dvBuffers[refDes] = { ts: [], vals: [] };
 
     const rowEl = _buildDvRowEl(tab, ctrl, ch);
@@ -167,41 +166,35 @@ function _removeDvRow(tab, refDes, rowEl) {
 // ---------------------------------------------------------------------------
 
 function _buildDvRowEl(tab, ctrl, ch) {
-    const color = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6e7681';
+    const color  = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6e7681';
     const refDes = ch.refDes;
     const cmd    = isCmd(ch);
 
     const row = mkEl('div', 'dv-row');
     row.dataset.refdes = refDes;
 
-    // --- LED ---
     const led = mkEl('div', 'dv-led dv-led-stale');
     row.appendChild(led);
 
-    // --- Left: refDes + description ---
     const left = mkEl('div', 'dv-row-left');
     left.appendChild(mkEl('span', 'dv-row-refdes', refDes));
     left.appendChild(mkEl('span', 'dv-row-desc',   ctrl.description || ''));
     row.appendChild(left);
 
-    // --- Middle: sparkline ---
     const chartWrap = mkEl('div', 'dv-row-chart');
     const canvas    = document.createElement('canvas');
     chartWrap.appendChild(canvas);
     row.appendChild(chartWrap);
 
-    // --- Right: value or command widget ---
     const right = mkEl('div', 'dv-row-right');
-
-    let valEl   = null;
-    let inputEl = null;
+    let valEl = null;
 
     if (cmd) {
-        inputEl = document.createElement('input');
-        inputEl.type      = 'number';
-        inputEl.className = 'dv-row-input';
+        const inputEl = document.createElement('input');
+        inputEl.type        = 'number';
+        inputEl.className   = 'dv-row-input';
         inputEl.placeholder = ch.role === 'cmd-bool' ? '0 / 1' : '—';
-        inputEl.step = ch.role === 'cmd-bool' ? '1' : 'any';
+        inputEl.step        = ch.role === 'cmd-bool' ? '1' : 'any';
 
         const sendBtn = mkEl('button', 'btn', 'Send');
         const unitsEl = mkEl('span', 'dv-row-units', ch.units || '');
@@ -225,38 +218,30 @@ function _buildDvRowEl(tab, ctrl, ch) {
 
         sendBtn.addEventListener('click', doSend);
         inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSend(); });
-        inputEl.addEventListener('input', () => {
-            inputEl.classList.remove('input-error');
-            inputEl.title = '';
-        });
+        inputEl.addEventListener('input',   () => { inputEl.classList.remove('input-error'); inputEl.title = ''; });
 
         right.appendChild(inputEl);
         right.appendChild(sendBtn);
         right.appendChild(unitsEl);
     } else {
         valEl = mkEl('span', 'dv-row-value stale', '--');
-        const unitsEl = mkEl('span', 'dv-row-units', ch.units || '');
         right.appendChild(valEl);
-        right.appendChild(unitsEl);
+        right.appendChild(mkEl('span', 'dv-row-units', ch.units || ''));
     }
 
     row.appendChild(right);
 
-    // --- Close button ---
     const closeBtn = document.createElement('button');
-    closeBtn.className = 'tab-close';
+    closeBtn.className   = 'tab-close';
     closeBtn.textContent = '✕';
-    closeBtn.title = 'Remove row';
+    closeBtn.title       = 'Remove row';
     closeBtn.addEventListener('click', () => _removeDvRow(tab, refDes, row));
     row.appendChild(closeBtn);
 
-    // --- Sparkline chart ---
-    // Defer until canvas is in DOM so Chart.js can measure it
     requestAnimationFrame(() => {
         tab.dvCharts[refDes] = _createDvSparkline(canvas, color);
     });
 
-    // --- Channel updater ---
     let staleTimer = null;
     tab.channelUpdaters[refDes] = (v) => {
         const now    = Date.now() / 1000;
@@ -283,17 +268,17 @@ function _buildDvRowEl(tab, ctrl, ch) {
 // Sparkline chart
 // ---------------------------------------------------------------------------
 
-function _createDvSparkline(canvas, color) { // color resolved from --muted at row build time
+function _createDvSparkline(canvas, color) {
     return new Chart(canvas, {
         type: 'line',
         data: {
             datasets: [{
-                data:            [],
-                borderColor:     color,
-                borderWidth:     1.5,
-                fill:            false,
-                pointRadius:     0,
-                tension:         0,
+                data:        [],
+                borderColor: color,
+                borderWidth: 1.5,
+                fill:        false,
+                pointRadius: 0,
+                tension:     0,
             }]
         },
         options: {
@@ -315,7 +300,7 @@ function _createDvSparkline(canvas, color) { // color resolved from --muted at r
 }
 
 // ---------------------------------------------------------------------------
-// Update loop — called every 500 ms from app.js
+// Update loop — called by app.js at broadcastRateHz
 // ---------------------------------------------------------------------------
 
 function updateAllDataViews() {
