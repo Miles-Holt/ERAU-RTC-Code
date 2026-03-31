@@ -80,9 +80,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("build DAQ node config JSON for %s: %v", node.RefDes, err)
 		}
-		if node.RefDes == "DAQ001" {
-			log.Printf("[DEBUG] daqnode %s config: %s", node.RefDes, nodeConfigJSON)
-		}
+
 client := daqnode.New(node.RefDes, node.IP, node.WSPort, nodeConfigJSON, b)
 		go client.Run()
 		log.Printf("daqnode %s: client started → ws://%s:%d", node.RefDes, node.IP, node.WSPort)

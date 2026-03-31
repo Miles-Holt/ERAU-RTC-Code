@@ -95,8 +95,8 @@ function refreshDevTabs() {
     const stateStr  = ws ? (['CONNECTING','OPEN','CLOSING','CLOSED'][ws.readyState] ?? '--') : 'CLOSED';
     const uptime    = devStats.connectedAt ? Math.floor((Date.now() - devStats.connectedAt) / 1000) : null;
     const uptimeStr = uptime !== null ? fmtUptime(uptime) : '--';
-    const rate      = ((devStats.msgCount - devStats.lastWindowCount) / 2).toFixed(1);
-    devStats.lastWindowCount = devStats.msgCount;
+    const rate      = ((devStats.msgCount - devStats.lastMsgCount) / 2).toFixed(1);
+    devStats.lastMsgCount = devStats.msgCount;
 
     for (const tab of devTabs) {
         const e = tab._devEls;
