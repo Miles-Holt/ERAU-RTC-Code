@@ -20,8 +20,10 @@ type SystemConfig struct {
 }
 
 type Network struct {
-	WebSocketPort   int `xml:"webSocketPort"`
-	BroadcastRateHz int `xml:"broadcastRateHz"`
+	WebSocketPort        int `xml:"webSocketPort"`
+	BroadcastRateHz      int `xml:"broadcastRateHz"`
+	ManagementRateHz     int `xml:"connectionManagementRateHz"`
+	ConnectionHysteresis int `xml:"lostConnectionHysteresisCount"`
 }
 
 type CtrNodeDef struct {
@@ -247,10 +249,12 @@ func BuildWebClientConfigJSON(cfg *SystemConfig) (string, error) {
 
 // daqNodeConfigMsg is the JSON sent to a DAQ node after it requests config.
 type daqNodeConfigMsg struct {
-	Type         string           `json:"type"`
-	RefDes       string           `json:"refDes"`
-	SampleRateHz int              `json:"sampleRateHz"`
-	Channels     []daqNodeChannel `json:"channels"`
+	Type                 string           `json:"type"`
+	RefDes               string           `json:"refDes"`
+	SampleRateHz         int              `json:"sampleRateHz"`
+	ManagementRateHz     int              `json:"managementRateHz"`
+	ConnectionHysteresis int              `json:"connectionHysteresis"`
+	Channels             []daqNodeChannel `json:"channels"`
 }
 
 type daqNodeChannel struct {
@@ -280,10 +284,12 @@ func BuildDaqNodeConfigJSON(cfg *SystemConfig, daqRefDes string, sampleRateHz in
 	}
 
 	msg := daqNodeConfigMsg{
-		Type:         "config",
-		RefDes:       daqRefDes,
-		SampleRateHz: sampleRateHz,
-		Channels:     channels,
+		Type:                 "config",
+		RefDes:               daqRefDes,
+		SampleRateHz:         sampleRateHz,
+		ManagementRateHz:     cfg.Network.ManagementRateHz,
+		ConnectionHysteresis: cfg.Network.ConnectionHysteresis,
+		Channels:             channels,
 	}
 	b, err := json.Marshal(msg)
 	if err != nil {
