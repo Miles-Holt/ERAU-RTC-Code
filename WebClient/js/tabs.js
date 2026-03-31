@@ -10,11 +10,6 @@ const TAB_TYPE_LABELS = {
     console:    'Console'
 };
 
-function saveTabLayout() {
-    const layout = tabs.map(t => ({ type: t.type, name: t.name }));
-    try { localStorage.setItem('rtc-tab-layout', JSON.stringify(layout)); } catch {}
-}
-
 function nextTabName(type) {
     tabCounts[type] = (tabCounts[type] || 0) + 1;
     const n = tabCounts[type];
@@ -33,7 +28,6 @@ function addTab(type = 'frontPanel') {
     buildTabContent(tab);
     renderTabBar();
     activateTab(id);
-    saveTabLayout();
     return tab;
 }
 
@@ -66,7 +60,6 @@ function removeTab(id) {
     renderTabBar();
     if (next) activateTab(next);
     else      addTab('frontPanel');
-    saveTabLayout();
 }
 
 function changeTabType(id, newType) {
@@ -81,7 +74,6 @@ function changeTabType(id, newType) {
     tab.name = nextTabName(newType);
     buildTabContent(tab);
     renderTabBar();
-    saveTabLayout();
 }
 
 function activateTab(id) {
@@ -139,7 +131,7 @@ function startRename(tab, nameEl) {
     inp.value = tab.name;
     nameEl.replaceWith(inp);
     inp.focus(); inp.select();
-    const commit = () => { tab.name = inp.value.trim() || tab.name; renderTabBar(); saveTabLayout(); };
+    const commit = () => { tab.name = inp.value.trim() || tab.name; renderTabBar(); };
     inp.addEventListener('blur', commit);
     inp.addEventListener('keydown', (e) => {
         if (e.key === 'Enter')  inp.blur();

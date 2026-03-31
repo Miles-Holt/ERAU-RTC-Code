@@ -1032,27 +1032,58 @@ header h1 {
     display: flex;
     flex-direction: column;
     height: 100%;
-    gap: 8px;
+    gap: 6px;
 }
 
 .console-toolbar {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     flex-shrink: 0;
     flex-wrap: wrap;
 }
 
-.console-chk { cursor: pointer; accent-color: var(--accent); }
+.console-toolbar-row2 { gap: 10px; }
 
 .console-lbl {
-    display: flex;
-    align-items: center;
-    gap: 6px;
     font-size: 12px;
     color: var(--muted);
-    cursor: pointer;
+    flex-shrink: 0;
 }
+
+/* Toggle filter buttons (Dir / Type) */
+.console-filter-btn {
+    padding: 2px 8px;
+    font-size: 11px;
+    font-family: monospace;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.console-filter-btn.console-filter-active {
+    background: var(--border);
+    color: var(--text);
+    border-color: var(--muted);
+}
+
+/* Free-text / regex search */
+.console-search {
+    flex: 1;
+    min-width: 140px;
+    padding: 3px 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 12px;
+    font-family: monospace;
+}
+
+.console-search:focus { outline: none; border-color: var(--accent); }
 
 .console-buf-input {
     width: 64px;
@@ -1065,7 +1096,7 @@ header h1 {
     text-align: center;
 }
 
-.console-clear { flex-shrink: 0; }
+.console-clear { flex-shrink: 0; margin-left: auto; }
 
 .console-log {
     flex: 1;
