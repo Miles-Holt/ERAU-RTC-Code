@@ -1,3 +1,23 @@
+# controlNode TODO
+
+## Open
+
+### documentation
+- [ ] **controlNode -> daqNode JSON messages** - no documenation currently exists for what the controlNodes sends to the daqNode
+
+### console
+- [ ] **Clean up** remove "trying in 2s" from the console log while waiting for a connection
+- [ ] **Future proof** make the re-try for connect a list of nodes that are the control node is attempting to connect to. Provides future proof against lots of nodes congesting the console log.
+
+### dataHealth
+- [ ] **Bad data detection** — define "bad data" criteria (out-of-range, sensor fault flag) based on the channel definition in the config file. send message to websocket when data becomes "bad" (ex. a 4-20mA sensor reading 1mA, should be possible to calculate this if the sensor goes outside the bounds. might have to add more settings to the config file)
+
+### configFile
+- [ ] **quality of life** - remove the unused sections from the configuration file
+
+### commandability
+- [ ] **Autosequence and Aborts** - add a websocket message that send the array requried for auto sequence or aborts. make a method to edit, upload, and send the config through the webclient. configs should be YAML based but convert to JSON when going through the webClient, controlNode, and arriving at the daqNode.
+
 # WebClient TODO
 
 See `CONTEXT.md` for full project/architecture context.
@@ -12,7 +32,7 @@ See `CONTEXT.md` for full project/architecture context.
 ---
 
 ### Tab System
-- [ ] **Tab persistence** — currently resets to one Front Panel tab on every page load; consider saving tab layout (type + name) to `localStorage` so the workspace is restored on reload
+- [ ] **Tab persistence** — remove tab persistance on page refresh. current tab persistance is breaking the formatting of the tabs
 
 ---
 
@@ -24,7 +44,6 @@ See `CONTEXT.md` for full project/architecture context.
 ---
 
 ### Channel List Tab
-- [x] **complete restructure** — regex search bar adds individual channel rows; each row shows a status LED, refDes + description (left), 15 s sparkline (center), and value readout or numeric command input (right)
 - [ ] **Bad data detection** — define "bad data" criteria (out-of-range, sensor fault flag, etc.) and wire up `.dv-led-bad` (red LED) state on channel rows
 
 ---
@@ -51,6 +70,7 @@ See `CONTEXT.md` for full project/architecture context.
 ---
 
 ## Done
+- [x] **complete restructure** — regex search bar adds individual channel rows; each row shows a status LED, refDes + description (left), 15 s sparkline (center), and value readout or numeric command input (right)
 - [x] **Offline Chart.js** — `chart.umd.min.js` bundled locally in `WebClient/js/`; no CDN dependency
 - [x] **Fix graph grid** — canvas height now renders correctly; `maintainAspectRatio: false` + explicit flex constraints on `.graph-canvas` and `.graph-cell`
 - [x] **Channel roles in XML** — added explicit `<role>` nodes to all `<channel>` elements in `nodeConfigs_0.0.2.xml`; cmd-bool assigned to all command channels; sensor assigned to all read-only channels
