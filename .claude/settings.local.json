@@ -18,7 +18,8 @@
       "Bash(go build:*)",
       "Bash(timeout 3 ./controlnode.exe)",
       "Bash(find c:UsersmilesmyrepoERAU-RTC_Code -name *.xml -o -name *.json)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(grep -E \"\\\\.\\(js|html\\)$\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\miles\\myrepo\\ERAM-RTC_Code"
