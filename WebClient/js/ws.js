@@ -31,9 +31,10 @@ function onMessage(event) {
     logConsole('in', msg);
 
     switch (msg.type) {
-        case 'config': applyConfig(msg); break;
-        case 'data':   applyData(msg);   break;
-        default:       console.warn('Unknown message type:', msg.type);
+        case 'config':        applyConfig(msg);        break;
+        case 'data':          applyData(msg);           break;
+        case 'auth_response': handleAuthResponse(msg); break;
+        default:              console.warn('Unknown message type:', msg.type);
     }
 }
 
@@ -42,6 +43,9 @@ function onClose() {
     markStale();
     devStats.connectedAt = null;
     setStatus('disconnected', 'Disconnected');
+    operatorName = '';
+    updateOperatorButton();
+    updateCommandWidgets();
     scheduleReconnect();
 }
 

@@ -86,8 +86,15 @@ client := daqnode.New(node.RefDes, node.IP, node.WSPort, nodeConfigJSON, b)
 		log.Printf("daqnode %s: client started → ws://%s:%d", node.RefDes, node.IP, node.WSPort)
 	}
 
+	// ── Load user auth config ─────────────────────────────────────────────
+	authCfg, err := webclient.LoadUserAuth("userAuth.yaml")
+	if err != nil {
+		log.Printf("webclient: userAuth.yaml not loaded, auth disabled: %v", err)
+		authCfg = nil
+	}
+
 	// ── Web client WebSocket server (blocks forever) ──────────────────────
-	srv := webclient.New(cfg.Network.WebSocketPort, wcConfigJSON, b, *webRoot, embeddedSub)
+	srv := webclient.New(cfg.Network.WebSocketPort, wcConfigJSON, b, *webRoot, embeddedSub, authCfg)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("webclient server: %v", err)
 	}

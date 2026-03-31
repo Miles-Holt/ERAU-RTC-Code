@@ -24,11 +24,13 @@ type Server struct {
 	configJSON []byte
 	b          *broker.Broker
 	fileServer http.Handler
+	userAuth   *UserAuthConfig
 }
 
 // New creates a Server. Pass an empty webRoot to serve from embedded instead.
 // Pass embedded=nil to disable static file serving entirely.
-func New(port int, configJSON string, b *broker.Broker, webRoot string, embedded fs.FS) *Server {
+// Pass userAuth=nil to disable authentication (all connections approved).
+func New(port int, configJSON string, b *broker.Broker, webRoot string, embedded fs.FS, userAuth *UserAuthConfig) *Server {
 	var fsh http.Handler
 	if webRoot != "" {
 		fsh = http.FileServer(http.Dir(webRoot))
@@ -40,6 +42,7 @@ func New(port int, configJSON string, b *broker.Broker, webRoot string, embedded
 		configJSON: []byte(configJSON),
 		b:          b,
 		fileServer: fsh,
+		userAuth:   userAuth,
 	}
 }
 
@@ -86,41 +89,94 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	broadcastCh, unsub := s.b.Subscribe()
 	defer unsub()
 
+	var authorized bool
+	authRespCh := make(chan []byte, 4)
 	errCh := make(chan error, 2)
-	go s.readLoop(conn, r.RemoteAddr, errCh)
-	go s.writeLoop(conn, r.RemoteAddr, broadcastCh, errCh)
+
+	go s.readLoop(conn, r.RemoteAddr, &authorized, authRespCh, errCh)
+	go s.writeLoop(conn, r.RemoteAddr, broadcastCh, authRespCh, errCh)
 
 	err = <-errCh
 	log.Printf("webclient: disconnected %s: %v", r.RemoteAddr, err)
 }
 
-// readLoop reads cmd messages from the browser and forwards them to the broker.
-func (s *Server) readLoop(conn *websocket.Conn, addr string, errCh chan<- error) {
+// readLoop reads messages from the browser, handling auth_request and cmd types.
+func (s *Server) readLoop(conn *websocket.Conn, addr string,
+	authorized *bool, authRespCh chan<- []byte, errCh chan<- error) {
 	for {
 		_, raw, err := conn.ReadMessage()
 		if err != nil {
 			errCh <- fmt.Errorf("read: %w", err)
 			return
 		}
-		var cmd broker.CmdMsg
-		if err := json.Unmarshal(raw, &cmd); err != nil {
+
+		var peek struct {
+			Type string `json:"type"`
+		}
+		if err := json.Unmarshal(raw, &peek); err != nil {
 			log.Printf("webclient %s: bad JSON: %v", addr, err)
 			continue
 		}
-		if cmd.Type != "cmd" {
-			log.Printf("webclient %s: unexpected message type %q", addr, cmd.Type)
-			continue
+
+		switch peek.Type {
+		case "auth_request":
+			var req authRequestMsg
+			if err := json.Unmarshal(raw, &req); err != nil {
+				log.Printf("webclient %s: bad auth_request: %v", addr, err)
+				continue
+			}
+			resp := s.handleAuth(addr, req, authorized)
+			b, _ := json.Marshal(resp)
+			authRespCh <- b
+
+		case "cmd":
+			if !*authorized {
+				log.Printf("webclient %s: rejected cmd from unauthorized client", addr)
+				continue
+			}
+			var cmd broker.CmdMsg
+			if err := json.Unmarshal(raw, &cmd); err != nil {
+				log.Printf("webclient %s: bad cmd JSON: %v", addr, err)
+				continue
+			}
+			s.b.SendCmd(cmd)
+
+		default:
+			log.Printf("webclient %s: unexpected message type %q", addr, peek.Type)
 		}
-		s.b.SendCmd(cmd)
 	}
 }
 
-// writeLoop forwards broker broadcasts to this browser connection.
-func (s *Server) writeLoop(conn *websocket.Conn, addr string, ch <-chan []byte, errCh chan<- error) {
-	for msg := range ch {
-		if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
-			errCh <- fmt.Errorf("write: %w", err)
-			return
+// handleAuth validates an auth_request and updates the authorized flag.
+func (s *Server) handleAuth(addr string, req authRequestMsg, authorized *bool) authResponseMsg {
+	if s.userAuth == nil || s.userAuth.Validate(req.Name, req.PIN) {
+		*authorized = true
+		log.Printf("webclient %s: authenticated as %q", addr, req.Name)
+		return authResponseMsg{Type: "auth_response", Approved: true, Name: req.Name}
+	}
+	log.Printf("webclient %s: auth failed for %q", addr, req.Name)
+	return authResponseMsg{Type: "auth_response", Approved: false, Reason: "Invalid credentials"}
+}
+
+// writeLoop forwards broker broadcasts and auth responses to this browser connection.
+func (s *Server) writeLoop(conn *websocket.Conn, addr string,
+	broadcastCh <-chan []byte, authRespCh <-chan []byte, errCh chan<- error) {
+	for {
+		select {
+		case msg, ok := <-broadcastCh:
+			if !ok {
+				errCh <- fmt.Errorf("broadcast channel closed")
+				return
+			}
+			if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+				errCh <- fmt.Errorf("write: %w", err)
+				return
+			}
+		case msg := <-authRespCh:
+			if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+				errCh <- fmt.Errorf("write auth: %w", err)
+				return
+			}
 		}
 	}
 }
