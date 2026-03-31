@@ -26,9 +26,15 @@ See `CONTEXT.md` for full project/architecture context.
 
 ## Open
 
+### Auth
+- [ ] **Auth rejects incorrect logins** — login is not currently validated against the auth YAML; incorrect credentials are accepted without rejection
+
 ### Front Panel Tab
 - [ ] **P&ID background** — load a P&ID image or SVG as the canvas background; support multiple P&ID views selectable per tab (e.g. LOX panel, fuel panel, engine)
-- [ ] **Front panel objects (extended set)** — add valve symbol, tank level, and pipe segment object types to the P&ID editor; each commandable object bound to one or more `refDes` channels
+- [ ] **Redo edit mode entry** — rethink how the user enters edit mode; current UX is not acceptable
+- [ ] **Pipe colors** — add color support to pipe/connection segments on the P&ID canvas
+- [ ] **Objects reference controls, not channels** — P&ID objects should bind to a control's `refDes` (all channels under that valve/control are implicitly included), not individual channels
+- [ ] **Rework sensor P&ID object** — current sensor object design is not working well; needs a full rethink
 
 ---
 
