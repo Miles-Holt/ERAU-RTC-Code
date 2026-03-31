@@ -242,6 +242,10 @@ function _buildDvRowEl(tab, ctrl, ch) {
         tab.dvCharts[refDes] = _createDvSparkline(canvas, color);
     });
 
+    // Pull valid range from the channel config (null means no limit).
+    const vMin = ch.validMin ?? null;
+    const vMax = ch.validMax ?? null;
+
     let staleTimer = null;
     tab.channelUpdaters[refDes] = (v) => {
         const now    = Date.now() / 1000;
@@ -251,14 +255,22 @@ function _buildDvRowEl(tab, ctrl, ch) {
         buf.vals.push(v);
         while (buf.ts.length && buf.ts[0] < cutoff) { buf.ts.shift(); buf.vals.shift(); }
 
+        const bad = typeof v === 'number' &&
+            ((vMin !== null && v < vMin) || (vMax !== null && v > vMax));
+
         if (valEl) {
             valEl.textContent = typeof v === 'number' ? v.toFixed(2) : String(v);
             valEl.classList.remove('stale');
+            valEl.classList.toggle('bad', bad);
         }
 
-        led.className = 'dv-led dv-led-online';
+        led.className = bad ? 'dv-led dv-led-bad' : 'dv-led dv-led-online';
         clearTimeout(staleTimer);
-        staleTimer = setTimeout(() => { led.className = 'dv-led dv-led-stale'; }, DV_STALE_MS);
+        staleTimer = setTimeout(() => {
+            led.className = 'dv-led dv-led-stale';
+            valEl?.classList.remove('bad');
+            valEl?.classList.add('stale');
+        }, DV_STALE_MS);
     };
 
     return row;

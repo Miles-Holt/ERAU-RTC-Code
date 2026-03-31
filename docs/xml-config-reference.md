@@ -379,6 +379,22 @@ Each `<channel>` inside a `<channels>` block:
 | `<moduleModelNumber>` | Yes | NI module name (e.g. `Thermocouple`, `Analog-Input`, `Digital-IO`) |
 | `<channelNumber>` | Yes | Module-relative channel identifier (e.g. `ai02`, `/port3/line0`) |
 | `<daqMx>` | Yes | DAQmx task configuration — see type-specific fields above |
+| `<validMin>` | No | Lower bound in engineering units. Values below this threshold are flagged as bad data in the WebClient (red LED + red value text). Omit or leave empty to disable the lower bound check. |
+| `<validMax>` | No | Upper bound in engineering units. Values above this threshold are flagged as bad data. Omit or leave empty to disable the upper bound check. |
+
+**Bad data detection example** — flag a 4–20 mA pressure transducer as bad when the converted output falls below 0 psi (sensor wire fault) or above 1500 psi (over-range):
+
+```xml
+<channel>
+    <refDes>OPT-01</refDes>
+    <role>sensor</role>
+    ...
+    <validMin>0</validMin>
+    <validMax>1500</validMax>
+</channel>
+```
+
+The control node passes `validMin` and `validMax` to the browser as part of the `config` message. The Channel List tab's LED turns red and the value text turns red when a live reading falls outside the configured range. If no data has been received recently the LED turns amber (stale) regardless of range.
 
 ---
 

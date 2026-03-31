@@ -7,6 +7,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -97,6 +98,10 @@ type Channel struct {
 	ModuleModelNumber string `xml:"moduleModelNumber"`
 	ChannelNumber     string `xml:"channelNumber"`
 	DaqMx             DaqMx  `xml:"daqMx"`
+	// Optional engineering-unit bounds for bad-data detection.
+	// Leave empty to disable range checking for this channel.
+	ValidMin string `xml:"validMin"`
+	ValidMax string `xml:"validMax"`
 }
 
 // DaqMx holds all possible daqMx child elements; unused fields stay empty.
@@ -189,9 +194,25 @@ type webclientControl struct {
 }
 
 type webclientChannel struct {
-	RefDes string `json:"refDes"`
-	Role   string `json:"role"`
-	Units  string `json:"units"`
+	RefDes   string   `json:"refDes"`
+	Role     string   `json:"role"`
+	Units    string   `json:"units"`
+	ValidMin *float64 `json:"validMin"` // null if not configured
+	ValidMax *float64 `json:"validMax"` // null if not configured
+}
+
+// parseOptFloat parses an optional float string from XML.
+// Returns nil if the string is empty or cannot be parsed.
+func parseOptFloat(s string) *float64 {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return nil
+	}
+	return &f
 }
 
 // BuildWebClientConfigJSON returns the JSON string sent to browsers on connect.
@@ -207,9 +228,11 @@ func BuildWebClientConfigJSON(cfg *SystemConfig) (string, error) {
 		var channels []webclientChannel
 		for _, ch := range ctrl.Channels {
 			channels = append(channels, webclientChannel{
-				RefDes: strings.TrimSpace(ch.RefDes),
-				Role:   strings.TrimSpace(ch.Role),
-				Units:  strings.TrimSpace(ch.DaqMx.Units),
+				RefDes:   strings.TrimSpace(ch.RefDes),
+				Role:     strings.TrimSpace(ch.Role),
+				Units:    strings.TrimSpace(ch.DaqMx.Units),
+				ValidMin: parseOptFloat(ch.ValidMin),
+				ValidMax: parseOptFloat(ch.ValidMax),
 			})
 		}
 		controls = append(controls, webclientControl{

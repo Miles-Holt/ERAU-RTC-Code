@@ -726,6 +726,7 @@ header h1 {
 }
 
 .dv-row-value.stale { color: var(--status-stale); opacity: 0.6; }
+.dv-row-value.bad   { color: var(--color-ignition); }
 
 .dv-row-units {
     font-size: 11px;
