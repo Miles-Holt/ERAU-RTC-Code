@@ -61,11 +61,11 @@ function buildDevContent(tab) {
                     <table class="dev-table">
                         <tr>
                             <td>WebSocket</td>
-                            <td><button class="dev-reconnect-btn">Force reconnect</button></td>
+                            <td><button class="btn dev-reconnect-btn">Force reconnect</button></td>
                         </tr>
                         <tr>
                             <td>Simulation</td>
-                            <td><button class="dev-sim-toggle-btn">${simActive ? 'Stop Sim' : 'Start Sim'}</button></td>
+                            <td><button class="btn dev-sim-toggle-btn">${simActive ? 'Stop Sim' : 'Start Sim'}</button></td>
                         </tr>
                     </table>
                 </div>

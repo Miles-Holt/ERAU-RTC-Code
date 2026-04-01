@@ -35,6 +35,7 @@ function onMessage(event) {
         case 'data':              applyData(msg);      break;
         case 'pid_layout': applyPidLayout(msg);         break;
         case 'auth_response': handleAuthResponse(msg); break;
+        case 'err':               handleDaqError(msg);      break;
         default:                  console.warn('Unknown message type:', msg.type);
     }
 }
@@ -121,6 +122,11 @@ function resetStalenessTimer() {
 function markStale() {
     document.querySelectorAll('.value, .fb-label, .pid-sensor-value').forEach(el => el.classList.add('stale'));
     setStatus('stale', 'Data stale');
+}
+
+function handleDaqError(msg) {
+    const ts = msg.t ? new Date(msg.t * 1000).toISOString() : '?';
+    console.error(`[${ts}] DAQ error from ${msg.daqNode}: ${msg.err}`);
 }
 
 function applyPidLayout(msg) {

@@ -26,6 +26,10 @@ See `CONTEXT.md` for full project/architecture context.
 
 ## Open
 
+### General
+- [x] **make light mode button**
+- [ ] **make dark mode text lighter**
+
 ### Auth
 - [ ] **Auth rejects incorrect logins** — login is not currently validated against the auth YAML; incorrect credentials are accepted without rejection
 

@@ -201,6 +201,19 @@ function pidRoundedPath(pts, r) {
 // Main routing entry point.
 // Tries direct and shifted Z/U-shape candidates; first clear one wins.
 // Returns { d: svgPathString, error: string|null }.
+// Checks a candidate path with per-segment obstacle exclusions:
+//   • first segment  (stub from FROM): FROM sensor not an obstacle
+//   • last segment   (stub into TO):   TO sensor not an obstacle
+//   • all middle segments:             every sensor is an obstacle
+function pidCandidateClear(pts, noFromRects, noToRects, allRects) {
+    const last = pts.length - 2; // index of last segment
+    for (let i = 0; i <= last; i++) {
+        const rects = i === 0 ? noFromRects : i === last ? noToRects : allRects;
+        if (!pidSegClear(pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y, rects)) return false;
+    }
+    return true;
+}
+
 function orthRouteAvoiding(p1, d1, p2, d2, objects, fromId, toId) {
     function ext(p, d, dist) {
         if (d === 'top')    return { x: p.x,        y: p.y - dist };
@@ -210,31 +223,73 @@ function orthRouteAvoiding(p1, d1, p2, d2, objects, fromId, toId) {
     }
     const G = PID.GRID, S = PID.STUB, R = PID.CORNER_R;
     const s1 = ext(p1, d1, S), s2 = ext(p2, d2, S);
-    const rects = pidObstacleRects(objects, new Set([fromId, toId]));
+
+    // Three rect sets: stubs only exclude their own endpoint sensor;
+    // middle segments see every sensor as an obstacle.
+    const allRects     = pidObstacleRects(objects, new Set());
+    const noFromRects  = pidObstacleRects(objects, new Set([fromId]));
+    const noToRects    = pidObstacleRects(objects, new Set([toId]));
+
+    // Rejects a Z-shape midY that would force a 180° reversal at s1 or s2.
+    // (SVG y increases downward.)
+    function zOk(my) {
+        if (d1 === 'bottom' && my < s1.y) return false;
+        if (d1 === 'top'    && my > s1.y) return false;
+        if (d2 === 'bottom' && my < s2.y) return false;
+        if (d2 === 'top'    && my > s2.y) return false;
+        return true;
+    }
+    // Rejects a U-shape midX that would force a 180° reversal at s1 or s2.
+    function uOk(mx) {
+        if (d1 === 'right' && mx < s1.x) return false;
+        if (d1 === 'left'  && mx > s1.x) return false;
+        if (d2 === 'right' && mx < s2.x) return false;
+        if (d2 === 'left'  && mx > s2.x) return false;
+        return true;
+    }
 
     const offsets = [0, G, -G, 2*G, -2*G, 3*G, -3*G, 4*G, -4*G, 6*G, -6*G, 8*G, -8*G, 10*G, -10*G];
 
-    // Direct: stubs already aligned
+    // Direct: stubs already aligned — no reversal possible
     if (Math.abs(s1.x - s2.x) < 1 || Math.abs(s1.y - s2.y) < 1) {
         const pts = [p1, s1, s2, p2];
-        if (pidPathClear(pts, rects)) return { d: pidRoundedPath(pts, R), error: null };
+        if (pidCandidateClear(pts, noFromRects, noToRects, allRects))
+            return { d: pidRoundedPath(pts, R), error: null };
     }
 
     for (const off of offsets) {
         // Z-shape: horizontal crossover at y = midY
         const my = Math.round((s1.y + s2.y) / 2 / G) * G + off;
-        const zPts = [p1, s1, { x: s1.x, y: my }, { x: s2.x, y: my }, s2, p2];
-        if (pidPathClear(zPts, rects)) return { d: pidRoundedPath(zPts, R), error: null };
+        if (zOk(my)) {
+            const zPts = [p1, s1, { x: s1.x, y: my }, { x: s2.x, y: my }, s2, p2];
+            if (pidCandidateClear(zPts, noFromRects, noToRects, allRects))
+                return { d: pidRoundedPath(zPts, R), error: null };
+        }
 
         // U-shape: vertical crossover at x = midX
         const mx = Math.round((s1.x + s2.x) / 2 / G) * G + off;
-        const uPts = [p1, s1, { x: mx, y: s1.y }, { x: mx, y: s2.y }, s2, p2];
-        if (pidPathClear(uPts, rects)) return { d: pidRoundedPath(uPts, R), error: null };
+        if (uOk(mx)) {
+            const uPts = [p1, s1, { x: mx, y: s1.y }, { x: mx, y: s2.y }, s2, p2];
+            if (pidCandidateClear(uPts, noFromRects, noToRects, allRects))
+                return { d: pidRoundedPath(uPts, R), error: null };
+        }
     }
 
-    // All candidates blocked — fallback with error
-    const my0 = Math.round((s1.y + s2.y) / 2 / G) * G;
-    const fallPts = [p1, s1, { x: s1.x, y: my0 }, { x: s2.x, y: my0 }, s2, p2];
+    // All valid candidates blocked — pick the first non-reversing fallback for display
+    let fallPts = null;
+    for (const off of [0, G, -G, 2*G, -2*G, 4*G, -4*G, 6*G, -6*G]) {
+        const my = Math.round((s1.y + s2.y) / 2 / G) * G + off;
+        if (zOk(my)) {
+            fallPts = [p1, s1, { x: s1.x, y: my }, { x: s2.x, y: my }, s2, p2];
+            break;
+        }
+        const mx = Math.round((s1.x + s2.x) / 2 / G) * G + off;
+        if (uOk(mx)) {
+            fallPts = [p1, s1, { x: mx, y: s1.y }, { x: mx, y: s2.y }, s2, p2];
+            break;
+        }
+    }
+    if (!fallPts) fallPts = [p1, s1, s2, p2]; // last resort
     return { d: pidRoundedPath(fallPts, R), error: 'Could not route without crossing an object' };
 }
 

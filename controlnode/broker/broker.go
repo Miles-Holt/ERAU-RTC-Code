@@ -20,6 +20,13 @@ type DataEvent struct {
 	Values map[string]float64
 }
 
+// ErrEvent carries an error message from a DAQ node.
+type ErrEvent struct {
+	DaqRefDes string
+	T         float64
+	Err       string
+}
+
 // CmdMsg is a command received from a web client, already parsed from JSON.
 type CmdMsg struct {
 	Type   string      `json:"type"`
@@ -46,6 +53,7 @@ type daqRegReq struct {
 // Run goroutine except the atomic counters, which are safe to read from anywhere.
 type Broker struct {
 	dataIn    chan DataEvent
+	errIn     chan ErrEvent
 	cmdIn     chan CmdMsg
 	subIn     chan subReq
 	daqRegIn  chan daqRegReq
@@ -71,6 +79,7 @@ func New(refDesMap map[string]string, restartRefDes []string) *Broker {
 	}
 	return &Broker{
 		dataIn:        make(chan DataEvent, 256),
+		errIn:         make(chan ErrEvent, 64),
 		cmdIn:         make(chan CmdMsg, 64),
 		subIn:         make(chan subReq, 64),
 		daqRegIn:      make(chan daqRegReq, 32),
@@ -93,6 +102,25 @@ func (b *Broker) Run(broadcastRateHz int) {
 
 	for {
 		select {
+
+		// ── Error messages from DAQ nodes ─────────────────────────────────
+		case ev := <-b.errIn:
+			payload, err := json.Marshal(map[string]interface{}{
+				"type":    "err",
+				"t":       ev.T,
+				"daqNode": ev.DaqRefDes,
+				"err":     ev.Err,
+			})
+			if err != nil {
+				log.Printf("broker: marshal err event: %v", err)
+				continue
+			}
+			for ch := range subscribers {
+				select {
+				case ch <- payload:
+				default:
+				}
+			}
 
 		// ── Incoming data from DAQ nodes / health ─────────────────────────
 		case ev := <-b.dataIn:
@@ -171,6 +199,15 @@ func (b *Broker) Run(broadcastRateHz int) {
 }
 
 // ── Public API (goroutine-safe) ───────────────────────────────────────────────
+
+// PublishErr enqueues an error event from a DAQ node.  Non-blocking; drops if buffer is full.
+func (b *Broker) PublishErr(ev ErrEvent) {
+	select {
+	case b.errIn <- ev:
+	default:
+		log.Printf("broker: err buffer full, dropping error from DAQ %q", ev.DaqRefDes)
+	}
+}
 
 // PublishData enqueues a data event.  Non-blocking; drops if buffer is full.
 func (b *Broker) PublishData(ev DataEvent) {

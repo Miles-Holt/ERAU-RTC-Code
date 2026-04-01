@@ -286,24 +286,70 @@ func BuildWebClientConfigJSON(cfg *SystemConfig) (string, error) {
 
 // daqNodeConfigMsg is the JSON sent to a DAQ node after it requests config.
 type daqNodeConfigMsg struct {
-	Type                 string           `json:"type"`
-	RefDes               string           `json:"refDes"`
-	SampleRateHz         int              `json:"sampleRateHz"`
-	ManagementRateHz     int              `json:"managementRateHz"`
-	ConnectionHysteresis int              `json:"connectionHysteresis"`
-	Channels             []daqNodeChannel `json:"channels"`
+	Type             string           `json:"type"`
+	SampleRateHz     int              `json:"sampleRateHz"`
+	ManagementRateHz int              `json:"managementRateHz"`
+	Modules          []daqNodeModule  `json:"modules"`
+	Channels         []daqNodeChannel `json:"channels"`
+}
+
+type daqNodeModule struct {
+	ModuleModelNumber string `json:"moduleModelNumber"`
+	SampleRateHz      int    `json:"sampleRateHz"`
 }
 
 type daqNodeChannel struct {
-	RefDes string `json:"refDes"`
-	Role   string `json:"role"`
-	DaqMx  DaqMx  `json:"daqMx"`
+	RefDes                     string   `json:"refDes"`
+	ModelNumber                string   `json:"modelNumber,omitempty"`
+	SerialNumber               string   `json:"serialNumber,omitempty"`
+	ModuleModelNumber          string   `json:"moduleModelNumber,omitempty"`
+	ChannelNumber              string   `json:"channelNumber,omitempty"`
+	TaskName                   string   `json:"taskName,omitempty"`
+	Type                       string   `json:"type,omitempty"`
+	Sensitivity                *float64 `json:"sensitivity,omitempty"`
+	Balance                    *float64 `json:"balance,omitempty"`
+	InputTerminalConfiguration string   `json:"inputTerminalConfiguration,omitempty"`
+	BridgeConfiguration        string   `json:"bridgeConfiguration,omitempty"`
+	VoltageExcitationSource    string   `json:"voltageExcitationSource,omitempty"`
+	ExcitationVoltage          *float64 `json:"excitationVoltage,omitempty"`
+	NominalBridgeResistance    *float64 `json:"nominalBridgeResistance,omitempty"`
+	FirstElectricalValue       *float64 `json:"firstElectricalValue,omitempty"`
+	SecondElectricalValue      *float64 `json:"secondElectricalValue,omitempty"`
+	FirstPhysicalValue         *float64 `json:"firstPhysicalValue,omitempty"`
+	SecondPhysicalValue        *float64 `json:"secondPhysicalValue,omitempty"`
+	ElectricalUnits            string   `json:"electricalUnits,omitempty"`
+	Units                      string   `json:"units,omitempty"`
 }
 
 // BuildDaqNodeConfigJSON returns the JSON config string for a specific DAQ node,
 // containing all channels from <controlList> that reference that DAQ node.
 func BuildDaqNodeConfigJSON(cfg *SystemConfig, daqRefDes string, sampleRateHz int) (string, error) {
-	var channels []daqNodeChannel
+	// Find the DAQ node definition to get its modules.
+	var node *DaqNodeDef
+	for i := range cfg.DaqNodes.Nodes {
+		if strings.TrimSpace(cfg.DaqNodes.Nodes[i].RefDes) == daqRefDes {
+			node = &cfg.DaqNodes.Nodes[i]
+			break
+		}
+	}
+	if node == nil {
+		return "", fmt.Errorf("DAQ node %q not found in config", daqRefDes)
+	}
+
+	// Build enabled modules list.
+	modules := []daqNodeModule{}
+	for _, m := range node.Modules {
+		if !isEnabled(m.Enabled) {
+			continue
+		}
+		modules = append(modules, daqNodeModule{
+			ModuleModelNumber: strings.TrimSpace(m.ModuleModelNumber),
+			SampleRateHz:      m.SampleRateHz,
+		})
+	}
+
+	// Build channels from controlList entries that reference this DAQ node.
+	channels := []daqNodeChannel{}
 	for _, ctrl := range cfg.ControlList.Controls {
 		if !isEnabled(ctrl.Enabled) {
 			continue
@@ -312,21 +358,38 @@ func BuildDaqNodeConfigJSON(cfg *SystemConfig, daqRefDes string, sampleRateHz in
 			if strings.TrimSpace(ch.RefDesDaq) != daqRefDes {
 				continue
 			}
+			mx := ch.DaqMx
 			channels = append(channels, daqNodeChannel{
-				RefDes: strings.TrimSpace(ch.RefDes),
-				Role:   strings.TrimSpace(ch.Role),
-				DaqMx:  ch.DaqMx,
+				RefDes:                     strings.TrimSpace(ch.RefDes),
+				ModelNumber:                strings.TrimSpace(ch.ModelNumber),
+				SerialNumber:               strings.TrimSpace(ch.SerialNumber),
+				ModuleModelNumber:          strings.TrimSpace(ch.ModuleModelNumber),
+				ChannelNumber:              strings.TrimSpace(ch.ChannelNumber),
+				TaskName:                   strings.TrimSpace(mx.TaskName),
+				Type:                       strings.TrimSpace(mx.TCType),
+				Sensitivity:                parseOptFloat(mx.Sensitivity),
+				Balance:                    parseOptFloat(mx.Balance),
+				InputTerminalConfiguration: strings.TrimSpace(mx.InputTerminalConfiguration),
+				BridgeConfiguration:        strings.TrimSpace(mx.BridgeConfiguration),
+				VoltageExcitationSource:    strings.TrimSpace(mx.VoltageExcitationSource),
+				ExcitationVoltage:          parseOptFloat(mx.ExcitationVoltage),
+				NominalBridgeResistance:    parseOptFloat(mx.NominalBridgeResistance),
+				FirstElectricalValue:       parseOptFloat(mx.FirstElectricalValue),
+				SecondElectricalValue:      parseOptFloat(mx.SecondElectricalValue),
+				FirstPhysicalValue:         parseOptFloat(mx.FirstPhysicalValue),
+				SecondPhysicalValue:        parseOptFloat(mx.SecondPhysicalValue),
+				ElectricalUnits:            strings.TrimSpace(mx.ElectricalUnits),
+				Units:                      strings.TrimSpace(mx.Units),
 			})
 		}
 	}
 
 	msg := daqNodeConfigMsg{
-		Type:                 "config",
-		RefDes:               daqRefDes,
-		SampleRateHz:         sampleRateHz,
-		ManagementRateHz:     cfg.Network.ManagementRateHz,
-		ConnectionHysteresis: cfg.Network.ConnectionHysteresis,
-		Channels:             channels,
+		Type:             "config",
+		SampleRateHz:     sampleRateHz,
+		ManagementRateHz: cfg.Network.ManagementRateHz,
+		Modules:          modules,
+		Channels:         channels,
 	}
 	b, err := json.Marshal(msg)
 	if err != nil {

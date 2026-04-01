@@ -37,10 +37,44 @@
 // Init
 // =============================================================================
 
+// =============================================================================
+// Theme toggle
+// =============================================================================
+
+(function () {
+    const html    = document.documentElement;
+    const btn     = document.getElementById('theme-btn');
+    const moon    = document.getElementById('theme-icon-moon');
+    const sun     = document.getElementById('theme-icon-sun');
+    const PREF_KEY = 'rtc-theme';
+
+    function applyTheme(theme) {
+        if (theme === 'light') {
+            html.setAttribute('data-theme', 'light');
+            moon.style.display = 'none';
+            sun.style.display  = 'block';
+        } else {
+            html.removeAttribute('data-theme');
+            moon.style.display = 'block';
+            sun.style.display  = 'none';
+        }
+    }
+
+    applyTheme(localStorage.getItem(PREF_KEY) || 'dark');
+
+    btn.addEventListener('click', () => {
+        const next = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+        localStorage.setItem(PREF_KEY, next);
+        applyTheme(next);
+        if (typeof updateAllChartColors === 'function') updateAllChartColors();
+    });
+})();
+
 document.getElementById('tab-add').addEventListener('click', () => addTab('frontPanel'));
 
 addTab('frontPanel');
 
+setDevMode(devMode);
 buildOperatorButton();
 updateCommandWidgets();
 

@@ -1,5 +1,5 @@
 /* =============================================================================
-   RTC Control Panel — Dark theme
+   RTC Control Panel — Dark theme (default)
    ============================================================================= */
 
 :root {
@@ -7,8 +7,8 @@
     --surface:      #101010;
     --card-bg:      #181818;
     --border:       #242424;
-    --text:         #7d8080;
-    --muted:        #5a5d5d;
+    --text:         #d0d8d8;
+    --muted:        #909898;
     --accent:       #58a6ff;
 
     /* Type-specific card accent colors */
@@ -36,6 +36,44 @@
     --led-inactive: #3fb950;
     --led-unknown:  #6e7681;
 }
+
+/* =============================================================================
+   Light theme overrides
+   ============================================================================= */
+
+[data-theme="light"] {
+    --bg:           #f5f6f7;
+    --surface:      #ffffff;
+    --card-bg:      #eef0f2;
+    --border:       #d0d4d8;
+    --text:         #0d0f10;
+    --muted:        #3d4040;
+    --accent:       #0969da;
+
+    /* Status colors stay the same */
+    --status-connected:    #1a7f37;
+    --status-disconnected: #d1242f;
+    --status-reconnecting: #9a6700;
+    --status-connecting:   #0969da;
+    --status-stale:        #9a6700;
+
+    /* LED colors */
+    --led-open:     #1a7f37;
+    --led-closed:   #d1242f;
+    --led-active:   #d1242f;
+    --led-inactive: #1a7f37;
+    --led-unknown:  #8c959f;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-track        { background: var(--surface); }
+[data-theme="light"] ::-webkit-scrollbar-thumb        { background: var(--border); }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover  { background: var(--muted); }
+[data-theme="light"] ::-webkit-scrollbar-corner       { background: var(--surface); }
+
+[data-theme="light"] .tab-close:hover { background: rgba(0,0,0,0.08); }
+[data-theme="light"] .context-menu    { box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+[data-theme="light"] .boot-overlay    { background: rgba(0,0,0,0.3); }
+[data-theme="light"] .graph-size-popover { box-shadow: 0 6px 16px rgba(0,0,0,0.12); }
 
 /* =============================================================================
    Reset & base
@@ -1027,7 +1065,7 @@ header h1 {
     flex: 1;
     min-width: 0;
     min-height: 0;
-    background: #060606;
+    background: var(--bg);
     position: relative;
     padding: 8px;
 }
@@ -1240,6 +1278,25 @@ header h1 {
     border: 1px solid var(--bg);
 }
 
+#theme-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid var(--muted);
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 4px;
+    flex-shrink: 0;
+    transition: border-color 0.2s, color 0.2s;
+    padding: 0;
+}
+#theme-btn:hover { border-color: var(--text); color: var(--text); }
+#theme-btn svg   { display: block; }
+
 .operator-popover {
     position: fixed;
     z-index: 500;
@@ -1273,7 +1330,46 @@ header h1 {
     font-family: inherit;
 }
 
-.op-pop-name:focus { outline: none; border-color: var(--accent); }
+.op-pop-name:focus  { outline: none; border-color: var(--accent); }
+
+.op-pop-pin {
+    width: 100%;
+    padding: 5px 8px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+}
+
+.op-pop-pin:focus { outline: none; border-color: var(--accent); }
+
+.op-pop-submit {
+    width: 100%;
+    padding: 6px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.op-pop-submit:hover:not(:disabled) { background: var(--border); }
+.op-pop-submit:disabled             { opacity: 0.4; cursor: not-allowed; }
+
+.op-pop-status {
+    font-size: 12px;
+    min-height: 16px;
+    color: var(--muted);
+}
+
+.op-pop-status.pending { color: var(--status-connecting); }
+.op-pop-status.error   { color: var(--status-disconnected); }
 /* =============================================================================
    P&ID Front Panel
    ============================================================================= */

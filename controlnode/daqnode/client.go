@@ -117,16 +117,21 @@ func (c *Client) readLoop(conn *websocket.Conn, errCh chan<- error) {
 			Type string             `json:"type"`
 			T    float64            `json:"t"`
 			D    map[string]float64 `json:"d"`
+			Err  string             `json:"err"`
 		}
 		if err := json.Unmarshal(raw, &msg); err != nil {
 			log.Printf("daqnode %s: bad JSON: %v", c.refDes, err)
 			continue
 		}
-		if msg.Type != "data" {
+		switch msg.Type {
+		case "data":
+			c.b.PublishData(broker.DataEvent{Values: msg.D})
+		case "err":
+			log.Printf("daqnode %s: error: %s", c.refDes, msg.Err)
+			c.b.PublishErr(broker.ErrEvent{DaqRefDes: c.refDes, T: msg.T, Err: msg.Err})
+		default:
 			log.Printf("daqnode %s: unexpected message type %q", c.refDes, msg.Type)
-			continue
 		}
-		c.b.PublishData(broker.DataEvent{Values: msg.D})
 	}
 }
 

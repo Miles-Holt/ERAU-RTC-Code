@@ -164,15 +164,45 @@ function buildGraphCell(tabId, cellIdx) {
     return cellEl;
 }
 
+function getChartColors() {
+    const style = getComputedStyle(document.documentElement);
+    return {
+        grid: style.getPropertyValue('--border').trim() || '#30363d',
+        tick: style.getPropertyValue('--muted').trim()  || '#8d969e',
+    };
+}
+
+function applyChartColors(chart) {
+    const { grid, tick } = getChartColors();
+    chart.options.scales.x.ticks.color = tick;
+    chart.options.scales.x.grid.color  = grid;
+    for (let i = 1; i <= 6; i++) {
+        const ax = chart.options.scales['y' + i];
+        if (!ax) continue;
+        ax.ticks.color = tick;
+        if (ax.grid?.color !== undefined) ax.grid.color = grid;
+    }
+    chart.update('none');
+}
+
+function updateAllChartColors() {
+    for (const state of Object.values(graphState)) {
+        for (const cell of state.cells) {
+            if (cell.chart) applyChartColors(cell.chart);
+        }
+    }
+}
+
 function createCellChart(canvas) {
+    const { grid, tick } = getChartColors();
     const yAxes = {};
     for (let i = 1; i <= 6; i++) {
         const isLeft = i % 2 === 1;
         yAxes['y' + i] = {
             position: isLeft ? 'left' : 'right',
             display:  false,
-            ticks:    { color: '#8d969e' },
-            grid:     isLeft ? { color: '#30363d' } : { drawOnChartArea: false }
+            ticks:    { color: tick },
+            grid:     isLeft ? { color: grid } : { drawOnChartArea: false }
         };
     }
     return new Chart(canvas, {
@@ -188,7 +218,7 @@ function createCellChart(canvas) {
                 x: {
                     type: 'linear',
                     ticks: {
-                        color:         '#8d969e',
+                        color:         tick,
                         maxTicksLimit: 12,
                         maxRotation:   0,
                         callback: function(v) {
@@ -201,7 +231,7 @@ function createCellChart(canvas) {
                             return s > 0 ? `${m}m ${s}s` : `${m}m`;
                         }
                     },
-                    grid: { color: '#30363d' }
+                    grid: { color: grid }
                 },
                 ...yAxes
             },
