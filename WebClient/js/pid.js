@@ -231,6 +231,32 @@ function orthRouteAvoiding(p1, d1, p2, d2, objects, fromId, toId) {
             return { d: pidRoundedPath(pts, R), error: null };
     }
 
+    // Try L-shapes: single corner after stubs — simpler than Z/U when unobstructed
+    function lOk1() { // corner at (s2.x, s1.y): s1 goes horizontal, then vertical to s2
+        if (d1 === 'right'  && s2.x < s1.x) return false;
+        if (d1 === 'left'   && s2.x > s1.x) return false;
+        if (d2 === 'bottom' && s1.y > s2.y) return false;
+        if (d2 === 'top'    && s1.y < s2.y) return false;
+        return true;
+    }
+    function lOk2() { // corner at (s1.x, s2.y): s1 goes vertical, then horizontal to s2
+        if (d1 === 'bottom' && s2.y < s1.y) return false;
+        if (d1 === 'top'    && s2.y > s1.y) return false;
+        if (d2 === 'right'  && s1.x < s2.x) return false;
+        if (d2 === 'left'   && s1.x > s2.x) return false;
+        return true;
+    }
+    if (lOk1()) {
+        const lPts = [p1, s1, { x: s2.x, y: s1.y }, s2, p2];
+        if (pidCandidateClear(lPts, noFromRects, noToRects, allRects))
+            return { d: pidRoundedPath(lPts, R), error: null };
+    }
+    if (lOk2()) {
+        const lPts = [p1, s1, { x: s1.x, y: s2.y }, s2, p2];
+        if (pidCandidateClear(lPts, noFromRects, noToRects, allRects))
+            return { d: pidRoundedPath(lPts, R), error: null };
+    }
+
     for (const off of offsets) {
         const my = Math.round((s1.y + s2.y) / 2 / G) * G + off;
         if (zOk(my)) {
