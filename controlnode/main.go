@@ -16,7 +16,7 @@ import (
 )
 
 func main() {
-	configPath := flag.String("config", "../nodeConfigs_0.0.2.xml", "path to nodeConfigs XML file")
+	configPath := flag.String("config", "../config/nodeConfigs_0.0.2.xml", "path to nodeConfigs XML file")
 	webRoot := flag.String("webroot", "", "directory to serve as web client UI (empty = use embedded)")
 	flag.Parse()
 
@@ -98,7 +98,7 @@ func main() {
 	panelMessages := loadPanelMessages(panelCfg, filepath.Dir(*configPath))
 
 	// ── Load user auth config ─────────────────────────────────────────────
-	authCfg, err := webclient.LoadUserAuth("userAuth.yaml")
+	authCfg, err := webclient.LoadUserAuth(filepath.Join(filepath.Dir(*configPath), "userAuth.yaml"))
 	if err != nil {
 		log.Printf("webclient: userAuth.yaml not loaded, auth disabled: %v", err)
 		authCfg = nil
