@@ -71,6 +71,7 @@ const tab = {
         routingErrors: [],
         warnBtnEl: null,
         warnDropdownEl: null,
+        selectedConnId: null,
     },
 };
 
@@ -152,10 +153,7 @@ function portPos(obj, port) {
         if (port === 'bottom') return { x: x + PID.SENSOR_W / 2, y: y + PID.SENSOR_H };
     }
     if (obj.type === 'node') {
-        if (port === 'top')    return { x: x,               y: y - PID.PORT_OFF };
-        if (port === 'right')  return { x: x + PID.PORT_OFF, y: y              };
-        if (port === 'bottom') return { x: x,               y: y + PID.PORT_OFF };
-        if (port === 'left')   return { x: x - PID.PORT_OFF, y: y              };
+        return { x, y };
     }
     return { x, y };
 }
@@ -696,13 +694,19 @@ function renderPidConn(conn) {
         });
     }
 
-    let el = tab.pid.gConns.querySelector('[data-conn-id="' + conn.id + '"]');
-    if (!el) {
-        el = svgN('path', { class: 'pid-conn-path', 'data-conn-id': conn.id });
-        tab.pid.gConns.appendChild(el);
+    let grp = tab.pid.gConns.querySelector('[data-conn-id="' + conn.id + '"]');
+    if (!grp) {
+        grp = svgN('g', { 'data-conn-id': conn.id });
+        grp.appendChild(svgN('path', { class: 'pid-conn-hit' }));
+        grp.appendChild(svgN('path', { class: 'pid-conn-path', 'pointer-events': 'none' }));
+        tab.pid.gConns.appendChild(grp);
     }
-    el.setAttribute('d', d);
-    el.classList.toggle('pid-conn-error', !!error);
+    const visPath = grp.querySelector('.pid-conn-path');
+    const hitPath = grp.querySelector('.pid-conn-hit');
+    visPath.setAttribute('d', d);
+    hitPath.setAttribute('d', d);
+    visPath.classList.toggle('pid-conn-error', !!error);
+    grp.classList.toggle('pid-conn-selected', tab.pid.selectedConnId === conn.id);
 }
 
 function updateConnsTouching() {
@@ -760,7 +764,74 @@ function selectPidObject(id) {
         const el = tab.pid.gObjs.querySelector('[data-pid-id="' + id + '"]');
         if (el) el.classList.add('pid-selected');
     }
+    // Clear any pipe selection
+    tab.pid.selectedConnId = null;
+    tab.pid.gConns.querySelectorAll('.pid-conn-selected').forEach(el => el.classList.remove('pid-conn-selected'));
     renderPidRsb(id);
+}
+
+function selectPidConn(connId) {
+    // Clear object selection
+    tab.pid.selectedId = null;
+    tab.pid.gObjs.querySelectorAll('.pid-selected').forEach(el => el.classList.remove('pid-selected'));
+    // Clear previous pipe selection
+    tab.pid.gConns.querySelectorAll('.pid-conn-selected').forEach(el => el.classList.remove('pid-conn-selected'));
+
+    tab.pid.selectedConnId = connId;
+    if (connId) {
+        const grp = tab.pid.gConns.querySelector('[data-conn-id="' + connId + '"]');
+        if (grp) grp.classList.add('pid-conn-selected');
+    }
+    renderPidConnRsb(connId);
+}
+
+function renderPidConnRsb(connId) {
+    edLiveRefDes = null;
+    edLiveEl = null;
+    clearTimeout(edLiveStaleTimer);
+
+    const rsb = tab.pid.rsbEl;
+    rsb.innerHTML = '';
+    const c = document.createElement('div');
+    c.className = 'pid-rsb-content';
+
+    if (!connId) {
+        renderPidRsb(null);
+        return;
+    }
+
+    const conn = tab.pid.connections.find(cn => cn.id === connId);
+    if (!conn) { rsb.appendChild(c); return; }
+
+    const fromObj = tab.pid.objects.find(o => o.id === conn.fromId);
+    const toObj   = tab.pid.objects.find(o => o.id === conn.toId);
+    const fromName = fromObj ? (fromObj.refDes || fromObj.type + ' ' + fromObj.id) : conn.fromId;
+    const toName   = toObj   ? (toObj.refDes   || toObj.type   + ' ' + toObj.id)   : conn.toId;
+
+    c.innerHTML =
+        '<div class="pid-sb-heading">Pipe</div>' +
+        '<div class="pid-sb-field"><label>From</label>' +
+        '<span class="pid-sb-value">' + pidEsc(fromName) + ' : ' + pidEsc(conn.fromPort) + '</span></div>' +
+        '<div class="pid-sb-field"><label>To</label>' +
+        '<span class="pid-sb-value">' + pidEsc(toName) + ' : ' + pidEsc(conn.toPort) + '</span></div>' +
+        '<button class="pid-delete-btn">Remove</button>';
+
+    c.querySelector('.pid-delete-btn').addEventListener('click', () => deletePidConn(connId));
+    rsb.appendChild(c);
+}
+
+function deletePidConn(id) {
+    tab.pid.connections = tab.pid.connections.filter(c => {
+        if (c.id === id) {
+            tab.pid.gConns.querySelector('[data-conn-id="' + c.id + '"]')?.remove();
+            return false;
+        }
+        return true;
+    });
+    selectPidConn(null);
+    tab.pid.routingErrors = [];
+    for (const conn of tab.pid.connections) renderPidConn(conn);
+    renderPidWarning();
 }
 
 function renderPidRsb(objId) {
@@ -1020,6 +1091,12 @@ function onPidPointerDown(e) {
         e.preventDefault();
         startObjDrag(objEl.dataset.pidId, e);
         return;
+    }
+
+    const connHitEl = e.target.closest('.pid-conn-hit');
+    if (connHitEl) {
+        const grp = connHitEl.closest('[data-conn-id]');
+        if (grp) { selectPidConn(grp.dataset.connId); return; }
     }
 
     selectPidObject(null);

@@ -121,10 +121,7 @@ function portPos(obj, port) {
         if (port === 'bottom') return { x: x + PID.SENSOR_W / 2, y: y + PID.SENSOR_H };
     }
     if (obj.type === 'node') {
-        if (port === 'top')    return { x: x,              y: y - PID.PORT_OFF };
-        if (port === 'right')  return { x: x + PID.PORT_OFF, y: y             };
-        if (port === 'bottom') return { x: x,              y: y + PID.PORT_OFF };
-        if (port === 'left')   return { x: x - PID.PORT_OFF, y: y             };
+        return { x, y };
     }
     return { x, y };
 }

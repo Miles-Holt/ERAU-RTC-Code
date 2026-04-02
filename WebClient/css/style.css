@@ -1770,6 +1770,12 @@ header h1 {
     margin-top: 6px;
 }
 
+.pid-sb-value {
+    font-size: 12px;
+    color: var(--text);
+    font-family: monospace;
+}
+
 .pid-name-input {
     width: 100%;
     background: var(--bg);
@@ -1956,6 +1962,22 @@ header h1 {
 .pid-conn-error {
     stroke: var(--status-stale);
     stroke-dasharray: 8 4;
+}
+
+/* Wide invisible hit area for clicking pipes */
+.pid-conn-hit {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 12;
+    stroke-linecap: round;
+    cursor: pointer;
+    pointer-events: stroke;
+}
+
+/* Selected pipe highlight */
+.pid-conn-selected .pid-conn-path {
+    stroke: var(--accent, #4a9eff);
+    stroke-width: 3;
 }
 
 /* ── Warning button ── */
