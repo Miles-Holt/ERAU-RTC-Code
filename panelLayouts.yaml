@@ -1,0 +1,15 @@
+panels:
+  # Add an entry here for each P&ID layout YAML file.
+  # Paths are relative to this file's directory.
+
+  - name: LOX Panel (non existant)
+    file: lox_panel.yaml
+    enabled: false
+
+  - name: Testing Panel
+    file: test_panel.yaml
+    enabled: true
+
+  - name: untitled test
+    file: untitled.yaml
+    enabled: true

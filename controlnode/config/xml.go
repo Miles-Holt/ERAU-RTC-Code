@@ -18,19 +18,6 @@ type SystemConfig struct {
 	Network      Network      `xml:"network"`
 	CtrNode      CtrNodeDef   `xml:"ctrNode"`
 	DaqNodes     DaqNodes     `xml:"daqNodes"`
-	FrontPanels  FrontPanels  `xml:"frontPanels"`
-}
-
-// FrontPanels lists P&ID layout YAML files to load and send to web clients.
-type FrontPanels struct {
-	Panels []FrontPanel `xml:"panel"`
-}
-
-// FrontPanel describes one front-panel layout file.
-type FrontPanel struct {
-	Name    string `xml:"name"`
-	File    string `xml:"file"`
-	Enabled string `xml:"enabled"`
 }
 
 type Network struct {

@@ -50,6 +50,7 @@ function buildDevContent(tab) {
                         <td>Dev mode</td>
                         <td><label class="dev-toggle-label">
                             <input type="checkbox" class="dev-mode-toggle" ${devMode ? 'checked' : ''}>
+                            <span class="dev-toggle-track"></span>
                             <span class="dev-toggle-hint">enables sim + force reconnect</span>
                         </label></td>
                     </tr>

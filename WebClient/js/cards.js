@@ -31,9 +31,12 @@ function buildSensorCard(ctrl, tab) {
         row.appendChild(valEl);
         row.appendChild(mkEl('span', 'units', ch.units ?? ''));
         card.appendChild(row);
+        let staleTimer = null;
         tab.channelUpdaters[ch.refDes] = (v) => {
             valEl.textContent = typeof v === 'number' ? v.toFixed(2) : String(v);
             valEl.classList.remove('stale');
+            clearTimeout(staleTimer);
+            staleTimer = setTimeout(() => valEl.classList.add('stale'), CONFIG.channelStaleMs);
         };
     }
     return card;
@@ -54,11 +57,14 @@ function buildValveCard(ctrl, tab) {
         const lbl   = mkEl('span', 'fb-label stale', 'FB: --');
         fbRow.appendChild(led); fbRow.appendChild(lbl);
         card.appendChild(fbRow);
+        let fbStaleTimer = null;
         tab.channelUpdaters[fbCh.refDes] = (v) => {
             const open = Boolean(v);
             led.className   = `led ${open ? 'led-open' : 'led-closed'}`;
             lbl.textContent = `FB: ${open ? 'OPEN' : 'CLOSED'}`;
             lbl.classList.remove('stale');
+            clearTimeout(fbStaleTimer);
+            fbStaleTimer = setTimeout(() => lbl.classList.add('stale'), CONFIG.channelStaleMs);
         };
     }
 
@@ -67,9 +73,12 @@ function buildValveCard(ctrl, tab) {
         const valEl = mkEl('span', 'value stale', '--');
         row.appendChild(valEl); row.appendChild(mkEl('span', 'units', '%'));
         card.appendChild(row);
+        let posStaleTimer = null;
         tab.channelUpdaters[posCh.refDes] = (v) => {
             valEl.textContent = typeof v === 'number' ? v.toFixed(1) : String(v);
             valEl.classList.remove('stale');
+            clearTimeout(posStaleTimer);
+            posStaleTimer = setTimeout(() => valEl.classList.add('stale'), CONFIG.channelStaleMs);
         };
     }
 
@@ -108,11 +117,14 @@ function buildBangBangCard(ctrl, tab) {
         const lbl = mkEl('span', 'fb-label stale', `${ch.refDes}: --`);
         row.appendChild(led); row.appendChild(lbl);
         card.appendChild(row);
+        let staleTimer = null;
         tab.channelUpdaters[ch.refDes] = (v) => {
             const on = Boolean(v);
             led.className   = `led ${on ? 'led-open' : 'led-closed'}`;
             lbl.textContent = `${ch.refDes}: ${on ? 'ON' : 'OFF'}`;
             lbl.classList.remove('stale');
+            clearTimeout(staleTimer);
+            staleTimer = setTimeout(() => lbl.classList.add('stale'), CONFIG.channelStaleMs);
         };
     }
     return card;
@@ -129,11 +141,14 @@ function buildIgnitionCard(ctrl, tab) {
         const lbl = mkEl('span', 'fb-label stale', `${ch.refDes}: --`);
         row.appendChild(led); row.appendChild(lbl);
         card.appendChild(row);
+        let staleTimer = null;
         tab.channelUpdaters[ch.refDes] = (v) => {
             const active = Boolean(v);
             led.className   = `led ${active ? 'led-active' : 'led-inactive'}`;
             lbl.textContent = `${ch.refDes}: ${active ? 'ACTIVE' : 'INACTIVE'}`;
             lbl.classList.remove('stale');
+            clearTimeout(staleTimer);
+            staleTimer = setTimeout(() => lbl.classList.add('stale'), CONFIG.channelStaleMs);
         };
     }
 

@@ -538,6 +538,7 @@ header h1 {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    position: relative;
 }
 
 .tab-content {
@@ -843,6 +844,18 @@ header h1 {
 }
 .graph-size-btn:hover { border-color: var(--accent); background: var(--card-bg); }
 
+.graph-desc-btn {
+    padding: 3px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+}
+.graph-desc-btn:hover { border-color: var(--accent); color: var(--text); }
+.graph-desc-btn--active { border-color: var(--accent); color: var(--accent); background: var(--card-bg); }
+
 .graph-size-popover {
     position: absolute;
     top: calc(100% + 4px);
@@ -949,14 +962,24 @@ header h1 {
     flex: 1;
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     font-family: monospace;
     color: var(--text);
     cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
 }
 .channel-name:hover { color: var(--accent); }
 .channel-hidden { opacity: 0.4; text-decoration: line-through; }
+.channel-refdes { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.channel-desc {
+    font-family: var(--font);
+    font-size: 10px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
 .channel-remove {
     flex-shrink: 0;
@@ -1010,11 +1033,16 @@ header h1 {
     padding: 5px 10px;
     font-size: 12px;
     font-family: monospace;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
     color: var(--text);
     cursor: pointer;
 }
 
 .graph-dropdown-item:hover { background: var(--card-bg); }
+.graph-dropdown-refdes { color: var(--text); }
+.graph-dropdown-desc   { font-family: var(--font); font-size: 10px; color: var(--muted); }
 
 /* ── Color palette popup ─────────────────────────────────────────────────── */
 
@@ -1068,6 +1096,100 @@ header h1 {
     background: var(--bg);
     position: relative;
     padding: 8px;
+}
+
+/* ── Column layout variant (used in object sidebar) ─────────────────────── */
+
+.graph-cell--column {
+    flex-direction: column;
+}
+
+.graph-cell--column .graph-cell-panel {
+    width: 100%;
+    max-height: 180px;
+    border-right: none;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.graph-cell--column .graph-chart-area {
+    flex: none;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+}
+
+/* =============================================================================
+   Object detail sidebar
+   ============================================================================= */
+
+.object-sidebar {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 320px;
+    z-index: 150;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.5);
+}
+
+.object-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    gap: 8px;
+}
+
+.object-sidebar-title {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.object-sidebar-refdes {
+    font-family: monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.object-sidebar-desc {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.object-sidebar-close {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: background 0.1s, color 0.1s;
+}
+.object-sidebar-close:hover { color: var(--text); background: var(--card-bg); }
+
+.object-sidebar .graph-cell {
+    flex: 1;
+    min-height: 0;
+    border: none;
+    border-radius: 0;
 }
 
 /* =============================================================================
@@ -1234,6 +1356,39 @@ header h1 {
     font-size: 12px;
 }
 
+/* Toggle switch replacing raw checkbox in dev tab */
+.dev-toggle-label input[type="checkbox"] { display: none; }
+
+.dev-toggle-label .dev-toggle-track {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    background: var(--border);
+    border-radius: 10px;
+    flex-shrink: 0;
+    transition: background 0.2s;
+    cursor: pointer;
+}
+.dev-toggle-label .dev-toggle-track::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    background: var(--muted);
+    border-radius: 50%;
+    transition: transform 0.2s, background 0.2s;
+}
+.dev-toggle-label input[type="checkbox"]:checked + .dev-toggle-track {
+    background: var(--accent);
+}
+.dev-toggle-label input[type="checkbox"]:checked + .dev-toggle-track::after {
+    transform: translateX(16px);
+    background: #fff;
+}
+
 /* =============================================================================
    Operator button & popover
    ============================================================================= */
@@ -1397,6 +1552,54 @@ header h1 {
     flex: 1;
     overflow: hidden;
     min-height: 0;
+}
+
+/* ── Layout panel (front panel left sidebar) ── */
+.pid-layout-panel {
+    width: 150px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.pid-layout-items {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.pid-layout-item {
+    padding: 7px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background 0.1s;
+    user-select: none;
+}
+
+.pid-layout-item:hover { background: var(--border); }
+
+.pid-layout-item.pid-layout-active {
+    color: var(--accent);
+    font-weight: 600;
+    background: rgba(88, 166, 255, 0.08);
+}
+
+[data-theme="light"] .pid-layout-item.pid-layout-active {
+    background: rgba(9, 105, 218, 0.08);
+}
+
+.pid-layout-empty {
+    padding: 8px 12px;
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
 }
 
 /* ── Left sidebar ── */
@@ -1592,6 +1795,54 @@ header h1 {
     font-family: inherit;
     max-width: 180px;
 }
+
+/* ── Editor live-data styles ── */
+
+.ed-ws-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.ed-ws-connected    { background: var(--status-connected, #3fb950); }
+.ed-ws-disconnected { background: var(--muted); }
+
+.ed-live-row {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+}
+
+.ed-live-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+}
+
+.ed-live-value.stale { color: var(--muted); }
+
+/* ── Editor button ── */
+
+.pid-editor-btn {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-family: inherit;
+    background: transparent;
+    border: none;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    color: var(--muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    text-align: left;
+    transition: background 0.12s, color 0.12s;
+}
+
+.pid-editor-btn:hover { background: var(--border); color: var(--text); }
 
 .pid-mode-toggle {
     display: flex;

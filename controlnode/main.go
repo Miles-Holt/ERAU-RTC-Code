@@ -90,7 +90,12 @@ func main() {
 	}
 
 	// ── Load front panel layout files ─────────────────────────────────────
-	panelMessages := loadPanelMessages(cfg, *configPath)
+	panelLayoutsPath := filepath.Join(filepath.Dir(*configPath), "panelLayouts.yaml")
+	panelCfg, err := config.LoadPanelLayouts(panelLayoutsPath)
+	if err != nil {
+		log.Fatalf("panelLayouts.yaml: %v", err)
+	}
+	panelMessages := loadPanelMessages(panelCfg, filepath.Dir(*configPath))
 
 	// ── Load user auth config ─────────────────────────────────────────────
 	authCfg, err := webclient.LoadUserAuth("userAuth.yaml")
@@ -108,12 +113,11 @@ func main() {
 
 // loadPanelMessages reads each enabled front-panel YAML from disk and builds
 // the pid_layout JSON payloads that are broadcast to browsers on connect.
-// Paths in <file> are resolved relative to the directory of configPath.
-func loadPanelMessages(cfg *config.SystemConfig, configPath string) [][]byte {
-	configDir := filepath.Dir(configPath)
+// Paths in <file> are resolved relative to configDir.
+func loadPanelMessages(cfg *config.PanelLayoutsConfig, configDir string) [][]byte {
 	var msgs [][]byte
-	for _, p := range cfg.FrontPanels.Panels {
-		if !isEnabled(p.Enabled) {
+	for _, p := range cfg.Panels {
+		if !p.Enabled {
 			log.Printf("front panel %q: disabled, skipping", p.Name)
 			continue
 		}

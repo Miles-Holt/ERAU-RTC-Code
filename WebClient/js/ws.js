@@ -116,7 +116,7 @@ function applyData(msg) {
 
 function resetStalenessTimer() {
     clearTimeout(stalenessTimer);
-    stalenessTimer = setTimeout(markStale, CONFIG.staleThresholdMs);
+    stalenessTimer = setTimeout(() => setStatus('stale', 'Data stale'), CONFIG.staleThresholdMs);
 }
 
 function markStale() {

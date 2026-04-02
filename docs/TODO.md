@@ -28,14 +28,15 @@ See `CONTEXT.md` for full project/architecture context.
 
 ### General
 - [x] **make light mode button**
-- [ ] **make dark mode text lighter**
+- [X] **make dark mode text lighter**
+- [x] **stale data detection** - context: when any data is recieved from a node, ALL data from that node is maked as NOT stale. SCOPE: instead, the stale flag should be per channel depenedent incase data is only being recieved from a new channel rather than the whole daqNode.
 
 ### Auth
 - [ ] **Auth rejects incorrect logins** — login is not currently validated against the auth YAML; incorrect credentials are accepted without rejection
 
 ### Front Panel Tab
-- [ ] **P&ID background** — load a P&ID image or SVG as the canvas background; support multiple P&ID views selectable per tab (e.g. LOX panel, fuel panel, engine)
-- [ ] **Redo edit mode entry** — rethink how the user enters edit mode; current UX is not acceptable
+- [X] **P&ID background** — load a P&ID image or SVG as the canvas background; support multiple P&ID views selectable per tab (e.g. LOX panel, fuel panel, engine)
+- [X] **Redo edit mode entry** — rethink how the user enters edit mode; current UX is not acceptable
 - [ ] **Pipe colors** — add color support to pipe/connection segments on the P&ID canvas
 - [ ] **Objects reference controls, not channels** — P&ID objects should bind to a control's `refDes` (all channels under that valve/control are implicitly included), not individual channels
 - [ ] **Rework sensor P&ID object** — current sensor object design is not working well; needs a full rethink
@@ -50,7 +51,7 @@ See `CONTEXT.md` for full project/architecture context.
 ### Graph Tab
 - [ ] **data not collected when tab/window isnt focused**
 - [ ] **data lines snap at chart boundary** — rather than smoothly entering/exiting the viewable x-range, line segments snap in/out at the chart edges; likely a Chart.js clipping issue with explicit `x.min`/`x.max` bounds
-- [ ] **Data tooltip position** — tooltip is not rendering next to the user mouse correctly
+- [x] **Data tooltip position** — tooltip is not rendering next to the user mouse correctly
 - [ ] **Y-axis lock** — add feature to lock y-axis min or max and input custom min or max by clicking the min or max value on a specific y-axis
 
 ---

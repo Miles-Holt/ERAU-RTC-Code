@@ -1,0 +1,69 @@
+name: Untitled
+version: 1
+objects:
+  - id: sensor_1775091859475_6637
+    type: sensor
+    refDes: OT-01
+    units: Deg F
+    gridX: 10
+    gridY: 5
+  - id: node_1775091861441_6209
+    type: node
+    gridX: 21
+    gridY: 14
+  - id: sensor_1775091863704_3007
+    type: sensor
+    refDes: OT-02
+    units: Deg F
+    gridX: 10
+    gridY: 10
+  - id: sensor_1775091865101_9104
+    type: sensor
+    refDes: OT-03
+    units: Deg F
+    gridX: 10
+    gridY: 15
+  - id: sensor_1775091866277_2714
+    type: sensor
+    refDes: CTR001-uptime
+    units: s
+    gridX: 35
+    gridY: 14
+  - id: sensor_1775091867852_4019
+    type: sensor
+    refDes: OT-04
+    units: Deg F
+    gridX: 10
+    gridY: 20
+  - id: sensor_1775091955034_7249
+    type: sensor
+    refDes: LCC-01-01
+    units: Pounds
+    gridX: 27
+    gridY: 9
+connections:
+  - id: conn_1775091870218_2314
+    fromId: sensor_1775091865101_9104
+    fromPort: bottom
+    toId: sensor_1775091867852_4019
+    toPort: bottom
+  - id: conn_1775091872573_6918
+    fromId: sensor_1775091866277_2714
+    fromPort: bottom
+    toId: sensor_1775091867852_4019
+    toPort: bottom
+  - id: conn_1775091875613_6657
+    fromId: node_1775091861441_6209
+    fromPort: bottom
+    toId: sensor_1775091865101_9104
+    toPort: bottom
+  - id: conn_1775091877289_6622
+    fromId: node_1775091861441_6209
+    fromPort: left
+    toId: sensor_1775091863704_3007
+    toPort: bottom
+  - id: conn_1775091879234_4901
+    fromId: node_1775091861441_6209
+    fromPort: top
+    toId: sensor_1775091859475_6637
+    toPort: bottom

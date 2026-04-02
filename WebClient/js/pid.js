@@ -1,9 +1,12 @@
 // =============================================================================
-// P&ID Front Panel — Interactive Editor & Viewer
+// P&ID Front Panel — View-only renderer
 // =============================================================================
 //
 // Each Front Panel tab loads one YAML layout.  Layouts arrive via pid_layout
 // WebSocket messages and are cached in pidLayouts{}.
+//
+// Editing is handled in a separate editor page (editor.html).
+// Click the "Editor" button in the toolbar to open it.
 //
 // YAML layout schema:
 //   name: Panel Name
@@ -128,7 +131,6 @@ function portPos(obj, port) {
 
 // ── Obstacle-aware orthogonal router ────────────────────────────────────────
 
-// Returns inflated bounding rects for all sensor objects not in excludeIds.
 function pidObstacleRects(objects, excludeIds) {
     const M = PID.OBS_MARGIN;
     return objects
@@ -141,8 +143,6 @@ function pidObstacleRects(objects, excludeIds) {
         }));
 }
 
-// Returns false if axis-aligned segment passes through any rect interior.
-// Strict inequalities allow segments that only touch a border.
 function pidSegClear(ax, ay, bx, by, rects) {
     if (ax === bx && ay === by) return true;
     for (const r of rects) {
@@ -157,16 +157,6 @@ function pidSegClear(ax, ay, bx, by, rects) {
     return true;
 }
 
-function pidPathClear(pts, rects) {
-    if (!rects.length) return true;
-    for (let i = 0; i < pts.length - 1; i++) {
-        if (!pidSegClear(pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y, rects)) return false;
-    }
-    return true;
-}
-
-// Converts orthogonal waypoints to a rounded SVG path string.
-// Collinear runs are merged; corners get a quadratic Bezier arc of radius r.
 function pidRoundedPath(pts, r) {
     const s = [pts[0]];
     for (let i = 1; i < pts.length - 1; i++) {
@@ -198,15 +188,8 @@ function pidRoundedPath(pts, r) {
     return d;
 }
 
-// Main routing entry point.
-// Tries direct and shifted Z/U-shape candidates; first clear one wins.
-// Returns { d: svgPathString, error: string|null }.
-// Checks a candidate path with per-segment obstacle exclusions:
-//   • first segment  (stub from FROM): FROM sensor not an obstacle
-//   • last segment   (stub into TO):   TO sensor not an obstacle
-//   • all middle segments:             every sensor is an obstacle
 function pidCandidateClear(pts, noFromRects, noToRects, allRects) {
-    const last = pts.length - 2; // index of last segment
+    const last = pts.length - 2;
     for (let i = 0; i <= last; i++) {
         const rects = i === 0 ? noFromRects : i === last ? noToRects : allRects;
         if (!pidSegClear(pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y, rects)) return false;
@@ -224,14 +207,10 @@ function orthRouteAvoiding(p1, d1, p2, d2, objects, fromId, toId) {
     const G = PID.GRID, S = PID.STUB, R = PID.CORNER_R;
     const s1 = ext(p1, d1, S), s2 = ext(p2, d2, S);
 
-    // Three rect sets: stubs only exclude their own endpoint sensor;
-    // middle segments see every sensor as an obstacle.
-    const allRects     = pidObstacleRects(objects, new Set());
-    const noFromRects  = pidObstacleRects(objects, new Set([fromId]));
-    const noToRects    = pidObstacleRects(objects, new Set([toId]));
+    const allRects    = pidObstacleRects(objects, new Set());
+    const noFromRects = pidObstacleRects(objects, new Set([fromId]));
+    const noToRects   = pidObstacleRects(objects, new Set([toId]));
 
-    // Rejects a Z-shape midY that would force a 180° reversal at s1 or s2.
-    // (SVG y increases downward.)
     function zOk(my) {
         if (d1 === 'bottom' && my < s1.y) return false;
         if (d1 === 'top'    && my > s1.y) return false;
@@ -239,7 +218,6 @@ function orthRouteAvoiding(p1, d1, p2, d2, objects, fromId, toId) {
         if (d2 === 'top'    && my > s2.y) return false;
         return true;
     }
-    // Rejects a U-shape midX that would force a 180° reversal at s1 or s2.
     function uOk(mx) {
         if (d1 === 'right' && mx < s1.x) return false;
         if (d1 === 'left'  && mx > s1.x) return false;
@@ -250,7 +228,6 @@ function orthRouteAvoiding(p1, d1, p2, d2, objects, fromId, toId) {
 
     const offsets = [0, G, -G, 2*G, -2*G, 3*G, -3*G, 4*G, -4*G, 6*G, -6*G, 8*G, -8*G, 10*G, -10*G];
 
-    // Direct: stubs already aligned — no reversal possible
     if (Math.abs(s1.x - s2.x) < 1 || Math.abs(s1.y - s2.y) < 1) {
         const pts = [p1, s1, s2, p2];
         if (pidCandidateClear(pts, noFromRects, noToRects, allRects))
@@ -258,7 +235,6 @@ function orthRouteAvoiding(p1, d1, p2, d2, objects, fromId, toId) {
     }
 
     for (const off of offsets) {
-        // Z-shape: horizontal crossover at y = midY
         const my = Math.round((s1.y + s2.y) / 2 / G) * G + off;
         if (zOk(my)) {
             const zPts = [p1, s1, { x: s1.x, y: my }, { x: s2.x, y: my }, s2, p2];
@@ -266,7 +242,6 @@ function orthRouteAvoiding(p1, d1, p2, d2, objects, fromId, toId) {
                 return { d: pidRoundedPath(zPts, R), error: null };
         }
 
-        // U-shape: vertical crossover at x = midX
         const mx = Math.round((s1.x + s2.x) / 2 / G) * G + off;
         if (uOk(mx)) {
             const uPts = [p1, s1, { x: mx, y: s1.y }, { x: mx, y: s2.y }, s2, p2];
@@ -275,7 +250,6 @@ function orthRouteAvoiding(p1, d1, p2, d2, objects, fromId, toId) {
         }
     }
 
-    // All valid candidates blocked — pick the first non-reversing fallback for display
     let fallPts = null;
     for (const off of [0, G, -G, 2*G, -2*G, 4*G, -4*G, 6*G, -6*G]) {
         const my = Math.round((s1.y + s2.y) / 2 / G) * G + off;
@@ -289,7 +263,7 @@ function orthRouteAvoiding(p1, d1, p2, d2, objects, fromId, toId) {
             break;
         }
     }
-    if (!fallPts) fallPts = [p1, s1, s2, p2]; // last resort
+    if (!fallPts) fallPts = [p1, s1, s2, p2];
     return { d: pidRoundedPath(fallPts, R), error: 'Could not route without crossing an object' };
 }
 
@@ -299,18 +273,6 @@ function pidSvgPt(svgEl, e) {
     const pt = svgEl.createSVGPoint();
     pt.x = e.clientX; pt.y = e.clientY;
     return pt.matrixTransform(svgEl.getScreenCTM().inverse());
-}
-
-// ── Unique ID ────────────────────────────────────────────────────────────────
-
-function pidUid(prefix) {
-    return prefix + '_' + Date.now() + '_' + Math.floor(Math.random() * 9999);
-}
-
-// ── HTML escape helper ───────────────────────────────────────────────────────
-
-function pidEsc(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // =============================================================================
@@ -325,73 +287,25 @@ function buildFrontPanelContent(tab) {
     const panel = document.createElement('div');
     panel.className = 'pid-panel';
 
-    // ── Toolbar ──
-    const toolbar = document.createElement('div');
-    toolbar.className = 'pid-toolbar';
-
-    const picker = document.createElement('select');
-    picker.className = 'pid-picker';
-    picker.title = 'Select layout';
-    picker.innerHTML = '<option value="">-- No layout --</option>';
-    Object.values(pidLayouts).forEach(l => {
-        const o = document.createElement('option');
-        o.value = l.filename; o.textContent = l.name;
-        picker.appendChild(o);
-    });
-
-    const modeWrap = document.createElement('div');
-    modeWrap.className = 'pid-mode-toggle';
-    const viewBtn = document.createElement('button');
-    viewBtn.className = 'pid-mode-btn pid-mode-active'; viewBtn.textContent = 'View';
-    const editBtn = document.createElement('button');
-    editBtn.className = 'pid-mode-btn'; editBtn.textContent = 'Edit';
-    modeWrap.append(viewBtn, editBtn);
-
-    const saveBtn = document.createElement('button');
-    saveBtn.className = 'pid-save-btn'; saveBtn.textContent = 'Save YAML';
-
-    // Warning button — shown only when routing errors exist
-    const warnBtn = document.createElement('button');
-    warnBtn.className = 'pid-warn-btn';
-    warnBtn.title = 'Routing warnings';
-    warnBtn.style.display = 'none';
-    warnBtn.innerHTML =
-        '<span class="pid-warn-icon">!</span>' +
-        '<span class="pid-warn-count"></span>';
-    const warnDropdown = document.createElement('div');
-    warnDropdown.className = 'pid-warn-dropdown';
-    warnBtn.appendChild(warnDropdown);
-
-    warnBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        warnBtn.classList.toggle('pid-warn-open');
-        if (warnBtn.classList.contains('pid-warn-open')) renderPidWarnDropdown(tab);
-    });
-    // Close all warn dropdowns on outside click (registered once)
-    if (!window._pidWarnOutsideHandler) {
-        window._pidWarnOutsideHandler = true;
-        document.addEventListener('click', () => {
-            document.querySelectorAll('.pid-warn-btn.pid-warn-open')
-                    .forEach(b => b.classList.remove('pid-warn-open'));
-        });
-    }
-
-    toolbar.append(picker, modeWrap, warnBtn, saveBtn);
-    panel.appendChild(toolbar);
+    // (no toolbar — editor button lives in the layout sidebar)
 
     // ── Body ──
     const body = document.createElement('div');
     body.className = 'pid-body';
 
-    // Left sidebar
-    const lsb = document.createElement('div');
-    lsb.className = 'pid-lsb pid-lsb-hidden';
-    lsb.innerHTML =
-        '<div class="pid-sb-title">Objects</div>' +
-        '<div class="pid-obj-item" draggable="true" data-type="sensor">' +
-            '<div class="pid-obj-preview">Sensor</div></div>' +
-        '<div class="pid-obj-item" draggable="true" data-type="node">' +
-            '<div class="pid-obj-preview pid-obj-preview-node">Node</div></div>';
+    // Layout panel (left sidebar)
+    const layoutPanel = document.createElement('div');
+    layoutPanel.className = 'pid-layout-panel';
+    const panelTitle = document.createElement('div');
+    panelTitle.className = 'pid-sb-title';
+    panelTitle.textContent = 'Layouts';
+    const panelItems = document.createElement('div');
+    panelItems.className = 'pid-layout-items';
+    const editorBtn = document.createElement('button');
+    editorBtn.className = 'pid-editor-btn';
+    editorBtn.textContent = 'Editor';
+    editorBtn.title = 'Open layout editor';
+    layoutPanel.append(panelTitle, panelItems, editorBtn);
 
     // Canvas
     const canvasWrap = document.createElement('div');
@@ -402,7 +316,7 @@ function buildFrontPanelContent(tab) {
         xmlns: 'http://www.w3.org/2000/svg',
     });
 
-    // Grid pattern
+    // Grid pattern (defined but never shown in view mode)
     const defs = svgN('defs');
     const pat = svgN('pattern', {
         id: 'pid-grid-' + tab.id, x: 0, y: 0,
@@ -412,82 +326,62 @@ function buildFrontPanelContent(tab) {
     defs.appendChild(pat);
     svg.appendChild(defs);
 
-    const gGrid = svgN('g', { class: 'pid-g-grid' });
-    gGrid.appendChild(svgN('rect', {
-        x: 0, y: 0, width: PID.CANVAS_W, height: PID.CANVAS_H,
-        fill: 'url(#pid-grid-' + tab.id + ')', 'pointer-events': 'none',
-    }));
     const gConns = svgN('g', { class: 'pid-g-conns' });
     const gObjs  = svgN('g', { class: 'pid-g-objs'  });
-    svg.append(gGrid, gConns, gObjs);
+    svg.append(gConns, gObjs);
     canvasWrap.appendChild(svg);
 
-    // Right sidebar
-    const rsb = document.createElement('div');
-    rsb.className = 'pid-rsb';
-
-    body.append(lsb, canvasWrap, rsb);
+    body.append(layoutPanel, canvasWrap);
     panel.appendChild(body);
     tab.contentEl.appendChild(panel);
 
     // ── Per-tab state ──
     tab.pid = {
-        editMode: false,
         layoutFilename: '',
         layoutName: '',
         objects: [],
         connections: [],
-        selectedId: null,
-        connecting: null,     // { objId, port } while drawing a connection
-        previewEl: null,      // dashed preview path
         svgEl: svg,
-        gGrid, gConns, gObjs,
+        gConns,
+        gObjs,
         canvasWrap,
-        lsbEl: lsb,
-        rsbEl: rsb,
-        pickerEl: picker,
-        routingErrors: [],
-        warnBtnEl: warnBtn,
-        warnDropdownEl: warnDropdown,
+        layoutPanelEl: panelItems,
     };
 
-    // ── Toolbar events ──
-    picker.addEventListener('change', () => {
-        const fn = picker.value;
-        if (fn && pidLayouts[fn]) loadPidLayout(tab, pidLayouts[fn]);
-        else                      clearPidLayout(tab);
+    // Populate layout panel with any layouts already received
+    buildLayoutPanelItems(tab);
+
+    editorBtn.addEventListener('click', () => openPidEditor(tab));
+
+    // ── Canvas pan ──
+    svg.addEventListener('pointerdown', e => {
+        if (e.button !== 0) return;
+        e.stopPropagation();
+        startPidPan(tab, e);
     });
-    viewBtn.addEventListener('click', () => { setPidMode(tab, false); viewBtn.classList.add('pid-mode-active'); editBtn.classList.remove('pid-mode-active'); });
-    editBtn.addEventListener('click', () => { setPidMode(tab, true);  editBtn.classList.add('pid-mode-active'); viewBtn.classList.remove('pid-mode-active'); });
-    saveBtn.addEventListener('click', () => savePidYaml(tab));
-
-    // ── Sidebar drag-to-canvas ──
-    lsb.querySelectorAll('[draggable]').forEach(el => {
-        el.addEventListener('dragstart', e => e.dataTransfer.setData('pid-type', el.dataset.type));
-    });
-    svg.addEventListener('dragover', e => e.preventDefault());
-    svg.addEventListener('drop', e => onPidDrop(tab, e));
-
-    // ── Canvas interaction ──
-    svg.addEventListener('pointerdown', e => onPidPointerDown(tab, e));
-    svg.addEventListener('pointermove', e => onPidPointerMove(tab, e));
-    svg.addEventListener('contextmenu', e => { e.preventDefault(); onPidContextMenu(tab, e); });
-
-    // ── Initial right sidebar ──
-    renderPidRsb(tab, null);
 }
 
 // =============================================================================
-// Mode, layout, save
+// Open editor page
 // =============================================================================
 
-function setPidMode(tab, editMode) {
-    tab.pid.editMode = editMode;
-    tab.pid.lsbEl.classList.toggle('pid-lsb-hidden', !editMode);
-    cancelPidConnect(tab);
-    selectPidObject(tab, null);
-    renderPidAll(tab);
+function openPidEditor(tab) {
+    const data = {
+        configControls:  configControls,
+        pidLayouts:      pidLayouts,
+        selectedLayout:  tab.pid.layoutFilename,
+    };
+    try {
+        sessionStorage.setItem('pid_editor_data', JSON.stringify(data));
+    } catch (e) {
+        console.warn('Could not store editor data in sessionStorage:', e);
+    }
+    window.open('editor.html', '_blank');
 }
+
+// =============================================================================
+// Layout load / clear
+// =============================================================================
 
 function loadPidLayout(tab, record) {
     const parsed = pidFromYaml(record.content);
@@ -495,11 +389,8 @@ function loadPidLayout(tab, record) {
     tab.pid.layoutName     = parsed.name;
     tab.pid.objects        = parsed.objects;
     tab.pid.connections    = parsed.connections;
-    tab.pid.selectedId     = null;
-    tab.pid.connecting     = null;
-    if (tab.pid.pickerEl) tab.pid.pickerEl.value = record.filename;
+    buildLayoutPanelItems(tab);
     renderPidAll(tab);
-    renderPidRsb(tab, null);
 }
 
 function clearPidLayout(tab) {
@@ -507,82 +398,81 @@ function clearPidLayout(tab) {
     tab.pid.layoutName     = '';
     tab.pid.objects        = [];
     tab.pid.connections    = [];
-    tab.pid.selectedId     = null;
-    tab.pid.connecting     = null;
+    buildLayoutPanelItems(tab);
     renderPidAll(tab);
-    renderPidRsb(tab, null);
 }
 
-function savePidYaml(tab) {
-    const layout = {
-        name:        tab.pid.layoutName || 'Untitled',
-        version:     1,
-        objects:     tab.pid.objects,
-        connections: tab.pid.connections,
-    };
-    const yaml     = pidToYaml(layout);
-    const filename = (layout.name.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'panel') + '.yaml';
-    const blob     = new Blob([yaml], { type: 'text/yaml' });
-    const url      = URL.createObjectURL(blob);
-    const a        = document.createElement('a');
-    a.href = url; a.download = filename; a.click();
-    URL.revokeObjectURL(url);
-}
-
-// Called by ws.js when a new pid_layout arrives to refresh the layout picker.
-function refreshPidLayoutPicker(tab) {
-    if (!tab.pid || !tab.pid.pickerEl) return;
-    const picker = tab.pid.pickerEl;
-    const current = picker.value;
-    // Rebuild options
-    while (picker.options.length > 1) picker.remove(1);
-    Object.values(pidLayouts).forEach(l => {
-        const o = document.createElement('option');
-        o.value = l.filename; o.textContent = l.name;
-        picker.appendChild(o);
+// Rebuilds the layout panel item list; called on load and when new layouts arrive.
+function buildLayoutPanelItems(tab) {
+    const el = tab.pid.layoutPanelEl;
+    if (!el) return;
+    el.innerHTML = '';
+    const layouts = Object.values(pidLayouts);
+    if (layouts.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'pid-layout-empty';
+        empty.textContent = 'No layouts received';
+        el.appendChild(empty);
+        return;
+    }
+    layouts.forEach(l => {
+        const item = document.createElement('div');
+        item.className = 'pid-layout-item' +
+            (l.filename === tab.pid.layoutFilename ? ' pid-layout-active' : '');
+        item.dataset.fn  = l.filename;
+        item.textContent = l.name;
+        item.title       = l.name;
+        item.addEventListener('click', () => {
+            if (tab.pid.layoutFilename === l.filename) return;
+            loadPidLayout(tab, pidLayouts[l.filename]);
+        });
+        el.appendChild(item);
     });
-    picker.value = current;
+}
+
+// Called by ws.js when a new pid_layout arrives.
+function refreshPidLayoutPicker(tab) {
+    if (!tab.pid || !tab.pid.layoutPanelEl) return;
+    buildLayoutPanelItems(tab);
 }
 
 // =============================================================================
-// Render
+// Render (view-only — no grid, no ports, no selection)
 // =============================================================================
 
 function renderPidAll(tab) {
     tab.pid.gObjs.innerHTML  = '';
     tab.pid.gConns.innerHTML = '';
-    tab.pid.previewEl        = null;
-    tab.pid.gGrid.style.display = tab.pid.editMode ? '' : 'none';
-
     for (const obj of tab.pid.objects) renderPidObj(tab, obj);
-
-    tab.pid.routingErrors = [];
     for (const conn of tab.pid.connections) renderPidConn(tab, conn);
-    renderPidWarning(tab);
-
     rebindPidLiveData(tab);
 }
 
 function renderPidObj(tab, obj) {
-    let g;
-    if (obj.type === 'sensor') g = makeSensorGroup(tab, obj);
-    else                       g = makeNodeGroup(tab, obj);
+    const g = obj.type === 'sensor' ? makeSensorGroup(obj) : makeNodeGroup(obj);
     tab.pid.gObjs.appendChild(g);
 }
 
-function makeSensorGroup(tab, obj) {
-    const sel = (tab.pid.selectedId === obj.id);
+function makeSensorGroup(obj) {
     const g = svgN('g', {
-        class: 'pid-obj pid-sensor' + (sel ? ' pid-selected' : ''),
+        class: 'pid-obj pid-sensor',
         'data-pid-id': obj.id,
         transform: 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')',
-        cursor: tab.pid.editMode ? 'grab' : 'default',
     });
 
     g.appendChild(svgN('rect', {
         x: 0, y: 0, width: PID.SENSOR_W, height: PID.SENSOR_H,
         rx: 3, class: 'pid-sensor-rect',
     }));
+
+    if (obj.refDes) {
+        g.style.cursor = 'context-menu';
+        g.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openObjectSidebar(obj.refDes);
+        });
+    }
 
     const lbl = svgN('text', { class: 'pid-sensor-label', x: PID.SENSOR_W / 2, y: 14 });
     lbl.textContent = obj.refDes || '(no refDes)';
@@ -596,37 +486,18 @@ function makeSensorGroup(tab, obj) {
     unt.textContent = obj.units || '';
     g.appendChild(unt);
 
-    // Port — always rendered but visible only in edit mode
-    const port = svgN('circle', {
-        class: 'pid-port' + (tab.pid.editMode ? '' : ' pid-port-hidden'),
-        'data-obj-id': obj.id, 'data-port': 'bottom',
-        cx: PID.SENSOR_W / 2, cy: PID.SENSOR_H, r: PID.PORT_R,
-    });
-    g.appendChild(port);
     return g;
 }
 
-function makeNodeGroup(tab, obj) {
-    const sel = (tab.pid.selectedId === obj.id);
+function makeNodeGroup(obj) {
+    // Junction nodes are invisible in view mode — they only serve as
+    // connection routing waypoints.
     const g = svgN('g', {
-        class: 'pid-obj pid-node' + (sel ? ' pid-selected' : '') + (tab.pid.editMode ? '' : ' pid-node-hidden'),
+        class: 'pid-obj pid-node pid-node-hidden',
         'data-pid-id': obj.id,
         transform: 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')',
-        cursor: tab.pid.editMode ? 'grab' : 'default',
     });
-
     g.appendChild(svgN('circle', { class: 'pid-node-dot', cx: 0, cy: 0, r: PID.NODE_R }));
-
-    if (tab.pid.editMode) {
-        const ports = { top: [0, -PID.PORT_OFF], right: [PID.PORT_OFF, 0], bottom: [0, PID.PORT_OFF], left: [-PID.PORT_OFF, 0] };
-        for (const [pname, [px, py]] of Object.entries(ports)) {
-            g.appendChild(svgN('circle', {
-                class: 'pid-port',
-                'data-obj-id': obj.id, 'data-port': pname,
-                cx: px, cy: py, r: PID.PORT_R,
-            }));
-        }
-    }
     return g;
 }
 
@@ -637,19 +508,10 @@ function renderPidConn(tab, conn) {
 
     const p1 = portPos(from, conn.fromPort);
     const p2 = portPos(to,   conn.toPort);
-    const { d, error } = orthRouteAvoiding(
+    const { d } = orthRouteAvoiding(
         p1, conn.fromPort, p2, conn.toPort,
         tab.pid.objects, conn.fromId, conn.toId
     );
-
-    if (error) {
-        tab.pid.routingErrors.push({
-            connId:   conn.id,
-            fromId:   conn.fromId,   fromPort: conn.fromPort,
-            toId:     conn.toId,     toPort:   conn.toPort,
-            message:  error,
-        });
-    }
 
     let el = tab.pid.gConns.querySelector('[data-conn-id="' + conn.id + '"]');
     if (!el) {
@@ -657,55 +519,6 @@ function renderPidConn(tab, conn) {
         tab.pid.gConns.appendChild(el);
     }
     el.setAttribute('d', d);
-    el.classList.toggle('pid-conn-error', !!error);
-}
-
-// Re-routes ALL connections (not just touching ones) because moving/adding any
-// object can block or unblock paths that don't connect to it.
-function updateConnsTouching(tab, _objId) {
-    tab.pid.routingErrors = [];
-    for (const conn of tab.pid.connections) renderPidConn(tab, conn);
-    renderPidWarning(tab);
-}
-
-// =============================================================================
-// Routing warning indicator
-// =============================================================================
-
-function renderPidWarning(tab) {
-    const btn = tab.pid.warnBtnEl;
-    if (!btn) return;
-    const errs = tab.pid.routingErrors;
-    btn.style.display = errs.length > 0 ? '' : 'none';
-    const countEl = btn.querySelector('.pid-warn-count');
-    if (countEl) countEl.textContent = errs.length > 1 ? String(errs.length) : '';
-    if (btn.classList.contains('pid-warn-open')) {
-        renderPidWarnDropdown(tab);
-    }
-}
-
-function renderPidWarnDropdown(tab) {
-    const dropdown = tab.pid.warnDropdownEl;
-    if (!dropdown) return;
-    const errs = tab.pid.routingErrors;
-    if (!errs.length) { dropdown.innerHTML = ''; return; }
-
-    let html = '<div class="pid-warn-title">Routing errors (' + errs.length + ')</div>';
-    for (const err of errs) {
-        const from     = tab.pid.objects.find(o => o.id === err.fromId);
-        const to       = tab.pid.objects.find(o => o.id === err.toId);
-        const fromName = from ? (from.refDes || from.type) : err.fromId;
-        const toName   = to   ? (to.refDes   || to.type)  : err.toId;
-        html +=
-            '<div class="pid-warn-item">' +
-                '<div class="pid-warn-conn">' +
-                    pidEsc(fromName) + ':' + err.fromPort + ' → ' +
-                    pidEsc(toName)   + ':' + err.toPort +
-                '</div>' +
-                '<div class="pid-warn-msg">' + pidEsc(err.message) + '</div>' +
-            '</div>';
-    }
-    dropdown.innerHTML = html;
 }
 
 // =============================================================================
@@ -714,10 +527,10 @@ function renderPidWarnDropdown(tab) {
 
 function rebindPidLiveData(tab) {
     tab.channelUpdaters = {};
-    if (tab.pid.editMode) return;
     for (const obj of tab.pid.objects) {
         if (obj.type !== 'sensor' || !obj.refDes) continue;
         const id = obj.id;
+        let staleTimer = null;
         tab.channelUpdaters[obj.refDes] = value => {
             const el = tab.pid.svgEl.querySelector('[data-pid-id="' + id + '"] .pid-sensor-value');
             if (!el) return;
@@ -725,283 +538,19 @@ function rebindPidLiveData(tab) {
                 ? (Number.isInteger(value) ? String(value) : value.toFixed(2))
                 : String(value);
             el.classList.remove('stale');
+            clearTimeout(staleTimer);
+            staleTimer = setTimeout(() => el.classList.add('stale'), CONFIG.channelStaleMs);
         };
     }
+    rebuildActivePidChannels();
 }
 
 // =============================================================================
-// Selection
-// =============================================================================
-
-function selectPidObject(tab, id) {
-    tab.pid.selectedId = id;
-    // Refresh selection highlight
-    tab.pid.gObjs.querySelectorAll('.pid-selected').forEach(el => el.classList.remove('pid-selected'));
-    if (id) {
-        const el = tab.pid.gObjs.querySelector('[data-pid-id="' + id + '"]');
-        if (el) el.classList.add('pid-selected');
-    }
-    renderPidRsb(tab, id);
-}
-
-// =============================================================================
-// Right sidebar
-// =============================================================================
-
-function renderPidRsb(tab, objId) {
-    const rsb = tab.pid.rsbEl;
-    rsb.innerHTML = '';
-    const c = document.createElement('div');
-    c.className = 'pid-rsb-content';
-
-    if (!objId) {
-        // Layout settings
-        c.innerHTML =
-            '<div class="pid-sb-heading">Layout</div>' +
-            '<div class="pid-sb-field"><label>Name</label>' +
-            '<input class="pid-name-input" type="text" value="' + pidEsc(tab.pid.layoutName || '') + '" placeholder="Panel name"></div>' +
-            '<div class="pid-sb-hint">Save YAML and add the file to the<br>control node config XML under<br>&lt;frontPanels&gt;.</div>';
-        c.querySelector('.pid-name-input').addEventListener('input', e => {
-            tab.pid.layoutName = e.target.value;
-        });
-    } else {
-        const obj = tab.pid.objects.find(o => o.id === objId);
-        if (!obj) { rsb.appendChild(c); return; }
-
-        if (obj.type === 'sensor') {
-            // Build channel list from configControls (sensor roles)
-            const chs = [];
-            for (const ctrl of configControls) {
-                for (const ch of ctrl.channels) {
-                    if (ch.role === 'sensor' || ch.role === '') {
-                        chs.push({ refDes: ch.refDes, units: ch.units, desc: ctrl.description });
-                    }
-                }
-            }
-
-            const opts = chs.length > 0
-                ? chs.map(ch =>
-                    '<option value="' + pidEsc(ch.refDes) + '"' +
-                    ' data-units="' + pidEsc(ch.units || '') + '"' +
-                    (ch.refDes === obj.refDes ? ' selected' : '') + '>' +
-                    pidEsc(ch.refDes) + (ch.desc ? ' — ' + pidEsc(ch.desc) : '') + '</option>'
-                  ).join('')
-                : null;
-
-            c.innerHTML =
-                '<div class="pid-sb-heading">Sensor</div>' +
-                '<div class="pid-sb-field"><label>Channel refDes</label>' +
-                (opts
-                    ? '<select class="pid-refdes-sel"><option value="">-- pick --</option>' + opts + '</select>'
-                    : '<input class="pid-refdes-inp" type="text" value="' + pidEsc(obj.refDes || '') + '" placeholder="e.g. OPT-01">') +
-                '</div>' +
-                '<div class="pid-sb-field"><label>Units</label>' +
-                '<input class="pid-units-inp" type="text" value="' + pidEsc(obj.units || '') + '" placeholder="psi"></div>' +
-                '<button class="pid-apply-btn">Apply</button>' +
-                '<button class="pid-delete-btn">Remove</button>';
-
-            const sel  = c.querySelector('.pid-refdes-sel');
-            const inp  = c.querySelector('.pid-refdes-inp');
-            const uinp = c.querySelector('.pid-units-inp');
-
-            if (sel) sel.addEventListener('change', () => {
-                const opt = sel.options[sel.selectedIndex];
-                if (opt && opt.dataset.units && !uinp.value) uinp.value = opt.dataset.units;
-            });
-
-            c.querySelector('.pid-apply-btn').addEventListener('click', () => {
-                obj.refDes = sel ? sel.value : (inp ? inp.value.trim() : '');
-                obj.units  = uinp ? uinp.value.trim() : '';
-                // Sync label/units text in SVG
-                const g = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
-                if (g) {
-                    g.querySelector('.pid-sensor-label').textContent = obj.refDes || '(no refDes)';
-                    g.querySelector('.pid-sensor-units').textContent = obj.units || '';
-                }
-                rebindPidLiveData(tab);
-            });
-
-        } else {
-            c.innerHTML =
-                '<div class="pid-sb-heading">Junction Node</div>' +
-                '<div class="pid-sb-hint">Connects pipes in up to<br>4 directions.</div>' +
-                '<button class="pid-delete-btn">Remove</button>';
-        }
-
-        c.querySelector('.pid-delete-btn').addEventListener('click', () => deletePidObj(tab, objId));
-    }
-
-    rsb.appendChild(c);
-}
-
-// =============================================================================
-// Object CRUD
-// =============================================================================
-
-function createPidObj(tab, type, gridX, gridY) {
-    const obj = { id: pidUid(type), type, gridX, gridY };
-    if (type === 'sensor') { obj.refDes = ''; obj.units = ''; }
-    tab.pid.objects.push(obj);
-    renderPidObj(tab, obj);
-    // New object may block existing routes — re-path everything
-    tab.pid.routingErrors = [];
-    for (const conn of tab.pid.connections) renderPidConn(tab, conn);
-    renderPidWarning(tab);
-    selectPidObject(tab, obj.id);
-}
-
-function deletePidObj(tab, id) {
-    // Remove connections touching this object
-    tab.pid.connections = tab.pid.connections.filter(c => {
-        if (c.fromId === id || c.toId === id) {
-            tab.pid.gConns.querySelector('[data-conn-id="' + c.id + '"]')?.remove();
-            return false;
-        }
-        return true;
-    });
-    // Remove object
-    tab.pid.objects = tab.pid.objects.filter(o => o.id !== id);
-    tab.pid.gObjs.querySelector('[data-pid-id="' + id + '"]')?.remove();
-    selectPidObject(tab, null);
-    // Deleted object may have been blocking routes — re-path remaining connections
-    tab.pid.routingErrors = [];
-    for (const conn of tab.pid.connections) renderPidConn(tab, conn);
-    renderPidWarning(tab);
-}
-
-// =============================================================================
-// Drag objects on canvas
-// =============================================================================
-
-function startObjDrag(tab, objId, e) {
-    const obj = tab.pid.objects.find(o => o.id === objId);
-    if (!obj) return;
-
-    const startPt  = pidSvgPt(tab.pid.svgEl, e);
-    const startGX  = obj.gridX, startGY = obj.gridY;
-    let   moved    = false;
-    let   rafPending = false;
-
-    const onMove = em => {
-        const pt = pidSvgPt(tab.pid.svgEl, em);
-        const dx = pt.x - startPt.x, dy = pt.y - startPt.y;
-        if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
-        obj.gridX = Math.max(0, Math.round((startGX * PID.GRID + dx) / PID.GRID));
-        obj.gridY = Math.max(0, Math.round((startGY * PID.GRID + dy) / PID.GRID));
-        // Move the object element immediately for smooth visual feedback
-        const el = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
-        if (el) el.setAttribute('transform', 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')');
-        // Throttle path recalculation to once per animation frame
-        if (!rafPending) {
-            rafPending = true;
-            requestAnimationFrame(() => {
-                rafPending = false;
-                updateConnsTouching(tab, objId);
-            });
-        }
-    };
-
-    const onUp = eu => {
-        tab.pid.svgEl.removeEventListener('pointermove', onMove);
-        tab.pid.svgEl.removeEventListener('pointerup',   onUp);
-        tab.pid.svgEl.releasePointerCapture(eu.pointerId);
-        // Final re-route at resting position
-        updateConnsTouching(tab, objId);
-        if (!moved) selectPidObject(tab, objId);
-    };
-
-    tab.pid.svgEl.setPointerCapture(e.pointerId);
-    tab.pid.svgEl.addEventListener('pointermove', onMove);
-    tab.pid.svgEl.addEventListener('pointerup',   onUp);
-}
-
-// =============================================================================
-// Connection drawing
-// =============================================================================
-
-function startPidConnect(tab, fromObjId, fromPort, e) {
-    tab.pid.connecting = { objId: fromObjId, port: fromPort };
-    // Create preview line
-    tab.pid.previewEl = svgN('line', {
-        class: 'pid-preview-line', 'pointer-events': 'none',
-        x1: 0, y1: 0, x2: 0, y2: 0,
-    });
-    tab.pid.gConns.appendChild(tab.pid.previewEl);
-    // Anchor start
-    const fromObj = tab.pid.objects.find(o => o.id === fromObjId);
-    if (fromObj) {
-        const pp = portPos(fromObj, fromPort);
-        tab.pid.previewEl.setAttribute('x1', pp.x);
-        tab.pid.previewEl.setAttribute('y1', pp.y);
-    }
-}
-
-function completePidConnect(tab, toObjId, toPort) {
-    const { objId: fromId, port: fromPort } = tab.pid.connecting;
-
-    // Avoid duplicate connections on the same port pair
-    const exists = tab.pid.connections.some(
-        c => (c.fromId === fromId && c.fromPort === fromPort && c.toId === toObjId && c.toPort === toPort) ||
-             (c.fromId === toObjId && c.fromPort === toPort && c.toId === fromId && c.toPort === fromPort)
-    );
-    if (!exists) {
-        const conn = { id: pidUid('conn'), fromId, fromPort, toId: toObjId, toPort };
-        tab.pid.connections.push(conn);
-        renderPidConn(tab, conn);
-    }
-    cancelPidConnect(tab);
-}
-
-function cancelPidConnect(tab) {
-    tab.pid.connecting = null;
-    if (tab.pid.previewEl) { tab.pid.previewEl.remove(); tab.pid.previewEl = null; }
-}
-
-// =============================================================================
-// Canvas event handlers
-// =============================================================================
-
-function onPidPointerDown(tab, e) {
-    if (e.button !== 0) return;
-    e.stopPropagation();
-
-    if (tab.pid.editMode) {
-        const portEl = e.target.closest('.pid-port');
-        if (portEl) {
-            const fromObjId = portEl.dataset.objId, fromPort = portEl.dataset.port;
-            if (tab.pid.connecting) {
-                if (fromObjId !== tab.pid.connecting.objId) completePidConnect(tab, fromObjId, fromPort);
-                else cancelPidConnect(tab);
-            } else {
-                startPidConnect(tab, fromObjId, fromPort, e);
-            }
-            return;
-        }
-
-        if (tab.pid.connecting) { cancelPidConnect(tab); return; }
-
-        const objEl = e.target.closest('[data-pid-id]');
-        if (objEl) {
-            e.preventDefault();
-            startObjDrag(tab, objEl.dataset.pidId, e);
-            return;
-        }
-
-        selectPidObject(tab, null);
-    }
-
-    // Pan the canvas when clicking on the background (both view and edit mode)
-    if (!e.target.closest('[data-pid-id]') && !e.target.closest('.pid-port')) {
-        startPidPan(tab, e);
-    }
-}
-
-// =============================================================================
-// Canvas pan (click-drag on background)
+// Canvas pan
 // =============================================================================
 
 function startPidPan(tab, e) {
-    const wrap = tab.pid.canvasWrap;
+    const wrap   = tab.pid.canvasWrap;
     const startX = e.clientX + wrap.scrollLeft;
     const startY = e.clientY + wrap.scrollTop;
 
@@ -1021,44 +570,3 @@ function startPidPan(tab, e) {
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup',   onUp);
 }
-
-function onPidPointerMove(tab, e) {
-    if (!tab.pid.connecting || !tab.pid.previewEl) return;
-    const pt = pidSvgPt(tab.pid.svgEl, e);
-    tab.pid.previewEl.setAttribute('x2', pt.x);
-    tab.pid.previewEl.setAttribute('y2', pt.y);
-}
-
-function onPidContextMenu(tab, e) {
-    if (!tab.pid.editMode) return;
-    const objEl = e.target.closest('[data-pid-id]');
-    if (objEl) selectPidObject(tab, objEl.dataset.pidId);
-}
-
-function onPidDrop(tab, e) {
-    e.preventDefault();
-    const type = e.dataTransfer.getData('pid-type');
-    if (!type) return;
-    const pt = pidSvgPt(tab.pid.svgEl, e);
-    const gx = Math.max(0, Math.round(pt.x / PID.GRID));
-    const gy = Math.max(0, Math.round(pt.y / PID.GRID));
-    createPidObj(tab, type, gx, gy);
-}
-
-// =============================================================================
-// Global keyboard handler (registered once from app.js init via pid.js load)
-// =============================================================================
-
-document.addEventListener('keydown', e => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-    const tab = tabs.find(t => t.id === activeTabId && t.type === 'frontPanel');
-    if (!tab || !tab.pid) return;
-
-    if ((e.key === 'Delete' || e.key === 'Backspace') && tab.pid.editMode && tab.pid.selectedId) {
-        e.preventDefault();
-        deletePidObj(tab, tab.pid.selectedId);
-    }
-    if (e.key === 'Escape') {
-        cancelPidConnect(tab);
-    }
-});

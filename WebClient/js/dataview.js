@@ -3,7 +3,6 @@
 // =============================================================================
 
 const DV_BUFFER_SECS = 15;
-const DV_STALE_MS    = 2000;
 
 // ---------------------------------------------------------------------------
 // Entry point — called by tabs.js on tab create and config reload
@@ -270,7 +269,7 @@ function _buildDvRowEl(tab, ctrl, ch) {
             led.className = 'dv-led dv-led-stale';
             valEl?.classList.remove('bad');
             valEl?.classList.add('stale');
-        }, DV_STALE_MS);
+        }, CONFIG.channelStaleMs);
     };
 
     return row;

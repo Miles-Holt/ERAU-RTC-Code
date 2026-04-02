@@ -5,6 +5,7 @@
 const CONFIG = {
     wsUrl:              `ws://${window.location.hostname || 'localhost'}:8000`,
     staleThresholdMs:   500,
+    channelStaleMs:     2000,
     reconnect:          { baseMs: 1000, maxMs: 10000, factor: 2 },
     graphBufferMinutes: 15,
     consoleBufferLimit: 500
@@ -35,6 +36,7 @@ const tabCounts = {};   // { frontPanel: 1, ... } running counter for auto-namin
 const graphState          = {};
 const channelBuffers      = {};         // refDes -> { ts: number[], vals: number[] }
 const activeGraphChannels = new Set();
+const activePidChannels   = new Set();  // refDes of sensors visible in any front-panel tab
 
 const CHART_COLORS = [
     '#58a6ff', '#3fb950', '#f78166', '#e3b341',
