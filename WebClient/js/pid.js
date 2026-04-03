@@ -13,11 +13,24 @@
 //   version: 1
 //   objects:
 //     - id: "obj_123"
-//       type: sensor        # sensor | node
+//       type: sensor        # sensor | node | graph
 //       refDes: OPT-01      # channel refDes (sensor only)
 //       units: psi          # engineering units (sensor only)
+//       showRefDes: true    # sensor: show refDes label (default true)
+//       showUnits: true     # sensor: show units label (default true)
+//       showName: false     # sensor: show ctrl description (default false)
+//                           # graph:  show title bar     (default true)
 //       gridX: 10           # position in grid cells (1 cell = 20 px)
 //       gridY: 5
+//       name: "LOX History" # graph only: display title
+//       gridW: 20           # graph only: width in grid cells (default 20)
+//       gridH: 10           # graph only: height in grid cells (default 10)
+//       showLeftSidebar: false # graph only: show channel list panel (default false)
+//       lines:              # graph only: pre-configured channels
+//         - refDes: OPT-01
+//           color: "#4e9f3d"
+//           yAxis: 1
+//           hidden: false
 //   connections:
 //     - id: "conn_123"
 //       fromId: "obj_1"
@@ -50,12 +63,34 @@ function pidToYaml(layout) {
     }
     let y = 'name: ' + q(layout.name || 'Untitled') + '\nversion: 1\nobjects:\n';
     for (const o of layout.objects) {
-        y += '  - id: '    + q(o.id)    + '\n';
-        y += '    type: '  + o.type     + '\n';
-        if (o.refDes) y += '    refDes: ' + q(o.refDes) + '\n';
-        if (o.units)  y += '    units: '  + q(o.units)  + '\n';
-        y += '    gridX: ' + o.gridX    + '\n';
-        y += '    gridY: ' + o.gridY    + '\n';
+        y += '  - id: '   + q(o.id)  + '\n';
+        y += '    type: ' + o.type   + '\n';
+        if (o.type === 'graph') {
+            if (o.name)             y += '    name: '           + q(o.name)        + '\n';
+            y +=                        '    gridX: '           + o.gridX           + '\n';
+            y +=                        '    gridY: '           + o.gridY           + '\n';
+            y +=                        '    gridW: '           + (o.gridW || 20)   + '\n';
+            y +=                        '    gridH: '           + (o.gridH || 10)   + '\n';
+            if (o.showName === false)   y += '    showName: false\n';
+            if (o.showLeftSidebar)      y += '    showLeftSidebar: true\n';
+            if (o.lines && o.lines.length) {
+                y += '    lines:\n';
+                for (const l of o.lines) {
+                    y += '      - refDes: ' + q(l.refDes) + '\n';
+                    if (l.color)           y += '        color: '  + q(l.color)  + '\n';
+                    if (l.yAxis && l.yAxis !== 1) y += '        yAxis: ' + l.yAxis + '\n';
+                    if (l.hidden)          y += '        hidden: true\n';
+                }
+            }
+        } else {
+            if (o.refDes)              y += '    refDes: ' + q(o.refDes) + '\n';
+            if (o.units)               y += '    units: '  + q(o.units)  + '\n';
+            if (o.showRefDes === false) y += '    showRefDes: false\n';
+            if (o.showUnits  === false) y += '    showUnits: false\n';
+            if (o.showName   === true)  y += '    showName: true\n';
+            y +=                           '    gridX: '   + o.gridX    + '\n';
+            y +=                           '    gridY: '   + o.gridY    + '\n';
+        }
     }
     y += 'connections:\n';
     for (const c of layout.connections) {
@@ -72,25 +107,33 @@ function pidToYaml(layout) {
 
 function pidFromYaml(text) {
     const out = { name: 'Untitled', version: 1, objects: [], connections: [] };
-    let section = null, cur = null;
+    let section = null, cur = null, subSection = null, subCur = null;
     function uq(s) { return s.trim().replace(/^["']|["']$/g, ''); }
-    function coerce(v) { return (v !== '' && !isNaN(v)) ? Number(v) : v; }
+    function coerce(v) {
+        const u = uq(v);
+        if (u === 'true')  return true;
+        if (u === 'false') return false;
+        return (u !== '' && !isNaN(u)) ? Number(u) : u;
+    }
     function kv(obj, str) {
-        const m = str.match(/^(\w+):\s*(.*)/);
-        if (m) obj[m[1]] = coerce(uq(m[2]));
+        const m = str.match(/^([\w]+):\s*(.*)/);
+        if (m) obj[m[1]] = coerce(m[2]);
     }
     for (const raw of text.split(/\r?\n/)) {
         const t = raw.trim();
         if (!t || t.startsWith('#')) continue;
         const ind = raw.search(/\S/);
         if (ind === 0) {
+            subSection = null; subCur = null;
             const m = t.match(/^(\w+):\s*(.*)/);
             if (!m) continue;
             if      (m[1] === 'name')        out.name    = uq(m[2]);
             else if (m[1] === 'version')     out.version = parseInt(m[2]) || 1;
             else if (m[1] === 'objects')     { section = 'objects';     cur = null; }
             else if (m[1] === 'connections') { section = 'connections'; cur = null; }
-        } else {
+        } else if (ind <= 3) {
+            // Section item: "  - id: ..."
+            subSection = null; subCur = null;
             if (t.startsWith('- ')) {
                 cur = {};
                 if (section === 'objects')     out.objects.push(cur);
@@ -98,6 +141,31 @@ function pidFromYaml(text) {
                 kv(cur, t.slice(2));
             } else if (cur) {
                 kv(cur, t);
+            }
+        } else if (ind <= 5) {
+            // Object property at indent 4: "    key: value" or "    lines:"
+            if (cur) {
+                const m = t.match(/^([\w]+):\s*(.*)/);
+                if (m) {
+                    if (m[2] === '' || m[2].trim() === '') {
+                        // Subsection header (e.g. "    lines:")
+                        subSection = m[1];
+                        if (!cur[subSection]) cur[subSection] = [];
+                        subCur = null;
+                    } else {
+                        subSection = null; subCur = null;
+                        cur[m[1]] = coerce(m[2]);
+                    }
+                }
+            }
+        } else {
+            // Subsection item or property at indent 6+
+            if (t.startsWith('- ') && subSection && cur) {
+                subCur = {};
+                cur[subSection].push(subCur);
+                kv(subCur, t.slice(2));
+            } else if (subCur) {
+                kv(subCur, t);
             }
         }
     }
@@ -131,13 +199,23 @@ function portPos(obj, port) {
 function pidObstacleRects(objects, excludeIds) {
     const M = PID.OBS_MARGIN;
     return objects
-        .filter(o => !excludeIds.has(o.id) && o.type === 'sensor')
-        .map(o => ({
-            x1: o.gridX * PID.GRID - M,
-            y1: o.gridY * PID.GRID - M,
-            x2: o.gridX * PID.GRID + PID.SENSOR_W + M,
-            y2: o.gridY * PID.GRID + PID.SENSOR_H + M,
-        }));
+        .filter(o => !excludeIds.has(o.id) && (o.type === 'sensor' || o.type === 'graph'))
+        .map(o => {
+            if (o.type === 'graph') {
+                return {
+                    x1: o.gridX * PID.GRID - M,
+                    y1: o.gridY * PID.GRID - M,
+                    x2: o.gridX * PID.GRID + (o.gridW || 20) * PID.GRID + M,
+                    y2: o.gridY * PID.GRID + (o.gridH || 10) * PID.GRID + M,
+                };
+            }
+            return {
+                x1: o.gridX * PID.GRID - M,
+                y1: o.gridY * PID.GRID - M,
+                x2: o.gridX * PID.GRID + PID.SENSOR_W + M,
+                y2: o.gridY * PID.GRID + PID.SENSOR_H + M,
+            };
+        });
 }
 
 function pidSegClear(ax, ay, bx, by, rects) {
@@ -464,6 +542,18 @@ function refreshPidLayoutPicker(tab) {
 // =============================================================================
 
 function renderPidAll(tab) {
+    // Clean up any existing embedded graph chart states for this tab
+    const pfx = '__pid_graph_' + tab.id + '_';
+    for (const key of Object.keys(graphState)) {
+        if (!key.startsWith(pfx)) continue;
+        const st = graphState[key];
+        for (const cell of st.cells) {
+            for (const ch of [...cell.channels]) removeChannelFromCell(key, 0, ch.refDes);
+            cell.chart?.destroy();
+        }
+        delete graphState[key];
+    }
+
     tab.pid.gObjs.innerHTML  = '';
     tab.pid.gConns.innerHTML = '';
     for (const obj of tab.pid.objects) renderPidObj(tab, obj);
@@ -472,11 +562,17 @@ function renderPidAll(tab) {
 }
 
 function renderPidObj(tab, obj) {
-    const g = obj.type === 'sensor' ? makeSensorGroup(obj) : makeNodeGroup(obj);
+    const g = obj.type === 'graph'  ? makeGraphGroup(obj, tab)
+            : obj.type === 'sensor' ? makeSensorGroup(obj)
+            : makeNodeGroup(obj);
     tab.pid.gObjs.appendChild(g);
 }
 
 function makeSensorGroup(obj) {
+    const showRefDes = obj.showRefDes !== false;
+    const showUnits  = obj.showUnits  !== false;
+    const showName   = obj.showName   === true;
+
     const g = svgN('g', {
         class: 'pid-obj pid-sensor',
         'data-pid-id': obj.id,
@@ -497,17 +593,30 @@ function makeSensorGroup(obj) {
         });
     }
 
-    const lbl = svgN('text', { class: 'pid-sensor-label', x: PID.SENSOR_W / 2, y: 14 });
-    lbl.textContent = obj.refDes || '(no refDes)';
-    g.appendChild(lbl);
+    // Dynamic Y layout: value is always shown; other elements are optional
+    // Box height = 50px. Layout items from top: name(opt), refDes(opt), value, units(opt)
+    const items = [];
+    if (showName) {
+        const desc = (configControls.find(c => c.channels?.some(ch => ch.refDes === obj.refDes)))?.description || '';
+        items.push({ type: 'name', text: desc });
+    }
+    if (showRefDes) items.push({ type: 'refdes', text: obj.refDes || '(no refDes)' });
+    items.push({ type: 'value', text: '--' });
+    if (showUnits)  items.push({ type: 'units',  text: obj.units || '' });
 
-    const val = svgN('text', { class: 'pid-sensor-value', x: PID.SENSOR_W / 2, y: 33 });
-    val.textContent = '--';
-    g.appendChild(val);
-
-    const unt = svgN('text', { class: 'pid-sensor-units', x: PID.SENSOR_W / 2, y: 44 });
-    unt.textContent = obj.units || '';
-    g.appendChild(unt);
+    const step = PID.SENSOR_H / (items.length + 1);
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const y = Math.round(step * (i + 1));
+        let cls;
+        if      (item.type === 'name')   cls = 'pid-sensor-name';
+        else if (item.type === 'refdes') cls = 'pid-sensor-label';
+        else if (item.type === 'value')  cls = 'pid-sensor-value stale';
+        else                             cls = 'pid-sensor-units';
+        const el = svgN('text', { class: cls, x: PID.SENSOR_W / 2, y });
+        el.textContent = item.text;
+        g.appendChild(el);
+    }
 
     return g;
 }
@@ -521,6 +630,120 @@ function makeNodeGroup(obj) {
         transform: 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')',
     });
     g.appendChild(svgN('circle', { class: 'pid-node-dot', cx: 0, cy: 0, r: PID.NODE_R }));
+    return g;
+}
+
+function makeGraphGroup(obj, tab) {
+    const W = (obj.gridW || 20) * PID.GRID;
+    const H = (obj.gridH || 10) * PID.GRID;
+    const GRAPH_TAB_ID = '__pid_graph_' + tab.id + '_' + obj.id + '__';
+
+    const g = svgN('g', {
+        class: 'pid-obj pid-graph',
+        'data-pid-id': obj.id,
+        transform: 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')',
+    });
+
+    // foreignObject embeds an HTML subtree (including canvas) inside the SVG
+    const fo = svgN('foreignObject', { x: 0, y: 0, width: W, height: H });
+
+    const body = document.createElementNS('http://www.w3.org/1999/xhtml', 'div');
+    body.style.cssText = 'width:' + W + 'px;height:' + H + 'px;overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box;';
+    body.className = 'pid-graph-body';
+
+    // Optional title bar
+    if (obj.showName !== false && obj.name) {
+        const titleBar = document.createElement('div');
+        titleBar.className = 'pid-graph-titlebar';
+        titleBar.textContent = obj.name;
+        body.appendChild(titleBar);
+    }
+
+    // Cell row: optional left panel + chart area
+    const cellWrap = document.createElement('div');
+    cellWrap.style.cssText = 'flex:1;min-height:0;display:flex;overflow:hidden;';
+
+    // Optional left channel-list panel (same structure as graph tab)
+    if (obj.showLeftSidebar) {
+        const panel       = document.createElement('div');
+        panel.className   = 'graph-cell-panel';
+        const channelList = document.createElement('div');
+        channelList.className = 'graph-channel-list';
+        panel.appendChild(channelList);
+        cellWrap.appendChild(panel);
+    }
+
+    // Chart area
+    const chartArea = document.createElement('div');
+    chartArea.className = 'graph-chart-area';
+    chartArea.style.cssText = 'flex:1;min-width:0;';
+    const canvas = document.createElement('canvas');
+    chartArea.appendChild(canvas);
+    cellWrap.appendChild(chartArea);
+    body.appendChild(cellWrap);
+
+    fo.appendChild(body);
+    g.appendChild(fo);
+
+    // Create chart using the shared factory from graph.js
+    const chart = createCellChart(canvas);
+    applyChartColors(chart);
+
+    // Cell state object matching graphState[tabId].cells[i] shape
+    const cell = {
+        cellEl:        body,
+        chart,
+        channels:      [],
+        viewWindowSec: 60,
+        viewEnd:       null,
+    };
+
+    // Register in graphState so updateAllGraphs() and updateActiveGraphChannels() pick it up
+    graphState[GRAPH_TAB_ID] = {
+        rows: 1, cols: 1, gridEl: null,
+        cells: [cell],
+        sizeBtn: null, showDesc: false, _dismissHandler: null,
+    };
+
+    // Pre-populate configured channels
+    for (const line of (obj.lines || [])) {
+        addChannelToCell(GRAPH_TAB_ID, 0, line.refDes);
+        // Apply saved color if present
+        if (line.color) {
+            const ch = cell.channels.find(c => c.refDes === line.refDes);
+            const ds = cell.chart.data.datasets.find(d => d.label === line.refDes);
+            if (ch) ch.color = line.color;
+            if (ds) { ds.borderColor = line.color; ds.backgroundColor = line.color + '22'; }
+        }
+        if (line.yAxis && line.yAxis !== 1) {
+            const ch = cell.channels.find(c => c.refDes === line.refDes);
+            const ds = cell.chart.data.datasets.find(d => d.label === line.refDes);
+            if (ch) ch.yAxisId = line.yAxis;
+            if (ds) ds.yAxisID = 'y' + line.yAxis;
+            syncYAxisVisibility(cell);
+        }
+        if (line.hidden) {
+            const ch = cell.channels.find(c => c.refDes === line.refDes);
+            const ds = cell.chart.data.datasets.find(d => d.label === line.refDes);
+            if (ch) ch.hidden = true;
+            if (ds) ds.hidden = true;
+        }
+    }
+    if (obj.lines?.length) cell.chart.update('none');
+
+    // Attach scroll-zoom and proximity tooltip
+    attachScrollZoom(canvas, cell);
+    attachProximityTooltip(canvas, cell);
+
+    // Right-click opens the object sidebar showing the graph's channels
+    g.style.cursor = 'context-menu';
+    g.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openObjectSidebarForGraph(obj);
+    });
+
+    setTimeout(() => chart?.resize(), 0);
     return g;
 }
 
@@ -566,6 +789,41 @@ function rebindPidLiveData(tab) {
         };
     }
     rebuildActivePidChannels();
+}
+
+// =============================================================================
+// Object sidebar helpers
+// =============================================================================
+
+// Open the object sidebar pre-populated with a graph object's channels.
+// Used when right-clicking a graph object in view mode.
+function openObjectSidebarForGraph(obj) {
+    const sidebarEl = document.getElementById('object-sidebar');
+    if (!sidebarEl) return;
+
+    const _state = graphState[SIDEBAR_TAB_ID];
+    if (_state?.cells[0]?.chart) applyChartColors(_state.cells[0].chart);
+
+    const state = graphState[SIDEBAR_TAB_ID];
+    if (!state) return;
+    const cell = state.cells[0];
+
+    // Clear any existing channels
+    for (const rd of [...cell.channels.map(c => c.refDes)]) {
+        removeChannelFromCell(SIDEBAR_TAB_ID, SIDEBAR_CELL_IDX, rd);
+    }
+
+    // Header shows the graph's name
+    sidebarEl._refdesEl.textContent = obj.name || 'Graph';
+    sidebarEl._descEl.textContent   = '';
+
+    // Add the graph's configured channels
+    for (const line of (obj.lines || [])) {
+        addChannelToCell(SIDEBAR_TAB_ID, SIDEBAR_CELL_IDX, line.refDes);
+    }
+
+    sidebarEl.style.display = '';
+    setTimeout(() => cell.chart?.resize(), 0);
 }
 
 // =============================================================================

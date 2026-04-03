@@ -44,14 +44,28 @@ function buildTabContent(tab) {
     }
 }
 
+function cleanupPidGraphStates(tabId) {
+    const pfx = '__pid_graph_' + tabId + '_';
+    for (const key of Object.keys(graphState)) {
+        if (!key.startsWith(pfx)) continue;
+        const st = graphState[key];
+        for (const cell of st.cells) {
+            for (const ch of [...cell.channels]) removeChannelFromCell(key, 0, ch.refDes);
+            cell.chart?.destroy();
+        }
+        delete graphState[key];
+    }
+}
+
 function removeTab(id) {
     const idx = tabs.findIndex(t => t.id === id);
     if (idx === -1) return;
     const tab = tabs[idx];
 
-    if (tab.type === 'graph')   cleanupGraphTab(id);
-    if (tab.type === 'dev')     devTabs     = devTabs.filter(t => t.id !== id);
-    if (tab.type === 'console') consoleTabs = consoleTabs.filter(t => t.id !== id);
+    if (tab.type === 'graph')      cleanupGraphTab(id);
+    if (tab.type === 'frontPanel') cleanupPidGraphStates(id);
+    if (tab.type === 'dev')        devTabs     = devTabs.filter(t => t.id !== id);
+    if (tab.type === 'console')    consoleTabs = consoleTabs.filter(t => t.id !== id);
 
     tab.contentEl.remove();
     tabs.splice(idx, 1);
@@ -66,9 +80,10 @@ function changeTabType(id, newType) {
     const tab = tabs.find(t => t.id === id);
     if (!tab || tab.type === newType) return;
 
-    if (tab.type === 'graph')   cleanupGraphTab(id);
-    if (tab.type === 'dev')     devTabs     = devTabs.filter(t => t.id !== id);
-    if (tab.type === 'console') consoleTabs = consoleTabs.filter(t => t.id !== id);
+    if (tab.type === 'graph')      cleanupGraphTab(id);
+    if (tab.type === 'frontPanel') cleanupPidGraphStates(id);
+    if (tab.type === 'dev')        devTabs     = devTabs.filter(t => t.id !== id);
+    if (tab.type === 'console')    consoleTabs = consoleTabs.filter(t => t.id !== id);
 
     tab.type = newType;
     tab.name = nextTabName(newType);

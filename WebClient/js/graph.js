@@ -533,6 +533,7 @@ function updateCellPanel(tabId, cellIdx) {
     const cell = graphState[tabId]?.cells[cellIdx];
     if (!cell?.cellEl) return;
     const list = cell.cellEl.querySelector('.graph-channel-list');
+    if (!list) return;
     list.innerHTML = '';
 
     for (const ch of cell.channels) {
@@ -684,6 +685,8 @@ function updateAllGraphs() {
         if (tabId === '__sidebar__') {
             const sidebarEl = document.getElementById('object-sidebar');
             if (!sidebarEl || sidebarEl.style.display === 'none') continue;
+        } else if (tabId.startsWith('__pid_graph_')) {
+            // Embedded graph object in a front panel — always update
         } else {
             const tab = tabs.find(t => t.id === tabId);
             if (!tab || tab.contentEl.style.display === 'none') continue;

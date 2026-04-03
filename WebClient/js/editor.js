@@ -84,12 +84,34 @@ function pidToYaml(layout) {
     }
     let y = 'name: ' + q(layout.name || 'Untitled') + '\nversion: 1\nobjects:\n';
     for (const o of layout.objects) {
-        y += '  - id: '    + q(o.id)    + '\n';
-        y += '    type: '  + o.type     + '\n';
-        if (o.refDes) y += '    refDes: ' + q(o.refDes) + '\n';
-        if (o.units)  y += '    units: '  + q(o.units)  + '\n';
-        y += '    gridX: ' + o.gridX    + '\n';
-        y += '    gridY: ' + o.gridY    + '\n';
+        y += '  - id: '   + q(o.id)  + '\n';
+        y += '    type: ' + o.type   + '\n';
+        if (o.type === 'graph') {
+            if (o.name)             y += '    name: '           + q(o.name)        + '\n';
+            y +=                        '    gridX: '           + o.gridX           + '\n';
+            y +=                        '    gridY: '           + o.gridY           + '\n';
+            y +=                        '    gridW: '           + (o.gridW || 20)   + '\n';
+            y +=                        '    gridH: '           + (o.gridH || 10)   + '\n';
+            if (o.showName === false)   y += '    showName: false\n';
+            if (o.showLeftSidebar)      y += '    showLeftSidebar: true\n';
+            if (o.lines && o.lines.length) {
+                y += '    lines:\n';
+                for (const l of o.lines) {
+                    y += '      - refDes: ' + q(l.refDes) + '\n';
+                    if (l.color)           y += '        color: '  + q(l.color)  + '\n';
+                    if (l.yAxis && l.yAxis !== 1) y += '        yAxis: ' + l.yAxis + '\n';
+                    if (l.hidden)          y += '        hidden: true\n';
+                }
+            }
+        } else {
+            if (o.refDes)              y += '    refDes: ' + q(o.refDes) + '\n';
+            if (o.units)               y += '    units: '  + q(o.units)  + '\n';
+            if (o.showRefDes === false) y += '    showRefDes: false\n';
+            if (o.showUnits  === false) y += '    showUnits: false\n';
+            if (o.showName   === true)  y += '    showName: true\n';
+            y +=                           '    gridX: '   + o.gridX    + '\n';
+            y +=                           '    gridY: '   + o.gridY    + '\n';
+        }
     }
     y += 'connections:\n';
     for (const c of layout.connections) {
@@ -106,25 +128,32 @@ function pidToYaml(layout) {
 
 function pidFromYaml(text) {
     const out = { name: 'Untitled', version: 1, objects: [], connections: [] };
-    let section = null, cur = null;
+    let section = null, cur = null, subSection = null, subCur = null;
     function uq(s) { return s.trim().replace(/^["']|["']$/g, ''); }
-    function coerce(v) { return (v !== '' && !isNaN(v)) ? Number(v) : v; }
+    function coerce(v) {
+        const u = uq(v);
+        if (u === 'true')  return true;
+        if (u === 'false') return false;
+        return (u !== '' && !isNaN(u)) ? Number(u) : u;
+    }
     function kv(obj, str) {
-        const m = str.match(/^(\w+):\s*(.*)/);
-        if (m) obj[m[1]] = coerce(uq(m[2]));
+        const m = str.match(/^([\w]+):\s*(.*)/);
+        if (m) obj[m[1]] = coerce(m[2]);
     }
     for (const raw of text.split(/\r?\n/)) {
         const t = raw.trim();
         if (!t || t.startsWith('#')) continue;
         const ind = raw.search(/\S/);
         if (ind === 0) {
+            subSection = null; subCur = null;
             const m = t.match(/^(\w+):\s*(.*)/);
             if (!m) continue;
             if      (m[1] === 'name')        out.name    = uq(m[2]);
             else if (m[1] === 'version')     out.version = parseInt(m[2]) || 1;
             else if (m[1] === 'objects')     { section = 'objects';     cur = null; }
             else if (m[1] === 'connections') { section = 'connections'; cur = null; }
-        } else {
+        } else if (ind <= 3) {
+            subSection = null; subCur = null;
             if (t.startsWith('- ')) {
                 cur = {};
                 if (section === 'objects')     out.objects.push(cur);
@@ -132,6 +161,28 @@ function pidFromYaml(text) {
                 kv(cur, t.slice(2));
             } else if (cur) {
                 kv(cur, t);
+            }
+        } else if (ind <= 5) {
+            if (cur) {
+                const m = t.match(/^([\w]+):\s*(.*)/);
+                if (m) {
+                    if (m[2] === '' || m[2].trim() === '') {
+                        subSection = m[1];
+                        if (!cur[subSection]) cur[subSection] = [];
+                        subCur = null;
+                    } else {
+                        subSection = null; subCur = null;
+                        cur[m[1]] = coerce(m[2]);
+                    }
+                }
+            }
+        } else {
+            if (t.startsWith('- ') && subSection && cur) {
+                subCur = {};
+                cur[subSection].push(subCur);
+                kv(subCur, t.slice(2));
+            } else if (subCur) {
+                kv(subCur, t);
             }
         }
     }
@@ -177,13 +228,23 @@ function pidEsc(s) {
 function pidObstacleRects(objects, excludeIds) {
     const M = PID.OBS_MARGIN;
     return objects
-        .filter(o => !excludeIds.has(o.id) && o.type === 'sensor')
-        .map(o => ({
-            x1: o.gridX * PID.GRID - M,
-            y1: o.gridY * PID.GRID - M,
-            x2: o.gridX * PID.GRID + PID.SENSOR_W + M,
-            y2: o.gridY * PID.GRID + PID.SENSOR_H + M,
-        }));
+        .filter(o => !excludeIds.has(o.id) && (o.type === 'sensor' || o.type === 'graph'))
+        .map(o => {
+            if (o.type === 'graph') {
+                return {
+                    x1: o.gridX * PID.GRID - M,
+                    y1: o.gridY * PID.GRID - M,
+                    x2: o.gridX * PID.GRID + (o.gridW || 20) * PID.GRID + M,
+                    y2: o.gridY * PID.GRID + (o.gridH || 10) * PID.GRID + M,
+                };
+            }
+            return {
+                x1: o.gridX * PID.GRID - M,
+                y1: o.gridY * PID.GRID - M,
+                x2: o.gridX * PID.GRID + PID.SENSOR_W + M,
+                y2: o.gridY * PID.GRID + PID.SENSOR_H + M,
+            };
+        });
 }
 
 function pidSegClear(ax, ay, bx, by, rects) {
@@ -504,7 +565,9 @@ function buildEditorUI(rootEl) {
         '<div class="pid-obj-item" draggable="true" data-type="sensor">' +
             '<div class="pid-obj-preview">Sensor</div></div>' +
         '<div class="pid-obj-item" draggable="true" data-type="node">' +
-            '<div class="pid-obj-preview pid-obj-preview-node">Node</div></div>';
+            '<div class="pid-obj-preview pid-obj-preview-node">Node</div></div>' +
+        '<div class="pid-obj-item" draggable="true" data-type="graph">' +
+            '<div class="pid-obj-preview pid-obj-preview-graph">Graph</div></div>';
 
     // Canvas
     const canvasWrap = document.createElement('div');
@@ -638,8 +701,38 @@ function renderPidAll() {
 }
 
 function renderPidObj(obj) {
-    const g = obj.type === 'sensor' ? makeSensorGroup(obj) : makeNodeGroup(obj);
+    const g = obj.type === 'graph'  ? makeGraphGroup(obj)
+            : obj.type === 'sensor' ? makeSensorGroup(obj)
+            : makeNodeGroup(obj);
     tab.pid.gObjs.appendChild(g);
+}
+
+function makeGraphGroup(obj) {
+    const sel = (tab.pid.selectedId === obj.id);
+    const W = (obj.gridW || 20) * PID.GRID;
+    const H = (obj.gridH || 10) * PID.GRID;
+
+    const g = svgN('g', {
+        class: 'pid-obj pid-graph' + (sel ? ' pid-selected' : ''),
+        'data-pid-id': obj.id,
+        transform: 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')',
+        cursor: 'grab',
+    });
+
+    g.appendChild(svgN('rect', {
+        x: 0, y: 0, width: W, height: H,
+        rx: 4, class: 'pid-graph-rect',
+    }));
+
+    const lbl = svgN('text', { class: 'pid-graph-label', x: W / 2, y: H / 2 - 8 });
+    lbl.textContent = obj.name || '(no name)';
+    g.appendChild(lbl);
+
+    const sub = svgN('text', { class: 'pid-graph-sublabel', x: W / 2, y: H / 2 + 10 });
+    sub.textContent = 'Graph \u2022 ' + (obj.lines?.length || 0) + ' line' + (obj.lines?.length === 1 ? '' : 's');
+    g.appendChild(sub);
+
+    return g;
 }
 
 function makeSensorGroup(obj) {
@@ -912,6 +1005,10 @@ function renderPidRsb(objId) {
                 '</div>' +
                 '<div class="pid-sb-field"><label>Units</label>' +
                 '<input class="pid-units-inp" type="text" value="' + pidEsc(obj.units || '') + '" placeholder="psi"></div>' +
+                '<div class="pid-sb-heading pid-sb-heading--sm">Front Panel Display</div>' +
+                '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-refdes"' + (obj.showRefDes !== false ? ' checked' : '') + '> Show refDes</label></div>' +
+                '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-units"'  + (obj.showUnits  !== false ? ' checked' : '') + '> Show units</label></div>' +
+                '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-name"'   + (obj.showName   === true  ? ' checked' : '') + '> Show name (description)</label></div>' +
                 '<button class="pid-apply-btn">Apply</button>' +
                 '<button class="pid-delete-btn">Remove</button>';
 
@@ -925,13 +1022,18 @@ function renderPidRsb(objId) {
             });
 
             c.querySelector('.pid-apply-btn').addEventListener('click', () => {
-                obj.refDes = sel ? sel.value : (inp ? inp.value.trim() : '');
-                obj.units  = uinp ? uinp.value.trim() : '';
-                const g = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
-                if (g) {
-                    g.querySelector('.pid-sensor-label').textContent = obj.refDes || '(no refDes)';
-                    g.querySelector('.pid-sensor-units').textContent = obj.units || '';
-                }
+                obj.refDes    = sel ? sel.value : (inp ? inp.value.trim() : '');
+                obj.units     = uinp ? uinp.value.trim() : '';
+                obj.showRefDes = c.querySelector('.pid-show-refdes').checked;
+                obj.showUnits  = c.querySelector('.pid-show-units').checked;
+                obj.showName   = c.querySelector('.pid-show-name').checked;
+                // Re-render the object in place to reflect display flag changes
+                const existing = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
+                if (existing) existing.remove();
+                renderPidObj(obj);
+                // Re-apply selection highlight
+                const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
+                if (updated) updated.classList.add('pid-selected');
                 // Re-bind live display to the new refDes
                 edLiveRefDes = obj.refDes || null;
                 if (edLiveEl && edLiveRefDes && edLiveValues[edLiveRefDes] !== undefined) {
@@ -965,6 +1067,140 @@ function renderPidRsb(objId) {
             edLiveRefDes = obj.refDes || null;
             edLiveEl     = liveVal;
 
+        } else if (obj.type === 'graph') {
+            // ── Graph object configuration ────────────────────────────────────
+
+            c.innerHTML =
+                '<div class="pid-sb-heading">Graph</div>' +
+                '<div class="pid-sb-field"><label>Name</label>' +
+                '<input class="pid-graph-name" type="text" value="' + pidEsc(obj.name || '') + '" placeholder="e.g. LOX Pressure"></div>' +
+                '<div class="pid-sb-field pid-sb-field--row">' +
+                    '<div><label>Width (cells)</label>' +
+                    '<input class="pid-graph-w" type="number" min="4" max="100" value="' + (obj.gridW || 20) + '"></div>' +
+                    '<div><label>Height (cells)</label>' +
+                    '<input class="pid-graph-h" type="number" min="4" max="100" value="' + (obj.gridH || 10) + '"></div>' +
+                '</div>' +
+                '<div class="pid-sb-check"><label><input type="checkbox" class="pid-graph-show-name"' + (obj.showName !== false ? ' checked' : '') + '> Show title bar</label></div>' +
+                '<div class="pid-sb-check"><label><input type="checkbox" class="pid-graph-show-lsb"'  + (obj.showLeftSidebar ? ' checked' : '') + '> Show channel list</label></div>' +
+                '<div class="pid-sb-heading pid-sb-heading--sm">Channels</div>' +
+                '<div class="pid-graph-channel-list"></div>' +
+                '<div class="pid-sb-field pid-graph-add-row">' +
+                    '<input class="pid-graph-add-inp" type="text" placeholder="Add channel (refDes)...">' +
+                    '<div class="pid-graph-add-dropdown" style="display:none"></div>' +
+                '</div>' +
+                '<button class="pid-apply-btn">Apply</button>' +
+                '<button class="pid-delete-btn">Remove</button>';
+
+            // Render the channel list
+            function renderGraphChannelList() {
+                const list = c.querySelector('.pid-graph-channel-list');
+                list.innerHTML = '';
+                for (let li = 0; li < obj.lines.length; li++) {
+                    const line = obj.lines[li];
+                    const row = document.createElement('div');
+                    row.className = 'pid-graph-ch-row';
+
+                    const swatch = document.createElement('div');
+                    swatch.className = 'pid-graph-color-swatch';
+                    swatch.style.background = line.color || '#4e9f3d';
+                    swatch.title = 'Click to change color';
+                    const colorInp = document.createElement('input');
+                    colorInp.type = 'color';
+                    colorInp.value = line.color || '#4e9f3d';
+                    colorInp.style.cssText = 'position:absolute;width:0;height:0;opacity:0;';
+                    swatch.appendChild(colorInp);
+                    swatch.addEventListener('click', () => colorInp.click());
+                    colorInp.addEventListener('input', () => {
+                        line.color = colorInp.value;
+                        swatch.style.background = colorInp.value;
+                    });
+
+                    const badge = document.createElement('span');
+                    badge.className = 'pid-graph-y-badge';
+                    badge.textContent = 'Y' + (line.yAxis || 1);
+                    badge.title = 'Click to cycle Y axis';
+                    badge.addEventListener('click', () => {
+                        line.yAxis = ((line.yAxis || 1) % 6) + 1;
+                        badge.textContent = 'Y' + line.yAxis;
+                    });
+
+                    const rdLbl = document.createElement('span');
+                    rdLbl.className = 'pid-graph-ch-refdes';
+                    rdLbl.textContent = line.refDes;
+
+                    const rmBtn = document.createElement('button');
+                    rmBtn.className = 'pid-graph-ch-rm';
+                    rmBtn.textContent = '×';
+                    rmBtn.addEventListener('click', () => {
+                        obj.lines.splice(li, 1);
+                        renderGraphChannelList();
+                    });
+
+                    row.append(swatch, colorInp, badge, rdLbl, rmBtn);
+                    list.appendChild(row);
+                }
+            }
+            renderGraphChannelList();
+
+            // Channel search / add dropdown
+            const addInp  = c.querySelector('.pid-graph-add-inp');
+            const addDrop = c.querySelector('.pid-graph-add-dropdown');
+            const CHART_COLORS_ED = ['#4e9f3d','#4fc3f7','#ff7043','#ffd54f','#ba68c8','#4db6ac','#f06292','#aed581','#ff8a65','#90a4ae'];
+
+            addInp.addEventListener('input', () => {
+                const q = addInp.value.trim();
+                if (!q) { addDrop.style.display = 'none'; return; }
+                let re;
+                try { re = new RegExp(q, 'i'); } catch { addDrop.style.display = 'none'; return; }
+                const used = new Set(obj.lines.map(l => l.refDes));
+                const matches = [];
+                for (const ctrl of edConfigControls) {
+                    for (const ch of (ctrl.channels || [])) {
+                        if (!used.has(ch.refDes) && (re.test(ch.refDes) || re.test(ctrl.description || ''))) {
+                            matches.push({ refDes: ch.refDes, desc: ctrl.description || '' });
+                        }
+                    }
+                }
+                const trimmed = matches.slice(0, 15);
+                addDrop.innerHTML = '';
+                if (!trimmed.length) { addDrop.style.display = 'none'; return; }
+                for (const { refDes, desc } of trimmed) {
+                    const item = document.createElement('div');
+                    item.className = 'pid-graph-add-item';
+                    item.innerHTML = '<span class="pid-graph-add-rd">' + pidEsc(refDes) + '</span>' +
+                                     (desc ? '<span class="pid-graph-add-desc">' + pidEsc(desc) + '</span>' : '');
+                    item.addEventListener('mousedown', (ev) => {
+                        ev.preventDefault();
+                        const usedColors = obj.lines.map(l => l.color);
+                        const color = CHART_COLORS_ED.find(c => !usedColors.includes(c)) || CHART_COLORS_ED[obj.lines.length % CHART_COLORS_ED.length];
+                        obj.lines.push({ refDes, color, yAxis: 1, hidden: false });
+                        addInp.value = '';
+                        addDrop.style.display = 'none';
+                        renderGraphChannelList();
+                    });
+                    addDrop.appendChild(item);
+                }
+                addDrop.style.display = '';
+            });
+            addInp.addEventListener('blur', () => setTimeout(() => { addDrop.style.display = 'none'; }, 150));
+
+            c.querySelector('.pid-apply-btn').addEventListener('click', () => {
+                obj.name          = c.querySelector('.pid-graph-name').value.trim();
+                obj.gridW         = parseInt(c.querySelector('.pid-graph-w').value) || 20;
+                obj.gridH         = parseInt(c.querySelector('.pid-graph-h').value) || 10;
+                obj.showName      = c.querySelector('.pid-graph-show-name').checked;
+                obj.showLeftSidebar = c.querySelector('.pid-graph-show-lsb').checked;
+                // Re-render the placeholder to reflect new size and name
+                const existing = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
+                if (existing) existing.remove();
+                renderPidObj(obj);
+                const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
+                if (updated) updated.classList.add('pid-selected');
+                tab.pid.routingErrors = [];
+                for (const conn of tab.pid.connections) renderPidConn(conn);
+                renderPidWarning();
+            });
+
         } else {
             c.innerHTML =
                 '<div class="pid-sb-heading">Junction Node</div>' +
@@ -985,6 +1221,10 @@ function renderPidRsb(objId) {
 function createPidObj(type, gridX, gridY) {
     const obj = { id: pidUid(type), type, gridX, gridY };
     if (type === 'sensor') { obj.refDes = ''; obj.units = ''; }
+    if (type === 'graph')  {
+        obj.name = ''; obj.gridW = 20; obj.gridH = 10;
+        obj.showName = true; obj.showLeftSidebar = false; obj.lines = [];
+    }
     tab.pid.objects.push(obj);
     renderPidObj(obj);
     tab.pid.routingErrors = [];

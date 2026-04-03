@@ -1655,6 +1655,12 @@ header h1 {
     color: var(--muted);
 }
 
+.pid-obj-preview-graph {
+    color: var(--accent);
+    border-color: var(--accent);
+    border-style: dashed;
+}
+
 .pid-obj-item:hover .pid-obj-preview {
     border-color: var(--accent);
     color: var(--accent);
@@ -1769,6 +1775,129 @@ header h1 {
     line-height: 1.5;
     margin-top: 6px;
 }
+
+/* Smaller secondary heading in RSB */
+.pid-sb-heading--sm {
+    margin-top: 10px;
+    margin-bottom: 6px;
+}
+
+/* Checkbox rows in RSB */
+.pid-sb-check {
+    margin-bottom: 5px;
+}
+.pid-sb-check label {
+    font-size: 11px;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.pid-sb-check input[type="checkbox"] {
+    accent-color: var(--accent);
+}
+
+/* Side-by-side field layout */
+.pid-sb-field--row {
+    display: flex;
+    gap: 8px;
+}
+.pid-sb-field--row > div {
+    flex: 1;
+}
+.pid-sb-field--row input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Graph channel list in editor RSB */
+.pid-graph-channel-list {
+    margin-bottom: 6px;
+}
+.pid-graph-ch-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 4px;
+    font-size: 11px;
+}
+.pid-graph-color-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    position: relative;
+}
+.pid-graph-y-badge {
+    font-size: 10px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0 4px;
+    cursor: pointer;
+    color: var(--muted);
+    flex-shrink: 0;
+}
+.pid-graph-y-badge:hover { border-color: var(--accent); color: var(--accent); }
+.pid-graph-ch-refdes {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text);
+}
+.pid-graph-ch-rm {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0 2px;
+    font-size: 13px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+.pid-graph-ch-rm:hover { color: var(--danger, #f85149); }
+
+/* Graph add-channel row */
+.pid-graph-add-row {
+    position: relative;
+    margin-bottom: 10px;
+}
+.pid-graph-add-inp {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 11px;
+    padding: 4px 6px;
+}
+.pid-graph-add-inp:focus { outline: none; border-color: var(--accent); }
+.pid-graph-add-dropdown {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    max-height: 180px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.3);
+}
+.pid-graph-add-item {
+    padding: 5px 8px;
+    cursor: pointer;
+    font-size: 11px;
+}
+.pid-graph-add-item:hover { background: var(--card-bg); }
+.pid-graph-add-rd { color: var(--text); margin-right: 6px; }
+.pid-graph-add-desc { color: var(--muted); font-size: 10px; }
 
 .pid-sb-value {
     font-size: 12px;
@@ -1928,10 +2057,64 @@ header h1 {
     font-family: 'Segoe UI', system-ui, sans-serif;
 }
 
+/* Sensor name line (description) */
+.pid-sensor-name {
+    font-size: 9px;
+    fill: var(--muted);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-style: italic;
+}
+
 /* Node junction dot */
 .pid-node-dot {
     fill: var(--muted);
     stroke: none;
+}
+
+/* Graph object (SVG placeholder in editor, foreignObject in view mode) */
+.pid-graph-rect {
+    fill: var(--card-bg);
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    stroke-dasharray: 6 3;
+}
+
+.pid-graph text {
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: none;
+}
+
+.pid-graph-label {
+    font-size: 12px;
+    font-weight: 600;
+    fill: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.pid-graph-sublabel {
+    font-size: 10px;
+    fill: var(--muted);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+/* Graph object body (foreignObject content) */
+.pid-graph-body {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+}
+
+.pid-graph-titlebar {
+    padding: 3px 8px;
+    font-size: 11px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'Segoe UI', system-ui, sans-serif;
 }
 
 /* Selected state */
@@ -1942,6 +2125,12 @@ header h1 {
 
 .pid-selected .pid-node-dot {
     fill: var(--accent);
+}
+
+.pid-selected .pid-graph-rect {
+    stroke: var(--accent);
+    stroke-width: 2.5;
+    stroke-dasharray: none;
 }
 
 /* Hidden node dot in view mode */

@@ -41,6 +41,29 @@ objects:
     units: Pounds
     gridX: 27
     gridY: 9
+  - id: graph_1775174926738_8097
+    type: graph
+    name: Control Node
+    gridX: 42
+    gridY: 3
+    gridW: 30
+    gridH: 20
+    showLeftSidebar: true
+    lines:
+      - refDes: CTR001-uptime
+        color: "#4e9f3d"
+        yAxis: 4
+      - refDes: CTR001-daqConnected
+        color: "#4fc3f7"
+        yAxis: 2
+      - refDes: CTR001-wcConnected
+        color: "#ff7043"
+        yAxis: 2
+      - refDes: CTR001-loopTime
+        color: "#ffd54f"
+      - refDes: CTR001-restart
+        color: "#ba68c8"
+        yAxis: 2
 connections:
   - id: conn_1775091870218_2314
     fromId: sensor_1775091865101_9104
