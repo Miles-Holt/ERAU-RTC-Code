@@ -31,6 +31,8 @@ const PID = {
     CANVAS_H:    1800,
     CORNER_R:    8,
     OBS_MARGIN:  6,
+    VALVE_R:     25,
+    VALVE_PORT_OFF: 40,
 };
 
 // ── Editor state ─────────────────────────────────────────────────────────────
@@ -206,6 +208,13 @@ function portPos(obj, port) {
     if (obj.type === 'node') {
         return { x, y };
     }
+    if (obj.type === 'valve') {
+        const off = PID.VALVE_PORT_OFF;
+        if (port === 'top')    return { x,        y: y - off };
+        if (port === 'right')  return { x: x+off, y };
+        if (port === 'bottom') return { x,        y: y + off };
+        if (port === 'left')   return { x: x-off, y };
+    }
     return { x, y };
 }
 
@@ -228,7 +237,7 @@ function pidEsc(s) {
 function pidObstacleRects(objects, excludeIds) {
     const M = PID.OBS_MARGIN;
     return objects
-        .filter(o => !excludeIds.has(o.id) && (o.type === 'sensor' || o.type === 'graph'))
+        .filter(o => !excludeIds.has(o.id) && (o.type === 'sensor' || o.type === 'graph' || o.type === 'valve'))
         .map(o => {
             if (o.type === 'graph') {
                 return {
@@ -237,6 +246,10 @@ function pidObstacleRects(objects, excludeIds) {
                     x2: o.gridX * PID.GRID + (o.gridW || 20) * PID.GRID + M,
                     y2: o.gridY * PID.GRID + (o.gridH || 10) * PID.GRID + M,
                 };
+            }
+            if (o.type === 'valve') {
+                const x = o.gridX * PID.GRID, y = o.gridY * PID.GRID, R = PID.VALVE_R;
+                return { x1: x-R-M, y1: y-R-M, x2: x+R+M, y2: y+R+M };
             }
             return {
                 x1: o.gridX * PID.GRID - M,
@@ -567,7 +580,9 @@ function buildEditorUI(rootEl) {
         '<div class="pid-obj-item" draggable="true" data-type="node">' +
             '<div class="pid-obj-preview pid-obj-preview-node">Node</div></div>' +
         '<div class="pid-obj-item" draggable="true" data-type="graph">' +
-            '<div class="pid-obj-preview pid-obj-preview-graph">Graph</div></div>';
+            '<div class="pid-obj-preview pid-obj-preview-graph">Graph</div></div>' +
+        '<div class="pid-obj-item" draggable="true" data-type="valve">' +
+            '<div class="pid-obj-preview pid-obj-preview-valve">Valve</div></div>';
 
     // Canvas
     const canvasWrap = document.createElement('div');
@@ -703,6 +718,7 @@ function renderPidAll() {
 function renderPidObj(obj) {
     const g = obj.type === 'graph'  ? makeGraphGroup(obj)
             : obj.type === 'sensor' ? makeSensorGroup(obj)
+            : obj.type === 'valve'  ? makeValveGroupEditor(obj)
             : makeNodeGroup(obj);
     tab.pid.gObjs.appendChild(g);
 }
@@ -783,6 +799,42 @@ function makeNodeGroup(obj) {
 
     const ports = { top: [0, -PID.PORT_OFF], right: [PID.PORT_OFF, 0], bottom: [0, PID.PORT_OFF], left: [-PID.PORT_OFF, 0] };
     for (const [pname, [px, py]] of Object.entries(ports)) {
+        g.appendChild(svgN('circle', {
+            class: 'pid-port',
+            'data-obj-id': obj.id, 'data-port': pname,
+            cx: px, cy: py, r: PID.PORT_R,
+        }));
+    }
+    return g;
+}
+
+function makeValveGroupEditor(obj) {
+    const sel  = (tab.pid.selectedId === obj.id);
+    const ctrl = edConfigControls.find(c => c.refDes === obj.controlRefDes);
+    const L    = PID.VALVE_R - 3;
+
+    const g = svgN('g', {
+        class:         'pid-obj pid-valve' + (sel ? ' pid-selected' : ''),
+        'data-pid-id': obj.id,
+        transform:     'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')',
+        cursor:        'grab',
+    });
+
+    g.appendChild(svgN('circle', { class: 'pid-valve-ring', r: PID.VALVE_R }));
+
+    if (!ctrl) {
+        g.appendChild(svgN('line', { class: 'pid-valve-uncfg', x1: -L, y1: L, x2: L, y2: -L }));
+    } else {
+        g.appendChild(svgN('line', { class: 'pid-valve-line', x1: -L, y1: 0, x2: L, y2: 0 }));
+    }
+
+    const lbl = svgN('text', { class: 'pid-valve-label', x: 0, y: PID.VALVE_R + 12 });
+    lbl.textContent = obj.controlRefDes || '(no control)';
+    g.appendChild(lbl);
+
+    const off = PID.VALVE_PORT_OFF;
+    const valvePorts = { top: [0, -off], right: [off, 0], bottom: [0, off], left: [-off, 0] };
+    for (const [pname, [px, py]] of Object.entries(valvePorts)) {
         g.appendChild(svgN('circle', {
             class: 'pid-port',
             'data-obj-id': obj.id, 'data-port': pname,
@@ -1201,6 +1253,41 @@ function renderPidRsb(objId) {
                 renderPidWarning();
             });
 
+        } else if (obj.type === 'valve') {
+            const valveControls = edConfigControls.filter(c => c.type === 'valve');
+            const opts = valveControls.length > 0
+                ? valveControls.map(ctrl =>
+                    '<option value="' + pidEsc(ctrl.refDes) + '"' +
+                    (ctrl.refDes === obj.controlRefDes ? ' selected' : '') + '>' +
+                    pidEsc(ctrl.refDes) + (ctrl.description ? ' \u2014 ' + pidEsc(ctrl.description) : '') +
+                    '</option>'
+                  ).join('')
+                : null;
+
+            c.innerHTML =
+                '<div class="pid-sb-heading">Valve</div>' +
+                '<div class="pid-sb-field"><label>Control</label>' +
+                (opts
+                    ? '<select class="pid-valve-ctrl-sel"><option value="">-- pick --</option>' + opts + '</select>'
+                    : '<input class="pid-valve-ctrl-inp" type="text" value="' + pidEsc(obj.controlRefDes || '') + '" placeholder="e.g. NV-03">') +
+                '</div>' +
+                '<button class="pid-apply-btn">Apply</button>' +
+                '<button class="pid-delete-btn">Remove</button>';
+
+            c.querySelector('.pid-apply-btn').addEventListener('click', () => {
+                const sel = c.querySelector('.pid-valve-ctrl-sel');
+                const inp = c.querySelector('.pid-valve-ctrl-inp');
+                obj.controlRefDes = sel ? sel.value : (inp ? inp.value.trim() : '');
+                const existing = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
+                if (existing) existing.remove();
+                renderPidObj(obj);
+                const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
+                if (updated) updated.classList.add('pid-selected');
+                tab.pid.routingErrors = [];
+                for (const conn of tab.pid.connections) renderPidConn(conn);
+                renderPidWarning();
+            });
+
         } else {
             c.innerHTML =
                 '<div class="pid-sb-heading">Junction Node</div>' +
@@ -1225,6 +1312,7 @@ function createPidObj(type, gridX, gridY) {
         obj.name = ''; obj.gridW = 20; obj.gridH = 10;
         obj.showName = true; obj.showLeftSidebar = false; obj.lines = [];
     }
+    if (type === 'valve') { obj.controlRefDes = ''; }
     tab.pid.objects.push(obj);
     renderPidObj(obj);
     tab.pid.routingErrors = [];

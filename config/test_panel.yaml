@@ -64,6 +64,22 @@ objects:
       - refDes: CTR001-restart
         color: "#ba68c8"
         yAxis: 2
+  - id: valve_1775199053178_8680
+    type: valve
+    gridX: 13
+    gridY: 30
+  - id: valve_1775199061054_8583
+    type: valve
+    gridX: 13
+    gridY: 38
+  - id: valve_1775199074292_4158
+    type: valve
+    gridX: 22
+    gridY: 32
+  - id: valve_1775199095151_4256
+    type: valve
+    gridX: 6
+    gridY: 19
 connections:
   - id: conn_1775091870218_2314
     fromId: sensor_1775091865101_9104
@@ -89,4 +105,9 @@ connections:
     fromId: node_1775091861441_6209
     fromPort: top
     toId: sensor_1775091859475_6637
+    toPort: bottom
+  - id: conn_1775199058644_693
+    fromId: valve_1775199053178_8680
+    fromPort: right
+    toId: sensor_1775091867852_4019
     toPort: bottom

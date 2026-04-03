@@ -52,6 +52,8 @@ const PID = {
     CANVAS_H:    1800,
     CORNER_R:    8,     // rounded corner radius px
     OBS_MARGIN:  6,     // obstacle clearance margin px
+    VALVE_R:     25,    // valve circle radius px
+    VALVE_PORT_OFF: 40, // valve port offset from centre px
 };
 
 // ── YAML serialiser ──────────────────────────────────────────────────────────
@@ -82,6 +84,10 @@ function pidToYaml(layout) {
                     if (l.hidden)          y += '        hidden: true\n';
                 }
             }
+        } else if (o.type === 'valve') {
+            if (o.controlRefDes) y += '    controlRefDes: ' + q(o.controlRefDes) + '\n';
+            y +=                      '    gridX: ' + o.gridX + '\n';
+            y +=                      '    gridY: ' + o.gridY + '\n';
         } else {
             if (o.refDes)              y += '    refDes: ' + q(o.refDes) + '\n';
             if (o.units)               y += '    units: '  + q(o.units)  + '\n';
@@ -191,6 +197,13 @@ function portPos(obj, port) {
     if (obj.type === 'node') {
         return { x, y };
     }
+    if (obj.type === 'valve') {
+        const off = PID.VALVE_PORT_OFF;
+        if (port === 'top')    return { x,        y: y - off };
+        if (port === 'right')  return { x: x+off, y };
+        if (port === 'bottom') return { x,        y: y + off };
+        if (port === 'left')   return { x: x-off, y };
+    }
     return { x, y };
 }
 
@@ -199,7 +212,7 @@ function portPos(obj, port) {
 function pidObstacleRects(objects, excludeIds) {
     const M = PID.OBS_MARGIN;
     return objects
-        .filter(o => !excludeIds.has(o.id) && (o.type === 'sensor' || o.type === 'graph'))
+        .filter(o => !excludeIds.has(o.id) && (o.type === 'sensor' || o.type === 'graph' || o.type === 'valve'))
         .map(o => {
             if (o.type === 'graph') {
                 return {
@@ -208,6 +221,10 @@ function pidObstacleRects(objects, excludeIds) {
                     x2: o.gridX * PID.GRID + (o.gridW || 20) * PID.GRID + M,
                     y2: o.gridY * PID.GRID + (o.gridH || 10) * PID.GRID + M,
                 };
+            }
+            if (o.type === 'valve') {
+                const x = o.gridX * PID.GRID, y = o.gridY * PID.GRID, R = PID.VALVE_R;
+                return { x1: x-R-M, y1: y-R-M, x2: x+R+M, y2: y+R+M };
             }
             return {
                 x1: o.gridX * PID.GRID - M,
@@ -564,6 +581,7 @@ function renderPidAll(tab) {
 function renderPidObj(tab, obj) {
     const g = obj.type === 'graph'  ? makeGraphGroup(obj, tab)
             : obj.type === 'sensor' ? makeSensorGroup(obj)
+            : obj.type === 'valve'  ? makeValveGroup(obj)
             : makeNodeGroup(obj);
     tab.pid.gObjs.appendChild(g);
 }
@@ -631,6 +649,168 @@ function makeNodeGroup(obj) {
     });
     g.appendChild(svgN('circle', { class: 'pid-node-dot', cx: 0, cy: 0, r: PID.NODE_R }));
     return g;
+}
+
+// =============================================================================
+// Valve helpers
+// =============================================================================
+
+// Returns SVG line attributes for the IO-CMD center line.
+// open (truthy) = horizontal (0°), closed (falsy) = vertical (90°).
+function _valveLineAttrs(isOpen) {
+    const L = PID.VALVE_R - 3;
+    return isOpen
+        ? { x1: -L, y1: 0,  x2: L, y2: 0  }
+        : { x1: 0,  y1: -L, x2: 0, y2: L  };
+}
+
+// Returns SVG arc path for POS-FB feedback.
+// pct 100 = open (pointer at 180°), pct 0 = closed (pointer at 90°).
+function _valveArcPath(pct) {
+    const R = PID.VALVE_R + 7;
+    const endAngle = Math.PI - (Math.max(0, Math.min(100, pct)) / 100) * (Math.PI / 2);
+    const startAngle = Math.PI;
+    if (Math.abs(startAngle - endAngle) < 0.01) return '';
+    const x1 = Math.cos(startAngle) * R, y1 = Math.sin(startAngle) * R;
+    const x2 = Math.cos(endAngle)   * R, y2 = Math.sin(endAngle)   * R;
+    return 'M ' + x1 + ' ' + y1 + ' A ' + R + ' ' + R + ' 0 0 1 ' + x2 + ' ' + y2;
+}
+
+// Returns {cx, cy} for the POS-FB pointer dot.
+function _valvePtrPos(pct) {
+    const R = PID.VALVE_R + 7;
+    const angle = Math.PI - (Math.max(0, Math.min(100, pct)) / 100) * (Math.PI / 2);
+    return { cx: Math.cos(angle) * R, cy: Math.sin(angle) * R };
+}
+
+// Determines command/feedback type from ctrl.subType string.
+function _valveSubtypeInfo(ctrl) {
+    if (!ctrl) return { hasCmd: false, cmdRole: null, hasFb: false, fbIsPct: false };
+    const st = (ctrl.subType || '').toUpperCase();
+    const hasCmd  = st.includes('IO-CMD') || st.includes('POS-CMD');
+    const cmdRole = st.includes('POS-CMD') ? 'cmd-pct' : (hasCmd ? 'cmd-bool' : null);
+    const hasFb   = st.includes('IO-FB') || st.includes('POS-FB');
+    const fbIsPct = st.includes('POS-FB');
+    return { hasCmd, cmdRole, hasFb, fbIsPct };
+}
+
+function makeValveGroup(obj) {
+    const ctrl  = configControls.find(c => c.refDes === obj.controlRefDes);
+    const info  = _valveSubtypeInfo(ctrl);
+    const cmdCh = ctrl?.channels?.find(c => c.role === 'cmd-bool' || c.role === 'cmd-pct');
+    const fbCh  = ctrl?.channels?.find(c => c.role === '' || c.role === 'sensor');
+    const L     = PID.VALVE_R - 3;
+
+    const g = svgN('g', {
+        class:         'pid-obj pid-valve',
+        'data-pid-id': obj.id,
+        transform:     'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')',
+        cursor:        'pointer',
+    });
+
+    // Outer ring (starts stale until data arrives)
+    g.appendChild(svgN('circle', { class: 'pid-valve-ring stale', r: PID.VALVE_R }));
+
+    if (!ctrl) {
+        // Unconfigured: -45° dashed diagonal
+        g.appendChild(svgN('line', { class: 'pid-valve-uncfg', x1: -L, y1: L, x2: L, y2: -L }));
+    } else {
+        // POS-FB arc + pointer (drawn first so center content is on top)
+        if (info.hasFb && info.fbIsPct) {
+            g.appendChild(svgN('path',   { class: 'pid-valve-arc', 'data-vfb-arc': '' }));
+            g.appendChild(svgN('circle', { class: 'pid-valve-ptr', r: 4, 'data-vfb-ptr': '' }));
+        }
+
+        // IO-CMD center line
+        if (info.hasCmd && cmdCh?.role === 'cmd-bool') {
+            const la = _valveLineAttrs(false); // default: closed
+            g.appendChild(svgN('line', {
+                class: 'pid-valve-line', 'data-vcmd-line': '',
+                x1: la.x1, y1: la.y1, x2: la.x2, y2: la.y2,
+            }));
+            // IO-FB: dots on line ends
+            if (info.hasFb && !info.fbIsPct) {
+                g.appendChild(svgN('circle', { class: 'pid-valve-dot', r: 4, cx: 0, cy: -L, 'data-vfb-dot-a': '' }));
+                g.appendChild(svgN('circle', { class: 'pid-valve-dot', r: 4, cx: 0, cy:  L, 'data-vfb-dot-b': '' }));
+            }
+        }
+
+        // POS-CMD center text
+        if (info.hasCmd && cmdCh?.role === 'cmd-pct') {
+            const t = svgN('text', { class: 'pid-valve-pct', 'data-vcmd-pct': '' });
+            t.textContent = '--';
+            g.appendChild(t);
+        }
+
+        // refDes label below circle
+        const lbl = svgN('text', { class: 'pid-valve-label', x: 0, y: PID.VALVE_R + 12 });
+        lbl.textContent = obj.controlRefDes || '';
+        g.appendChild(lbl);
+    }
+
+    // Stop left-click from reaching the SVG-level pan handler
+    g.addEventListener('pointerdown', e => { if (e.button === 0) e.stopPropagation(); });
+
+    g.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const refDes = fbCh?.refDes || cmdCh?.refDes;
+        if (refDes) openObjectSidebar(refDes);
+    });
+
+    g.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openValveDropdown(obj, e.clientX, e.clientY);
+    });
+
+    return g;
+}
+
+// SVG update helpers called from rebindPidLiveData
+function _updateValveCmdSvg(svgEl, id, role, value) {
+    const g = svgEl.querySelector('[data-pid-id="' + id + '"]');
+    if (!g) return;
+    if (role === 'cmd-bool') {
+        const line = g.querySelector('[data-vcmd-line]');
+        if (line) {
+            const la = _valveLineAttrs(value);
+            line.setAttribute('x1', la.x1); line.setAttribute('y1', la.y1);
+            line.setAttribute('x2', la.x2); line.setAttribute('y2', la.y2);
+        }
+        // IO-FB dots follow the line angle
+        const dotA = g.querySelector('[data-vfb-dot-a]');
+        const dotB = g.querySelector('[data-vfb-dot-b]');
+        if (dotA && dotB) {
+            const L = PID.VALVE_R - 3;
+            if (value) {
+                dotA.setAttribute('cx', -L); dotA.setAttribute('cy', 0);
+                dotB.setAttribute('cx',  L); dotB.setAttribute('cy', 0);
+            } else {
+                dotA.setAttribute('cx', 0); dotA.setAttribute('cy', -L);
+                dotB.setAttribute('cx', 0); dotB.setAttribute('cy',  L);
+            }
+        }
+    } else if (role === 'cmd-pct') {
+        const txt = g.querySelector('[data-vcmd-pct]');
+        if (txt) txt.textContent = (typeof value === 'number' ? Math.round(value) : '--') + '%';
+    }
+}
+
+function _updateValveFbSvg(svgEl, id, subType, value) {
+    const g = svgEl.querySelector('[data-pid-id="' + id + '"]');
+    if (!g) return;
+    const st = (subType || '').toUpperCase();
+    if (st.includes('POS-FB')) {
+        const pct = typeof value === 'number' ? value : 0;
+        const arc = g.querySelector('[data-vfb-arc]');
+        const ptr = g.querySelector('[data-vfb-ptr]');
+        if (arc) arc.setAttribute('d', _valveArcPath(pct));
+        if (ptr) {
+            const pos = _valvePtrPos(pct);
+            ptr.setAttribute('cx', pos.cx);
+            ptr.setAttribute('cy', pos.cy);
+        }
+    }
 }
 
 function makeGraphGroup(obj, tab) {
@@ -774,19 +954,54 @@ function renderPidConn(tab, conn) {
 function rebindPidLiveData(tab) {
     tab.channelUpdaters = {};
     for (const obj of tab.pid.objects) {
-        if (obj.type !== 'sensor' || !obj.refDes) continue;
-        const id = obj.id;
-        let staleTimer = null;
-        tab.channelUpdaters[obj.refDes] = value => {
-            const el = tab.pid.svgEl.querySelector('[data-pid-id="' + id + '"] .pid-sensor-value');
-            if (!el) return;
-            el.textContent = typeof value === 'number'
-                ? (Number.isInteger(value) ? String(value) : value.toFixed(2))
-                : String(value);
-            el.classList.remove('stale');
-            clearTimeout(staleTimer);
-            staleTimer = setTimeout(() => el.classList.add('stale'), CONFIG.channelStaleMs);
-        };
+        if (obj.type === 'sensor' && obj.refDes) {
+            const id = obj.id;
+            let staleTimer = null;
+            tab.channelUpdaters[obj.refDes] = value => {
+                const el = tab.pid.svgEl.querySelector('[data-pid-id="' + id + '"] .pid-sensor-value');
+                if (!el) return;
+                el.textContent = typeof value === 'number'
+                    ? (Number.isInteger(value) ? String(value) : value.toFixed(2))
+                    : String(value);
+                el.classList.remove('stale');
+                clearTimeout(staleTimer);
+                staleTimer = setTimeout(() => el.classList.add('stale'), CONFIG.channelStaleMs);
+            };
+        }
+        if (obj.type === 'valve' && obj.controlRefDes) {
+            const ctrl = configControls.find(c => c.refDes === obj.controlRefDes);
+            if (!ctrl) continue;
+            const cmdCh = ctrl.channels?.find(c => c.role === 'cmd-bool' || c.role === 'cmd-pct');
+            const fbCh  = ctrl.channels?.find(c => c.role === '' || c.role === 'sensor');
+            const id = obj.id;
+            let fbStaleTimer = null;
+
+            if (cmdCh) {
+                tab.channelUpdaters[cmdCh.refDes] = value => {
+                    _updateValveCmdSvg(tab.pid.svgEl, id, cmdCh.role, value);
+                    updateValveDropdownValue(id, cmdCh.refDes, value);
+                };
+            }
+            if (fbCh) {
+                tab.channelUpdaters[fbCh.refDes] = value => {
+                    _updateValveFbSvg(tab.pid.svgEl, id, ctrl.subType, value);
+                    updateValveDropdownValue(id, fbCh.refDes, value);
+                    const bad = typeof value === 'number' &&
+                        ((fbCh.validMin !== null && fbCh.validMin !== undefined && value < fbCh.validMin) ||
+                         (fbCh.validMax !== null && fbCh.validMax !== undefined && value > fbCh.validMax));
+                    const ring = tab.pid.svgEl.querySelector('[data-pid-id="' + id + '"] .pid-valve-ring');
+                    if (ring) {
+                        ring.classList.toggle('bad', bad);
+                        ring.classList.remove('stale');
+                    }
+                    clearTimeout(fbStaleTimer);
+                    fbStaleTimer = setTimeout(() => {
+                        const r = tab.pid.svgEl.querySelector('[data-pid-id="' + id + '"] .pid-valve-ring');
+                        if (r && !r.classList.contains('bad')) r.classList.add('stale');
+                    }, CONFIG.channelStaleMs);
+                };
+            }
+        }
     }
     rebuildActivePidChannels();
 }
