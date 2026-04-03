@@ -94,8 +94,9 @@ function pidToYaml(layout) {
             y +=                        '    gridY: '           + o.gridY           + '\n';
             y +=                        '    gridW: '           + (o.gridW || 20)   + '\n';
             y +=                        '    gridH: '           + (o.gridH || 10)   + '\n';
-            if (o.showName === false)   y += '    showName: false\n';
-            if (o.showLeftSidebar)      y += '    showLeftSidebar: true\n';
+            if (o.showName === false)                          y += '    showName: false\n';
+            if (o.showLeftSidebar)                             y += '    showLeftSidebar: true\n';
+            if (o.legendPosition && o.legendPosition !== 'none') y += '    legendPosition: ' + o.legendPosition + '\n';
             if (o.lines && o.lines.length) {
                 y += '    lines:\n';
                 for (const l of o.lines) {
@@ -820,6 +821,7 @@ function makeValveGroupEditor(obj) {
         cursor:        'grab',
     });
 
+    g.appendChild(svgN('circle', { r: PID.VALVE_R, fill: 'none', 'pointer-events': 'all' }));
     g.appendChild(svgN('circle', { class: 'pid-valve-ring', r: PID.VALVE_R }));
 
     if (!ctrl) {
@@ -1134,6 +1136,12 @@ function renderPidRsb(objId) {
                 '</div>' +
                 '<div class="pid-sb-check"><label><input type="checkbox" class="pid-graph-show-name"' + (obj.showName !== false ? ' checked' : '') + '> Show title bar</label></div>' +
                 '<div class="pid-sb-check"><label><input type="checkbox" class="pid-graph-show-lsb"'  + (obj.showLeftSidebar ? ' checked' : '') + '> Show channel list</label></div>' +
+                '<div class="pid-sb-field"><label>Legend</label>' +
+                '<select class="pid-graph-legend-pos">' +
+                    '<option value="none"'   + ((!obj.legendPosition || obj.legendPosition === 'none')   ? ' selected' : '') + '>None</option>'   +
+                    '<option value="bottom"' + (obj.legendPosition === 'bottom' ? ' selected' : '') + '>Bottom</option>' +
+                    '<option value="left"'   + (obj.legendPosition === 'left'   ? ' selected' : '') + '>Left</option>'   +
+                '</select></div>' +
                 '<div class="pid-sb-heading pid-sb-heading--sm">Channels</div>' +
                 '<div class="pid-graph-channel-list"></div>' +
                 '<div class="pid-sb-field pid-graph-add-row">' +
@@ -1240,8 +1248,9 @@ function renderPidRsb(objId) {
                 obj.name          = c.querySelector('.pid-graph-name').value.trim();
                 obj.gridW         = parseInt(c.querySelector('.pid-graph-w').value) || 20;
                 obj.gridH         = parseInt(c.querySelector('.pid-graph-h').value) || 10;
-                obj.showName      = c.querySelector('.pid-graph-show-name').checked;
+                obj.showName        = c.querySelector('.pid-graph-show-name').checked;
                 obj.showLeftSidebar = c.querySelector('.pid-graph-show-lsb').checked;
+                obj.legendPosition  = c.querySelector('.pid-graph-legend-pos').value;
                 // Re-render the placeholder to reflect new size and name
                 const existing = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
                 if (existing) existing.remove();

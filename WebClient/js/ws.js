@@ -87,6 +87,7 @@ function applyConfig(msg) {
     if (msg.broadcastRateHz) setLiveUpdateRate(msg.broadcastRateHz);
     for (const tab of tabs) {
         if (tab.type === 'dataView') rebuildDataView(tab);
+        if (tab.type === 'frontPanel' && tab.pid && tab.pid.objects.length) renderPidAll(tab);
     }
     setStatus('connected', 'Connected');
     updateCommandWidgets();

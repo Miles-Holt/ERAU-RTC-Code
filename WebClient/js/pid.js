@@ -73,8 +73,9 @@ function pidToYaml(layout) {
             y +=                        '    gridY: '           + o.gridY           + '\n';
             y +=                        '    gridW: '           + (o.gridW || 20)   + '\n';
             y +=                        '    gridH: '           + (o.gridH || 10)   + '\n';
-            if (o.showName === false)   y += '    showName: false\n';
-            if (o.showLeftSidebar)      y += '    showLeftSidebar: true\n';
+            if (o.showName === false)                          y += '    showName: false\n';
+            if (o.showLeftSidebar)                             y += '    showLeftSidebar: true\n';
+            if (o.legendPosition && o.legendPosition !== 'none') y += '    legendPosition: ' + o.legendPosition + '\n';
             if (o.lines && o.lines.length) {
                 y += '    lines:\n';
                 for (const l of o.lines) {
@@ -708,6 +709,8 @@ function makeValveGroup(obj) {
         cursor:        'pointer',
     });
 
+    // Invisible hit area so the whole circle interior is clickable (fill:none on ring passes events through)
+    g.appendChild(svgN('circle', { r: PID.VALVE_R, fill: 'none', 'pointer-events': 'all' }));
     // Outer ring (starts stale until data arrives)
     g.appendChild(svgN('circle', { class: 'pid-valve-ring stale', r: PID.VALVE_R }));
 
@@ -850,6 +853,71 @@ function makeGraphGroup(obj, tab) {
         const channelList = document.createElement('div');
         channelList.className = 'graph-channel-list';
         panel.appendChild(channelList);
+
+        const searchWrap  = document.createElement('div');
+        searchWrap.className = 'graph-search-wrap';
+        const searchInput = document.createElement('input');
+        searchInput.type        = 'text';
+        searchInput.placeholder = 'Add channel (regex)...';
+        searchInput.className   = 'graph-search';
+        const dropdown = document.createElement('div');
+        dropdown.className   = 'graph-dropdown';
+        dropdown.style.display = 'none';
+        document.body.appendChild(dropdown);
+        searchWrap.appendChild(searchInput);
+        panel.appendChild(searchWrap);
+
+        const handlePidSearch = debounce(() => {
+            const q = searchInput.value.trim();
+            if (!q) { dropdown.style.display = 'none'; return; }
+            let re;
+            try { re = new RegExp(q, 'i'); } catch { dropdown.style.display = 'none'; return; }
+            const selected = new Set(cell.channels.map(c => c.refDes));
+            const matches = [];
+            for (const ctrl of configControls) {
+                for (const ch of (ctrl.channels ?? [])) {
+                    if (!selected.has(ch.refDes) && (re.test(ch.refDes) || re.test(ctrl.description || ''))) {
+                        matches.push({ refDes: ch.refDes, desc: ctrl.description || '' });
+                    }
+                }
+            }
+            const trimmed = matches.slice(0, 20);
+            dropdown.innerHTML = '';
+            if (!trimmed.length) { dropdown.style.display = 'none'; return; }
+            for (const { refDes, desc } of trimmed) {
+                const item = document.createElement('div');
+                item.className = 'graph-dropdown-item';
+                const rdSpan = document.createElement('span');
+                rdSpan.className = 'graph-dropdown-refdes';
+                rdSpan.textContent = refDes;
+                item.appendChild(rdSpan);
+                if (desc) {
+                    const dsSpan = document.createElement('span');
+                    dsSpan.className = 'graph-dropdown-desc';
+                    dsSpan.textContent = desc;
+                    item.appendChild(dsSpan);
+                }
+                item.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    addChannelToCell(GRAPH_TAB_ID, 0, refDes);
+                    searchInput.focus();
+                    handlePidSearch();
+                });
+                dropdown.appendChild(item);
+            }
+            const r = searchInput.getBoundingClientRect();
+            dropdown.style.left    = r.left + 'px';
+            dropdown.style.width   = r.width + 'px';
+            dropdown.style.top     = '-9999px';
+            dropdown.style.bottom  = '';
+            dropdown.style.display = '';
+            const h = dropdown.offsetHeight;
+            dropdown.style.top = Math.max(4, r.top - h) + 'px';
+        }, 150);
+
+        searchInput.addEventListener('input', handlePidSearch);
+        searchInput.addEventListener('blur', () => setTimeout(() => { dropdown.style.display = 'none'; }, 150));
+
         cellWrap.appendChild(panel);
     }
 
@@ -868,6 +936,12 @@ function makeGraphGroup(obj, tab) {
     // Create chart using the shared factory from graph.js
     const chart = createCellChart(canvas);
     applyChartColors(chart);
+
+    // Apply legend position if configured
+    if (obj.legendPosition && obj.legendPosition !== 'none') {
+        chart.options.plugins.legend.display  = true;
+        chart.options.plugins.legend.position = obj.legendPosition;
+    }
 
     // Cell state object matching graphState[tabId].cells[i] shape
     const cell = {
