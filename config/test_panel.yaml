@@ -119,6 +119,42 @@ objects:
         color: "#ffd54f"
       - refDes: OT-01
         color: "#ba68c8"
+  - id: tank_1775295763288_3873
+    type: tank
+    gridX: 55
+    gridY: 30
+  - id: tank_1775295774403_593
+    type: tank
+    gridX: 63
+    gridY: 30
+  - id: node_1775295791413_5986
+    type: node
+    gridX: 65
+    gridY: 36
+  - id: node_1775295808746_8461
+    type: node
+    gridX: 57
+    gridY: 36
+  - id: tank_1775295829094_3137
+    type: tank
+    gridX: 44
+    gridY: 19
+  - id: node_1775295869790_813
+    type: node
+    gridX: 46
+    gridY: 22
+  - id: node_1775295882863_347
+    type: node
+    gridX: 48
+    gridY: 18
+  - id: node_1775295890235_4182
+    type: node
+    gridX: 57
+    gridY: 18
+  - id: node_1775295903345_2517
+    type: node
+    gridX: 63
+    gridY: 18
 connections:
   - id: conn_1775290523610_4251
     fromId: valve_1775290497269_639
@@ -149,25 +185,13 @@ connections:
     fromPort: right
     toId: node_1775290682271_7380
     toPort: left
-    fluid: gn2
-  - id: conn_1775290742371_4939
-    fromId: node_1775290682271_7380
-    fromPort: bottom
-    toId: node_1775290543239_7399
-    toPort: top
-    fluid: gn2
+    fluid: gox
   - id: conn_1775290751612_6894
     fromId: valve_1775290749444_2992
     fromPort: bottom
     toId: node_1775290682271_7380
     toPort: top
-    fluid: gn2
-  - id: conn_1775290779843_5019
-    fromId: node_1775290775568_4129
-    fromPort: bottom
-    toId: valve_1775290497269_639
-    toPort: top
-    fluid: gn2
+    fluid: gox
   - id: conn_1775290815349_8492
     fromId: node_1775290805283_4621
     fromPort: right
@@ -210,3 +234,57 @@ connections:
     toId: valve_1775290509570_9535
     toPort: top
     fluid: lox
+  - id: conn_1775295795456_118
+    fromId: node_1775295791413_5986
+    fromPort: bottom
+    toId: valve_1775290497269_639
+    toPort: top
+    fluid: fuel
+  - id: conn_1775295800638_2458
+    fromId: node_1775295791413_5986
+    fromPort: top
+    toId: node_1775290775568_4129
+    toPort: bottom
+    fluid: gn2
+  - id: conn_1775295812338_858
+    fromId: node_1775295808746_8461
+    fromPort: bottom
+    toId: node_1775290543239_7399
+    toPort: top
+    fluid: lox
+  - id: conn_1775295816666_541
+    fromId: node_1775295808746_8461
+    fromPort: top
+    toId: node_1775290682271_7380
+    toPort: bottom
+    fluid: gox
+  - id: conn_1775295885165_7769
+    fromId: node_1775295869790_813
+    fromPort: top
+    toId: node_1775295882863_347
+    toPort: left
+    fluid: gn2
+  - id: conn_1775295896445_4677
+    fromId: node_1775295882863_347
+    fromPort: right
+    toId: node_1775295890235_4182
+    toPort: left
+    fluid: gn2
+  - id: conn_1775295897600_2188
+    fromId: node_1775295890235_4182
+    fromPort: bottom
+    toId: valve_1775290749444_2992
+    toPort: top
+    fluid: gn2
+  - id: conn_1775295906616_7319
+    fromId: node_1775295890235_4182
+    fromPort: right
+    toId: node_1775295903345_2517
+    toPort: left
+    fluid: gn2
+  - id: conn_1775295909570_421
+    fromId: valve_1775290836830_555
+    fromPort: top
+    toId: node_1775295903345_2517
+    toPort: right
+    fluid: gn2
