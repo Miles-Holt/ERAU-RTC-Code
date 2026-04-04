@@ -53,7 +53,7 @@ const PID = {
     CORNER_R:    8,     // rounded corner radius px
     OBS_MARGIN:  6,     // obstacle clearance margin px
     VALVE_R:     25,    // valve circle radius px
-    VALVE_PORT_OFF: 40, // valve port offset from centre px
+    VALVE_PORT_OFF: 0,  // valve port offset from centre px
 };
 
 // ── YAML serialiser ──────────────────────────────────────────────────────────
