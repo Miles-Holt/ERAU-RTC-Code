@@ -110,7 +110,7 @@ function _renderAlerts() {
 
     // Toggle button label
     const toggleBtn = _barEl.querySelector('.alert-toggle-btn');
-    toggleBtn.textContent = _collapsed ? '▲ Alerts' : '▼ Alerts';
+    toggleBtn.textContent = _collapsed ? '▲' : '▼';
 
     // List rows (newest first)
     _listEl.innerHTML = '';
