@@ -123,8 +123,11 @@ function pidToYaml(layout) {
             if (o.showRefDes === false) y += '    showRefDes: false\n';
             if (o.showUnits  === false) y += '    showUnits: false\n';
             if (o.showName   === true)  y += '    showName: true\n';
+            if (o.rotation)            y += '    rotation: '      + o.rotation          + '\n';
             y +=                            '    gridX: '         + o.gridX             + '\n';
             y +=                            '    gridY: '         + o.gridY             + '\n';
+            if (o.labelOffsetX)        y += '    labelOffsetX: '  + o.labelOffsetX      + '\n';
+            if (o.labelOffsetY)        y += '    labelOffsetY: '  + o.labelOffsetY      + '\n';
         }
     }
     y += 'connections:\n';
@@ -902,7 +905,10 @@ function makeGraphGroup(obj) {
 }
 
 function makeSensorGroup(obj) {
-    const sel = (tab.pid.selectedId === obj.id);
+    const sel        = (tab.pid.selectedId === obj.id);
+    const showRefDes = obj.showRefDes !== false;
+    const showUnits  = obj.showUnits  !== false;
+
     const g = svgN('g', {
         class: 'pid-obj pid-sensor' + (sel ? ' pid-selected' : ''),
         'data-pid-id': obj.id,
@@ -915,17 +921,39 @@ function makeSensorGroup(obj) {
         rx: 3, class: 'pid-sensor-rect',
     }));
 
-    const lbl = svgN('text', { class: 'pid-sensor-label', x: PID.SENSOR_W / 2, y: 14 });
-    lbl.textContent = obj.refDes || '(no refDes)';
-    g.appendChild(lbl);
+    // Dynamic layout matching view mode: value always shown; refDes and units optional
+    const items = [];
+    if (showRefDes) items.push('refdes');
+    items.push('value');
+    if (showUnits)  items.push('units');
+    const step = PID.SENSOR_H / (items.length + 1);
+    const lx = obj.labelOffsetX || 0;
+    const ly = obj.labelOffsetY || 0;
 
-    const val = svgN('text', { class: 'pid-sensor-value', x: PID.SENSOR_W / 2, y: 33 });
-    val.textContent = '--';
-    g.appendChild(val);
-
-    const unt = svgN('text', { class: 'pid-sensor-units', x: PID.SENSOR_W / 2, y: 44 });
-    unt.textContent = obj.units || '';
-    g.appendChild(unt);
+    for (let i = 0; i < items.length; i++) {
+        const type = items[i];
+        const y = Math.round(step * (i + 1));
+        if (type === 'refdes') {
+            // Moveable label group — cursor:move signals it can be dragged independently
+            const lblG = svgN('g', {
+                'data-label-id': obj.id,
+                transform: 'translate(' + (PID.SENSOR_W / 2 + lx) + ',' + (y + ly) + ')',
+                style: 'cursor:move',
+            });
+            const el = svgN('text', { class: 'pid-sensor-label', x: 0, y: 0 });
+            el.textContent = obj.refDes || '(no refDes)';
+            lblG.appendChild(el);
+            g.appendChild(lblG);
+        } else if (type === 'value') {
+            const el = svgN('text', { class: 'pid-sensor-value', x: PID.SENSOR_W / 2, y });
+            el.textContent = '--';
+            g.appendChild(el);
+        } else {
+            const el = svgN('text', { class: 'pid-sensor-units', x: PID.SENSOR_W / 2, y });
+            el.textContent = obj.units || '';
+            g.appendChild(el);
+        }
+    }
 
     const port = svgN('circle', {
         class: 'pid-port',
@@ -959,9 +987,10 @@ function makeNodeGroup(obj) {
 }
 
 function makeValveGroupEditor(obj) {
-    const sel  = (tab.pid.selectedId === obj.id);
-    const ctrl = edConfigControls.find(c => c.refDes === obj.controlRefDes);
-    const L    = PID.VALVE_R - 3;
+    const sel        = (tab.pid.selectedId === obj.id);
+    const ctrl       = edConfigControls.find(c => c.refDes === obj.controlRefDes);
+    const showRefDes = obj.showRefDes !== false;
+    const L          = PID.VALVE_R - 3;
 
     const g = svgN('g', {
         class:         'pid-obj pid-valve' + (sel ? ' pid-selected' : ''),
@@ -970,18 +999,34 @@ function makeValveGroupEditor(obj) {
         cursor:        'grab',
     });
 
+    // Invisible hit area (not rotated — valve is circular)
     g.appendChild(svgN('circle', { r: PID.VALVE_R, fill: 'none', 'pointer-events': 'all' }));
-    g.appendChild(svgN('circle', { class: 'pid-valve-ring', r: PID.VALVE_R }));
 
+    // Visual sub-group with rotation applied
+    const rot = obj.rotation || 0;
+    const vis = svgN('g', rot ? { transform: 'rotate(' + rot + ')' } : {});
+    vis.appendChild(svgN('circle', { class: 'pid-valve-ring', r: PID.VALVE_R }));
     if (!ctrl) {
-        g.appendChild(svgN('line', { class: 'pid-valve-uncfg', x1: -L, y1: L, x2: L, y2: -L }));
+        vis.appendChild(svgN('line', { class: 'pid-valve-uncfg', x1: -L, y1: L, x2: L, y2: -L }));
     } else {
-        g.appendChild(svgN('line', { class: 'pid-valve-line', x1: -L, y1: 0, x2: L, y2: 0 }));
+        vis.appendChild(svgN('line', { class: 'pid-valve-line', x1: -L, y1: 0, x2: L, y2: 0 }));
     }
+    g.appendChild(vis);
 
-    const lbl = svgN('text', { class: 'pid-valve-label', x: 0, y: PID.VALVE_R + 12 });
-    lbl.textContent = obj.controlRefDes || '(no control)';
-    g.appendChild(lbl);
+    // Label — NOT rotated; moveable independently
+    if (showRefDes) {
+        const lx = obj.labelOffsetX || 0;
+        const ly = obj.labelOffsetY || 0;
+        const lblG = svgN('g', {
+            'data-label-id': obj.id,
+            transform: 'translate(' + lx + ',' + (PID.VALVE_R + 12 + ly) + ')',
+            style: 'cursor:move',
+        });
+        const lbl = svgN('text', { class: 'pid-valve-label', x: 0, y: 0 });
+        lbl.textContent = obj.controlRefDes || '(no control)';
+        lblG.appendChild(lbl);
+        g.appendChild(lblG);
+    }
 
     const off = PID.VALVE_PORT_OFF;
     const valvePorts = { top: [0, -off], right: [off, 0], bottom: [0, off], left: [-off, 0] };
@@ -1225,6 +1270,7 @@ function renderPidRsb(objId) {
                 '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-refdes"' + (obj.showRefDes !== false ? ' checked' : '') + '> Show refDes</label></div>' +
                 '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-units"'  + (obj.showUnits  !== false ? ' checked' : '') + '> Show units</label></div>' +
                 '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-name"'   + (obj.showName   === true  ? ' checked' : '') + '> Show name (description)</label></div>' +
+                '<button class="pid-reset-label-btn">Reset label position</button>' +
                 '<button class="pid-apply-btn">Apply</button>' +
                 '<button class="pid-delete-btn">Remove</button>';
 
@@ -1235,6 +1281,16 @@ function renderPidRsb(objId) {
             if (sel) sel.addEventListener('change', () => {
                 const opt = sel.options[sel.selectedIndex];
                 if (opt && opt.dataset.units && !uinp.value) uinp.value = opt.dataset.units;
+            });
+
+            c.querySelector('.pid-reset-label-btn').addEventListener('click', () => {
+                obj.labelOffsetX = 0;
+                obj.labelOffsetY = 0;
+                const existing = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
+                if (existing) existing.remove();
+                renderPidObj(obj);
+                const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
+                if (updated) updated.classList.add('pid-selected');
             });
 
             c.querySelector('.pid-apply-btn').addEventListener('click', () => {
@@ -1435,6 +1491,7 @@ function renderPidRsb(objId) {
                   ).join('')
                 : null;
 
+            const curRot = obj.rotation || 0;
             c.innerHTML =
                 '<div class="pid-sb-heading">Valve</div>' +
                 '<div class="pid-sb-field"><label>Control</label>' +
@@ -1442,13 +1499,35 @@ function renderPidRsb(objId) {
                     ? '<select class="pid-valve-ctrl-sel"><option value="">-- pick --</option>' + opts + '</select>'
                     : '<input class="pid-valve-ctrl-inp" type="text" value="' + pidEsc(obj.controlRefDes || '') + '" placeholder="e.g. NV-03">') +
                 '</div>' +
+                '<div class="pid-sb-heading pid-sb-heading--sm">Display</div>' +
+                '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-refdes"' + (obj.showRefDes !== false ? ' checked' : '') + '> Show refDes label</label></div>' +
+                '<div class="pid-sb-field"><label>Rotation</label>' +
+                '<select class="pid-valve-rotation">' +
+                    '<option value="0"'   + (curRot === 0   ? ' selected' : '') + '>0°</option>'   +
+                    '<option value="90"'  + (curRot === 90  ? ' selected' : '') + '>90°</option>'  +
+                    '<option value="180"' + (curRot === 180 ? ' selected' : '') + '>180°</option>' +
+                    '<option value="270"' + (curRot === 270 ? ' selected' : '') + '>270°</option>' +
+                '</select></div>' +
+                '<button class="pid-reset-label-btn">Reset label position</button>' +
                 '<button class="pid-apply-btn">Apply</button>' +
                 '<button class="pid-delete-btn">Remove</button>';
+
+            c.querySelector('.pid-reset-label-btn').addEventListener('click', () => {
+                obj.labelOffsetX = 0;
+                obj.labelOffsetY = 0;
+                const existing = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
+                if (existing) existing.remove();
+                renderPidObj(obj);
+                const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
+                if (updated) updated.classList.add('pid-selected');
+            });
 
             c.querySelector('.pid-apply-btn').addEventListener('click', () => {
                 const sel = c.querySelector('.pid-valve-ctrl-sel');
                 const inp = c.querySelector('.pid-valve-ctrl-inp');
                 obj.controlRefDes = sel ? sel.value : (inp ? inp.value.trim() : '');
+                obj.showRefDes    = c.querySelector('.pid-show-refdes').checked;
+                obj.rotation      = parseInt(c.querySelector('.pid-valve-rotation').value) || 0;
                 const existing = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
                 if (existing) existing.remove();
                 renderPidObj(obj);
@@ -1551,6 +1630,55 @@ function startObjDrag(objId, e) {
     tab.pid.svgEl.addEventListener('pointerup',   onUp);
 }
 
+function startLabelDrag(objId, e) {
+    const obj = tab.pid.objects.find(o => o.id === objId);
+    if (!obj) return;
+
+    const startPt  = pidSvgPt(tab.pid.svgEl, e);
+    const startLX  = obj.labelOffsetX || 0;
+    const startLY  = obj.labelOffsetY || 0;
+
+    function labelDefaultPos(o) {
+        if (o.type === 'sensor') {
+            const showRefDes = o.showRefDes !== false;
+            const showUnits  = o.showUnits  !== false;
+            const items = [];
+            if (showRefDes) items.push('refdes');
+            items.push('value');
+            if (showUnits)  items.push('units');
+            const step = PID.SENSOR_H / (items.length + 1);
+            const idx = items.indexOf('refdes');
+            const y = idx >= 0 ? Math.round(step * (idx + 1)) : 0;
+            return { dx: PID.SENSOR_W / 2, dy: y };
+        }
+        if (o.type === 'valve') return { dx: 0, dy: PID.VALVE_R + 12 };
+        return { dx: 0, dy: 0 };
+    }
+
+    const { dx: defX, dy: defY } = labelDefaultPos(obj);
+
+    const onMove = em => {
+        const pt = pidSvgPt(tab.pid.svgEl, em);
+        obj.labelOffsetX = startLX + (pt.x - startPt.x);
+        obj.labelOffsetY = startLY + (pt.y - startPt.y);
+        const labelG = tab.pid.gObjs.querySelector('[data-label-id="' + objId + '"]');
+        if (labelG) {
+            labelG.setAttribute('transform',
+                'translate(' + (defX + obj.labelOffsetX) + ',' + (defY + obj.labelOffsetY) + ')');
+        }
+    };
+
+    const onUp = eu => {
+        tab.pid.svgEl.removeEventListener('pointermove', onMove);
+        tab.pid.svgEl.removeEventListener('pointerup',   onUp);
+        tab.pid.svgEl.releasePointerCapture(eu.pointerId);
+    };
+
+    tab.pid.svgEl.setPointerCapture(e.pointerId);
+    tab.pid.svgEl.addEventListener('pointermove', onMove);
+    tab.pid.svgEl.addEventListener('pointerup',   onUp);
+}
+
 // =============================================================================
 // Connection drawing
 // =============================================================================
@@ -1610,6 +1738,14 @@ function onPidPointerDown(e) {
     }
 
     if (tab.pid.connecting) { cancelPidConnect(); return; }
+
+    // Check for an independently-draggable label group before the parent object
+    const labelEl = e.target.closest('[data-label-id]');
+    if (labelEl) {
+        e.preventDefault();
+        startLabelDrag(labelEl.dataset.labelId, e);
+        return;
+    }
 
     const objEl = e.target.closest('[data-pid-id]');
     if (objEl) {

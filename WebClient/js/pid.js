@@ -86,9 +86,13 @@ function pidToYaml(layout) {
                 }
             }
         } else if (o.type === 'valve') {
-            if (o.controlRefDes) y += '    controlRefDes: ' + q(o.controlRefDes) + '\n';
-            y +=                      '    gridX: ' + o.gridX + '\n';
-            y +=                      '    gridY: ' + o.gridY + '\n';
+            if (o.controlRefDes)        y += '    controlRefDes: ' + q(o.controlRefDes) + '\n';
+            if (o.showRefDes === false)  y += '    showRefDes: false\n';
+            if (o.rotation)             y += '    rotation: ' + o.rotation + '\n';
+            y +=                             '    gridX: ' + o.gridX + '\n';
+            y +=                             '    gridY: ' + o.gridY + '\n';
+            if (o.labelOffsetX)         y += '    labelOffsetX: ' + o.labelOffsetX + '\n';
+            if (o.labelOffsetY)         y += '    labelOffsetY: ' + o.labelOffsetY + '\n';
         } else {
             if (o.refDes)              y += '    refDes: ' + q(o.refDes) + '\n';
             if (o.units)               y += '    units: '  + q(o.units)  + '\n';
@@ -97,6 +101,8 @@ function pidToYaml(layout) {
             if (o.showName   === true)  y += '    showName: true\n';
             y +=                           '    gridX: '   + o.gridX    + '\n';
             y +=                           '    gridY: '   + o.gridY    + '\n';
+            if (o.labelOffsetX)        y += '    labelOffsetX: ' + o.labelOffsetX + '\n';
+            if (o.labelOffsetY)        y += '    labelOffsetY: ' + o.labelOffsetY + '\n';
         }
     }
     y += 'connections:\n';
@@ -647,6 +653,8 @@ function makeSensorGroup(obj) {
     if (showUnits)  items.push({ type: 'units',  text: obj.units || '' });
 
     const step = PID.SENSOR_H / (items.length + 1);
+    const lx = obj.labelOffsetX || 0;
+    const ly = obj.labelOffsetY || 0;
     for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const y = Math.round(step * (i + 1));
@@ -655,9 +663,21 @@ function makeSensorGroup(obj) {
         else if (item.type === 'refdes') cls = 'pid-sensor-label';
         else if (item.type === 'value')  cls = 'pid-sensor-value stale';
         else                             cls = 'pid-sensor-units';
-        const el = svgN('text', { class: cls, x: PID.SENSOR_W / 2, y });
-        el.textContent = item.text;
-        g.appendChild(el);
+        if (item.type === 'refdes') {
+            // Wrap refDes label in its own group so it can be moved independently
+            const lblG = svgN('g', {
+                'data-label-id': obj.id,
+                transform: 'translate(' + (PID.SENSOR_W / 2 + lx) + ',' + (y + ly) + ')',
+            });
+            const el = svgN('text', { class: cls, x: 0, y: 0 });
+            el.textContent = item.text;
+            lblG.appendChild(el);
+            g.appendChild(lblG);
+        } else {
+            const el = svgN('text', { class: cls, x: PID.SENSOR_W / 2, y });
+            el.textContent = item.text;
+            g.appendChild(el);
+        }
     }
 
     return g;
@@ -724,6 +744,7 @@ function makeValveGroup(obj) {
     const cmdCh = ctrl?.channels?.find(c => c.role === 'cmd-bool' || c.role === 'cmd-pct');
     const fbCh  = ctrl?.channels?.find(c => c.role === '' || c.role === 'sensor');
     const L     = PID.VALVE_R - 3;
+    const showRefDes = obj.showRefDes !== false;
 
     const g = svgN('g', {
         class:         'pid-obj pid-valve',
@@ -732,32 +753,36 @@ function makeValveGroup(obj) {
         cursor:        'pointer',
     });
 
-    // Invisible hit area so the whole circle interior is clickable (fill:none on ring passes events through)
+    // Invisible hit area (not rotated — valve is circular so rotation doesn't affect hit area)
     g.appendChild(svgN('circle', { r: PID.VALVE_R, fill: 'none', 'pointer-events': 'all' }));
+
+    // Visual sub-group — rotated to orient the valve symbol
+    const rot = obj.rotation || 0;
+    const vis = svgN('g', rot ? { transform: 'rotate(' + rot + ')' } : {});
     // Outer ring (starts stale until data arrives)
-    g.appendChild(svgN('circle', { class: 'pid-valve-ring stale', r: PID.VALVE_R }));
+    vis.appendChild(svgN('circle', { class: 'pid-valve-ring stale', r: PID.VALVE_R }));
 
     if (!ctrl) {
         // Unconfigured: -45° dashed diagonal
-        g.appendChild(svgN('line', { class: 'pid-valve-uncfg', x1: -L, y1: L, x2: L, y2: -L }));
+        vis.appendChild(svgN('line', { class: 'pid-valve-uncfg', x1: -L, y1: L, x2: L, y2: -L }));
     } else {
         // POS-FB arc + pointer (drawn first so center content is on top)
         if (info.hasFb && info.fbIsPct) {
-            g.appendChild(svgN('path',   { class: 'pid-valve-arc', 'data-vfb-arc': '' }));
-            g.appendChild(svgN('circle', { class: 'pid-valve-ptr', r: 4, 'data-vfb-ptr': '' }));
+            vis.appendChild(svgN('path',   { class: 'pid-valve-arc', 'data-vfb-arc': '' }));
+            vis.appendChild(svgN('circle', { class: 'pid-valve-ptr', r: 4, 'data-vfb-ptr': '' }));
         }
 
         // IO-CMD center line
         if (info.hasCmd && cmdCh?.role === 'cmd-bool') {
             const la = _valveLineAttrs(false); // default: closed
-            g.appendChild(svgN('line', {
+            vis.appendChild(svgN('line', {
                 class: 'pid-valve-line', 'data-vcmd-line': '',
                 x1: la.x1, y1: la.y1, x2: la.x2, y2: la.y2,
             }));
             // IO-FB: dots on line ends
             if (info.hasFb && !info.fbIsPct) {
-                g.appendChild(svgN('circle', { class: 'pid-valve-dot', r: 4, cx: 0, cy: -L, 'data-vfb-dot-a': '' }));
-                g.appendChild(svgN('circle', { class: 'pid-valve-dot', r: 4, cx: 0, cy:  L, 'data-vfb-dot-b': '' }));
+                vis.appendChild(svgN('circle', { class: 'pid-valve-dot', r: 4, cx: 0, cy: -L, 'data-vfb-dot-a': '' }));
+                vis.appendChild(svgN('circle', { class: 'pid-valve-dot', r: 4, cx: 0, cy:  L, 'data-vfb-dot-b': '' }));
             }
         }
 
@@ -765,13 +790,23 @@ function makeValveGroup(obj) {
         if (info.hasCmd && cmdCh?.role === 'cmd-pct') {
             const t = svgN('text', { class: 'pid-valve-pct', 'data-vcmd-pct': '' });
             t.textContent = '--';
-            g.appendChild(t);
+            vis.appendChild(t);
         }
+    }
+    g.appendChild(vis);
 
-        // refDes label below circle
-        const lbl = svgN('text', { class: 'pid-valve-label', x: 0, y: PID.VALVE_R + 12 });
+    // Label — NOT rotated; moveable independently via labelOffsetX/Y
+    if (ctrl && showRefDes) {
+        const lx = obj.labelOffsetX || 0;
+        const ly = obj.labelOffsetY || 0;
+        const lblG = svgN('g', {
+            'data-label-id': obj.id,
+            transform: 'translate(' + lx + ',' + (PID.VALVE_R + 12 + ly) + ')',
+        });
+        const lbl = svgN('text', { class: 'pid-valve-label', x: 0, y: 0 });
         lbl.textContent = obj.controlRefDes || '';
-        g.appendChild(lbl);
+        lblG.appendChild(lbl);
+        g.appendChild(lblG);
     }
 
     // Stop left-click from reaching the SVG-level pan handler
@@ -1178,6 +1213,21 @@ function updateCanvasZoom(tab) {
 function handleCanvasWheel(tab, e) {
     e.preventDefault();
     
+    const wrap = tab.pid.canvasWrap;
+    
+    // Get cursor position in viewport space
+    const rect = wrap.getBoundingClientRect();
+    const viewportX = e.clientX - rect.left;
+    const viewportY = e.clientY - rect.top;
+    
+    // Get cursor position in canvas space (with scroll offset)
+    const canvasX = viewportX + wrap.scrollLeft;
+    const canvasY = viewportY + wrap.scrollTop;
+    
+    // Calculate the logical point in unscaled canvas coordinates
+    const logicalX = canvasX / tab.pid.zoomLevel;
+    const logicalY = canvasY / tab.pid.zoomLevel;
+    
     // Calculate zoom delta (negative = zoom out, positive = zoom in)
     const deltaY = e.deltaY > 0 ? 1 : -1;
     const zoomFactor = 1.1; // 10% per wheel notch
@@ -1187,6 +1237,14 @@ function handleCanvasWheel(tab, e) {
     tab.pid.zoomLevel = Math.max(0.1, Math.min(3, newZoom));
     
     updateCanvasZoom(tab);
+    
+    // After zoom, calculate new scroll position to keep cursor on the same logical point
+    const newCanvasX = logicalX * tab.pid.zoomLevel;
+    const newCanvasY = logicalY * tab.pid.zoomLevel;
+    
+    // Adjust scroll to keep the logical point at the cursor position
+    wrap.scrollLeft = newCanvasX - viewportX;
+    wrap.scrollTop = newCanvasY - viewportY;
 }
 
 // =============================================================================
