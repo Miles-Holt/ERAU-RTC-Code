@@ -14,13 +14,6 @@ Chart.Tooltip.positioners.datapoint = (elements, eventPosition) => {
     return { x: closest.x, y: closest.y };
 };
 
-const GRID_PRESETS = [
-    { rows: 1, cols: 1 }, { rows: 1, cols: 2 }, { rows: 1, cols: 3 },
-    { rows: 2, cols: 1 }, { rows: 2, cols: 2 }, { rows: 2, cols: 3 },
-    { rows: 2, cols: 4 }, { rows: 3, cols: 2 }, { rows: 3, cols: 3 },
-    { rows: 3, cols: 4 }, { rows: 4, cols: 3 }, { rows: 4, cols: 4 },
-];
-
 function graphGetDesc(refDes) {
     for (const ctrl of configControls) {
         for (const ch of (ctrl.channels ?? [])) {
@@ -153,14 +146,35 @@ function buildGraphContent(tab) {
 
     const popover = mkEl('div', 'graph-size-popover');
     popover.style.display = 'none';
-    for (const p of GRID_PRESETS) {
-        const item = mkEl('button', 'graph-size-item', `${p.rows} × ${p.cols}`);
-        item.addEventListener('click', () => {
-            popover.style.display = 'none';
-            resizeGraphGrid(tab.id, p.rows, p.cols);
-        });
-        popover.appendChild(item);
+    
+    const gridContainer = mkEl('div', 'graph-size-grid');
+    const cells = [];
+    for (let r = 1; r <= 5; r++) {
+        for (let c = 1; c <= 5; c++) {
+            const cell = mkEl('div', 'graph-size-cell');
+            cell.dataset.row = r;
+            cell.dataset.col = c;
+            cells.push(cell);
+            
+            cell.addEventListener('mouseenter', () => {
+                cells.forEach(cel => cel.classList.remove('graph-size-cell--filled'));
+                cells.forEach(cel => {
+                    const cr = parseInt(cel.dataset.row);
+                    const cc = parseInt(cel.dataset.col);
+                    if (cr <= r && cc <= c) cel.classList.add('graph-size-cell--filled');
+                });
+            });
+            
+            cell.addEventListener('click', () => {
+                popover.style.display = 'none';
+                resizeGraphGrid(tab.id, r, c);
+            });
+            
+            gridContainer.appendChild(cell);
+        }
     }
+    popover.appendChild(gridContainer);
+    
     sizeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         popover.style.display = popover.style.display === 'none' ? '' : 'none';
@@ -232,8 +246,12 @@ function buildGraphContent(tab) {
     graphState[tab.id].gridEl = gridEl;
 
     const dismiss = (e) => { if (!sizeWrap.contains(e.target)) popover.style.display = 'none'; };
+    const handleEsc = (e) => { if (e.key === 'Escape') popover.style.display = 'none'; };
+    popover.addEventListener('mouseleave', () => { popover.style.display = 'none'; });
     document.addEventListener('mousedown', dismiss);
+    document.addEventListener('keydown', handleEsc);
     graphState[tab.id]._dismissHandler = dismiss;
+    graphState[tab.id]._escHandler = handleEsc;
 
     resizeGraphGrid(tab.id, 1, 1);
 }
@@ -633,9 +651,24 @@ function rebuildActivePidChannels() {
     for (const t of tabs) {
         if (t.type !== 'frontPanel' || !t.pid) continue;
         for (const obj of t.pid.objects) {
+            // Sensors: buffer the sensor's refDes
             if (obj.type === 'sensor' && obj.refDes) {
                 activePidChannels.add(obj.refDes);
                 if (!channelBuffers[obj.refDes]) channelBuffers[obj.refDes] = { ts: [], vals: [] };
+            }
+            // Valves: buffer the controlRefDes
+            else if (obj.type === 'valve' && obj.controlRefDes) {
+                activePidChannels.add(obj.controlRefDes);
+                if (!channelBuffers[obj.controlRefDes]) channelBuffers[obj.controlRefDes] = { ts: [], vals: [] };
+            }
+            // Graphs: buffer all pre-configured channel refDes values
+            else if (obj.type === 'graph' && obj.lines) {
+                for (const line of obj.lines) {
+                    if (line.refDes) {
+                        activePidChannels.add(line.refDes);
+                        if (!channelBuffers[line.refDes]) channelBuffers[line.refDes] = { ts: [], vals: [] };
+                    }
+                }
             }
         }
     }
