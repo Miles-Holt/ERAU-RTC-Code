@@ -1588,7 +1588,7 @@
     <!-- NETWORK / SYSTEM-WIDE SETTINGS -->
     <network>
         <webSocketPort>8000</webSocketPort>
-        <broadcastRateHz>20</broadcastRateHz>
+        <broadcastRateHz>50</broadcastRateHz>
         <connectionManagementRateHz>1</connectionManagementRateHz>
         <loggingRateHz>10</loggingRateHz>
         <lostConnectionHysteresisCount>5</lostConnectionHysteresisCount>
