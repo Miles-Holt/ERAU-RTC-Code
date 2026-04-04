@@ -1,53 +1,13 @@
 name: Test panel
 version: 1
 objects:
-  - id: sensor_1775091859475_6637
-    type: sensor
-    refDes: OT-01
-    units: Deg F
-    gridX: 19
-    gridY: 6
-  - id: node_1775091861441_6209
-    type: node
-    gridX: 21
-    gridY: 14
-  - id: sensor_1775091863704_3007
-    type: sensor
-    refDes: OT-02
-    units: Deg F
-    gridX: 23
-    gridY: 13
-  - id: sensor_1775091865101_9104
-    type: sensor
-    refDes: OT-03
-    units: Deg F
-    gridX: 11
-    gridY: 17
-  - id: sensor_1775091866277_2714
-    type: sensor
-    refDes: CTR001-uptime
-    units: s
-    gridX: 35
-    gridY: 21
-  - id: sensor_1775091867852_4019
-    type: sensor
-    refDes: OT-04
-    units: Deg F
-    gridX: 29
-    gridY: 17
-  - id: sensor_1775091955034_7249
-    type: sensor
-    refDes: LCC-01-01
-    units: Pounds
-    gridX: 28
-    gridY: 6
   - id: graph_1775174926738_8097
     type: graph
     name: Control Node
-    gridX: 42
-    gridY: 3
-    gridW: 30
-    gridH: 20
+    gridX: 48
+    gridY: 59
+    gridW: 25
+    gridH: 10
     showLeftSidebar: true
     lines:
       - refDes: CTR001-uptime
@@ -64,62 +24,189 @@ objects:
       - refDes: CTR001-restart
         color: "#ba68c8"
         yAxis: 2
-  - id: valve_1775199053178_8680
-    type: valve
-    gridX: 13
-    gridY: 30
-  - id: valve_1775199061054_8583
-    type: valve
-    gridX: 13
-    gridY: 38
-  - id: valve_1775199074292_4158
-    type: valve
-    gridX: 22
-    gridY: 32
   - id: valve_1775199095151_4256
     type: valve
     controlRefDes: OV-03
-    gridX: 6
-    gridY: 19
+    gridX: 57
+    gridY: 44
+  - id: valve_1775290497269_639
+    type: valve
+    controlRefDes: FV-02
+    gridX: 65
+    gridY: 44
+  - id: valve_1775290509570_9535
+    type: valve
+    controlRefDes: OV-05
+    gridX: 57
+    gridY: 51
+  - id: valve_1775290517168_2434
+    type: valve
+    controlRefDes: FV-03
+    gridX: 65
+    gridY: 51
+  - id: node_1775290543239_7399
+    type: node
+    gridX: 57
+    gridY: 40
+  - id: valve_1775290550177_5153
+    type: valve
+    controlRefDes: OV-02
+    gridX: 52
+    gridY: 40
+  - id: valve_1775290666589_6138
+    type: valve
+    controlRefDes: OV-01
+    gridX: 52
+    gridY: 28
+  - id: node_1775290682271_7380
+    type: node
+    gridX: 57
+    gridY: 28
+  - id: valve_1775290705283_7109
+    type: valve
+    controlRefDes: NV-05
+    gridX: 52
+    gridY: 55
+  - id: valve_1775290749444_2992
+    type: valve
+    controlRefDes: NV-03
+    gridX: 57
+    gridY: 24
+  - id: node_1775290775568_4129
+    type: node
+    gridX: 65
+    gridY: 28
+  - id: valve_1775290788363_1762
+    type: valve
+    controlRefDes: NV-06
+    gridX: 70
+    gridY: 55
+  - id: node_1775290805283_4621
+    type: node
+    gridX: 61
+    gridY: 55
+  - id: valve_1775290836830_555
+    type: valve
+    controlRefDes: NV-04
+    gridX: 65
+    gridY: 24
+  - id: valve_1775290851155_4829
+    type: valve
+    controlRefDes: FV-01
+    gridX: 70
+    gridY: 28
+  - id: valve_1775290874030_2125
+    type: valve
+    controlRefDes: OV-04
+    gridX: 52
+    gridY: 47
+  - id: graph_1775291433944_3339
+    type: graph
+    name: LOX Tank Temps
+    gridX: 25
+    gridY: 28
+    gridW: 25
+    gridH: 20
+    showLeftSidebar: true
+    lines:
+      - refDes: OT-05
+        color: "#4e9f3d"
+      - refDes: OT-04
+        color: "#4fc3f7"
+      - refDes: OT-03
+        color: "#ff7043"
+      - refDes: OT-02
+        color: "#ffd54f"
+      - refDes: OT-01
+        color: "#ba68c8"
 connections:
-  - id: conn_1775091870218_2314
-    fromId: sensor_1775091865101_9104
+  - id: conn_1775290523610_4251
+    fromId: valve_1775290497269_639
     fromPort: bottom
-    toId: sensor_1775091867852_4019
-    toPort: bottom
-  - id: conn_1775091872573_6918
-    fromId: sensor_1775091866277_2714
+    toId: valve_1775290517168_2434
+    toPort: top
+    fluid: fuel
+  - id: conn_1775290527946_4260
+    fromId: valve_1775199095151_4256
     fromPort: bottom
-    toId: sensor_1775091867852_4019
-    toPort: bottom
-    fluid: air
-  - id: conn_1775091875613_6657
-    fromId: node_1775091861441_6209
-    fromPort: bottom
-    toId: sensor_1775091865101_9104
-    toPort: bottom
-    fluid: gox
-  - id: conn_1775091877289_6622
-    fromId: node_1775091861441_6209
-    fromPort: left
-    toId: sensor_1775091863704_3007
-    toPort: bottom
-    fluid: hydrogen
-  - id: conn_1775091879234_4901
-    fromId: node_1775091861441_6209
+    toId: valve_1775290509570_9535
+    toPort: top
+    fluid: lox
+  - id: conn_1775290546118_5972
+    fromId: valve_1775199095151_4256
     fromPort: top
-    toId: sensor_1775091859475_6637
+    toId: node_1775290543239_7399
+    toPort: bottom
+    fluid: lox
+  - id: conn_1775290551893_5423
+    fromId: valve_1775290550177_5153
+    fromPort: right
+    toId: node_1775290543239_7399
+    toPort: left
+    fluid: lox
+  - id: conn_1775290685286_7932
+    fromId: valve_1775290666589_6138
+    fromPort: right
+    toId: node_1775290682271_7380
+    toPort: left
+    fluid: gn2
+  - id: conn_1775290742371_4939
+    fromId: node_1775290682271_7380
+    fromPort: bottom
+    toId: node_1775290543239_7399
+    toPort: top
+    fluid: gn2
+  - id: conn_1775290751612_6894
+    fromId: valve_1775290749444_2992
+    fromPort: bottom
+    toId: node_1775290682271_7380
+    toPort: top
+    fluid: gn2
+  - id: conn_1775290779843_5019
+    fromId: node_1775290775568_4129
+    fromPort: bottom
+    toId: valve_1775290497269_639
+    toPort: top
+    fluid: gn2
+  - id: conn_1775290815349_8492
+    fromId: node_1775290805283_4621
+    fromPort: right
+    toId: valve_1775290517168_2434
     toPort: bottom
     fluid: fuel
-  - id: conn_1775199058644_693
-    fromId: valve_1775199053178_8680
-    fromPort: right
-    toId: sensor_1775091867852_4019
-    toPort: bottom
-    fluid: gn2
-  - id: conn_1775279671309_9029
-    fromId: sensor_1775091859475_6637
+  - id: conn_1775290820794_3803
+    fromId: valve_1775290509570_9535
     fromPort: bottom
-    toId: sensor_1775091955034_7249
-    toPort: bottom
+    toId: node_1775290805283_4621
+    toPort: left
+    fluid: lox
+  - id: conn_1775290839274_1096
+    fromId: valve_1775290836830_555
+    fromPort: bottom
+    toId: node_1775290775568_4129
+    toPort: top
+    fluid: gn2
+  - id: conn_1775290854424_1441
+    fromId: node_1775290775568_4129
+    fromPort: right
+    toId: valve_1775290851155_4829
+    toPort: left
+    fluid: gn2
+  - id: conn_1775290904263_9263
+    fromId: valve_1775290788363_1762
+    fromPort: left
+    toId: node_1775290805283_4621
+    toPort: right
+    fluid: fuel
+  - id: conn_1775290912799_5377
+    fromId: valve_1775290705283_7109
+    fromPort: right
+    toId: node_1775290805283_4621
+    toPort: left
+    fluid: lox
+  - id: conn_1775290928182_4692
+    fromId: valve_1775290874030_2125
+    fromPort: right
+    toId: valve_1775290509570_9535
+    toPort: top
     fluid: lox
