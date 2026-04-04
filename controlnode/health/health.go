@@ -20,7 +20,7 @@ type Publisher struct {
 // Expected keys:
 //
 //	"uptime"       — seconds since CTR start
-//	"loopTime"     — last broker loop time in µs
+//	"loopTime"     — last broker loop time in ms
 //	"daqConnected" — number of connected DAQ nodes
 //	"wcConnected"  — number of connected web clients
 //
@@ -50,7 +50,7 @@ func (p *Publisher) Run(broadcastRateHz int) {
 			values[rd] = time.Since(p.startTime).Seconds()
 		}
 		if rd, ok := p.sensorRefDes["loopTime"]; ok {
-			values[rd] = float64(p.b.LoopTimeNs.Load()) / 1000.0 // ns → µs
+			values[rd] = float64(p.b.LoopTimeNs.Load()) / 1000000.0 // ns → ms
 		}
 		if rd, ok := p.sensorRefDes["daqConnected"]; ok {
 			values[rd] = float64(p.b.DaqConnected.Load())
