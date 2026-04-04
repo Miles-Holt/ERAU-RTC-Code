@@ -914,6 +914,25 @@ function _updateValveFbSvg(svgEl, id, subType, value) {
             ptr.setAttribute('cx', pos.cx);
             ptr.setAttribute('cy', pos.cy);
         }
+    } else if (st.includes('IO-FB')) {
+        const line = g.querySelector('[data-vcmd-line]');
+        if (line) {
+            const la = _valveLineAttrs(value);
+            line.setAttribute('x1', la.x1); line.setAttribute('y1', la.y1);
+            line.setAttribute('x2', la.x2); line.setAttribute('y2', la.y2);
+        }
+        const dotA = g.querySelector('[data-vfb-dot-a]');
+        const dotB = g.querySelector('[data-vfb-dot-b]');
+        if (dotA && dotB) {
+            const L = PID.VALVE_R - 3;
+            if (value) {
+                dotA.setAttribute('cx', -L); dotA.setAttribute('cy', 0);
+                dotB.setAttribute('cx',  L); dotB.setAttribute('cy', 0);
+            } else {
+                dotA.setAttribute('cx', 0); dotA.setAttribute('cy', -L);
+                dotB.setAttribute('cx', 0); dotB.setAttribute('cy',  L);
+            }
+        }
     }
 }
 
