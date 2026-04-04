@@ -274,6 +274,11 @@ function resizeGraphGrid(tabId, rows, cols) {
 
         const canvas = cellEl.querySelector('canvas');
         cell.chart   = createCellChart(canvas);
+        cell.nowBtn  = cellEl._nowBtn;
+        cell.nowBtn.addEventListener('click', () => {
+            cell.viewEnd = null;
+            cell.nowBtn.style.display = 'none';
+        });
 
         attachScrollZoom(canvas, cell);
         attachProximityTooltip(canvas, cell);
@@ -309,6 +314,12 @@ function buildGraphCell(tabId, cellIdx) {
     const chartArea = mkEl('div', 'graph-chart-area');
     const canvas    = document.createElement('canvas');
     chartArea.appendChild(canvas);
+
+    const nowBtn = mkEl('button', 'graph-now-btn', 'Now');
+    nowBtn.title = 'Jump to live view';
+    nowBtn.style.display = 'none';
+    chartArea.appendChild(nowBtn);
+    cellEl._nowBtn = nowBtn;
 
     cellEl.appendChild(panel);
     cellEl.appendChild(chartArea);
@@ -713,6 +724,7 @@ function updateAllGraphs() {
             cell.chart.options.scales.x.min = -cell.viewWindowSec;
             cell.chart.options.scales.x.max = 0;
             cell.chart.update('none');
+            if (cell.nowBtn) cell.nowBtn.style.display = cell.viewEnd !== null ? '' : 'none';
         }
     }
 }
@@ -763,6 +775,7 @@ function attachScrollZoom(canvas, cell) {
                 cell.chart.options.scales.x.min = -cell.viewWindowSec;
                 cell.chart.options.scales.x.max = 0;
                 cell.chart.update('none');
+                if (cell.nowBtn) cell.nowBtn.style.display = cell.viewEnd !== null ? '' : 'none';
             });
         }
     }, { passive: false });

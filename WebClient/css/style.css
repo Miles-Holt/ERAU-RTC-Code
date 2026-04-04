@@ -1256,6 +1256,25 @@ header h1 {
     padding: 8px;
 }
 
+/* ── Now button ──────────────────────────────────────────────────────────── */
+
+.graph-now-btn {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    padding: 3px 10px;
+    font-size: 0.75rem;
+    background: var(--accent, #1f6feb);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0.85;
+    z-index: 10;
+    transition: opacity 0.15s;
+}
+.graph-now-btn:hover { opacity: 1; }
+
 /* ── Column layout variant (used in object sidebar) ─────────────────────── */
 
 .graph-cell--column {
