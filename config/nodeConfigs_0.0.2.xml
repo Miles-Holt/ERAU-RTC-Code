@@ -1641,7 +1641,7 @@
 
         <daqNode> <!-- DAQ000, Testing Node -->
             <refDes>DAQ000</refDes>
-            <ip>localhost</ip>
+            <ip>MHOLT-AA</ip>
             <wsPort>8001</wsPort>
             <description>Testing DAQ node</description>
             <enabled>false</enabled>
