@@ -55,8 +55,8 @@ function openOperatorPopover(anchorEl) {
         status.textContent = 'Waiting...';
         status.className = 'op-pop-status pending';
         submitBtn.disabled = true;
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'auth_request', name, pin }));
+        if (wsCtrl && wsCtrl.readyState === WebSocket.OPEN) {
+            wsCtrl.send(JSON.stringify({ type: 'auth_request', name, pin }));
         } else {
             status.textContent = 'Not connected';
             status.className = 'op-pop-status error';

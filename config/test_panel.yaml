@@ -39,8 +39,8 @@ objects:
     type: sensor
     refDes: LCC-01-01
     units: Pounds
-    gridX: 27
-    gridY: 9
+    gridX: 28
+    gridY: 6
   - id: graph_1775174926738_8097
     type: graph
     name: Control Node
@@ -78,6 +78,7 @@ objects:
     gridY: 32
   - id: valve_1775199095151_4256
     type: valve
+    controlRefDes: OV-03
     gridX: 6
     gridY: 19
 connections:
@@ -91,23 +92,34 @@ connections:
     fromPort: bottom
     toId: sensor_1775091867852_4019
     toPort: bottom
+    fluid: air
   - id: conn_1775091875613_6657
     fromId: node_1775091861441_6209
     fromPort: bottom
     toId: sensor_1775091865101_9104
     toPort: bottom
+    fluid: gox
   - id: conn_1775091877289_6622
     fromId: node_1775091861441_6209
     fromPort: left
     toId: sensor_1775091863704_3007
     toPort: bottom
+    fluid: hydrogen
   - id: conn_1775091879234_4901
     fromId: node_1775091861441_6209
     fromPort: top
     toId: sensor_1775091859475_6637
     toPort: bottom
+    fluid: fuel
   - id: conn_1775199058644_693
     fromId: valve_1775199053178_8680
     fromPort: right
     toId: sensor_1775091867852_4019
     toPort: bottom
+    fluid: gn2
+  - id: conn_1775279671309_9029
+    fromId: sensor_1775091859475_6637
+    fromPort: bottom
+    toId: sensor_1775091955034_7249
+    toPort: bottom
+    fluid: lox

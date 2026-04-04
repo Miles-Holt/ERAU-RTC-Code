@@ -4,9 +4,13 @@
 
 function forceReconnect() {
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-    reconnectDelay = CONFIG.reconnect.baseMs;
-    if (ws) { ws.onclose = null; ws.close(); }
+    if (reconnectTimerCtrl) { clearTimeout(reconnectTimerCtrl); reconnectTimerCtrl = null; }
+    reconnectDelay     = CONFIG.reconnect.baseMs;
+    reconnectDelayCtrl = CONFIG.reconnect.baseMs;
+    if (ws)     { ws.onclose     = null; ws.close(); }
+    if (wsCtrl) { wsCtrl.onclose = null; wsCtrl.close(); }
     connect();
+    connectCtrl();
 }
 
 function setDevMode(enabled) {
@@ -27,7 +31,7 @@ function buildDevContent(tab) {
             <div class="dev-section">
                 <h3 class="dev-heading">WebSocket</h3>
                 <table class="dev-table">
-                    <tr><td>Endpoint</td>          <td class="mono">${CONFIG.wsUrl}</td></tr>
+                    <tr><td>Endpoint</td>          <td class="mono">${CONFIG.wsBase}</td></tr>
                     <tr><td>State</td>              <td class="dev-state">--</td></tr>
                     <tr><td>Uptime</td>             <td class="dev-uptime">--</td></tr>
                     <tr><td>Messages received</td>  <td class="dev-msg-count">0</td></tr>

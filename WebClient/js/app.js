@@ -90,6 +90,7 @@ function setLiveUpdateRate(hz) {
     _dvInterval    = setInterval(updateAllDataViews, ms);
 }
 connect();
+connectCtrl();
 
 // One-time boot hint overlay
 (function showBootHint() {

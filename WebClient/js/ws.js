@@ -1,28 +1,34 @@
 // =============================================================================
-// WebSocket management
+// WebSocket management — two connections
+//   /ws/data  (anonymous, server→client): config, layouts, live data, alerts
+//   /ws/ctrl  (auth required, bidirectional): auth, commands, ack_alert
+// =============================================================================
+
+// =============================================================================
+// Data WebSocket
 // =============================================================================
 
 function connect() {
     if (simActive) return;
     setStatus('connecting', 'Connecting...');
     try {
-        ws           = new WebSocket(CONFIG.wsUrl);
-        ws.onopen    = onOpen;
-        ws.onmessage = onMessage;
-        ws.onclose   = onClose;
-        ws.onerror   = (e) => console.warn('WebSocket error:', e);
+        ws           = new WebSocket(CONFIG.wsBase + '/ws/data');
+        ws.onopen    = onDataOpen;
+        ws.onmessage = onDataMessage;
+        ws.onclose   = onDataClose;
+        ws.onerror   = (e) => console.warn('Data WS error:', e);
     } catch (e) {
         scheduleReconnect();
     }
 }
 
-function onOpen() {
+function onDataOpen() {
     reconnectDelay       = CONFIG.reconnect.baseMs;
     devStats.connectedAt = Date.now();
     setStatus('connected', 'Connected — waiting for config...');
 }
 
-function onMessage(event) {
+function onDataMessage(event) {
     devStats.msgCount++;
     let msg;
     try { msg = JSON.parse(event.data); }
@@ -31,23 +37,22 @@ function onMessage(event) {
     logConsole('in', msg);
 
     switch (msg.type) {
-        case 'config':            applyConfig(msg);           break;
-        case 'data':              applyData(msg);      break;
-        case 'pid_layout': applyPidLayout(msg);         break;
-        case 'auth_response': handleAuthResponse(msg); break;
-        case 'err':               handleDaqError(msg);      break;
-        default:                  console.warn('Unknown message type:', msg.type);
+        case 'config':          applyConfig(msg);             break;
+        case 'data':            applyData(msg);               break;
+        case 'pid_layout':      applyPidLayout(msg);          break;
+        case 'err':             handleDaqError(msg);          break;
+        case 'alert':           ingestAlert(msg);             break;
+        case 'alert_acked':     ackAlertLocally(msg.id);      break;
+        case 'alert_snapshot':  msg.alerts.forEach(ingestAlert); break;
+        default: console.warn('Unknown data message type:', msg.type);
     }
 }
 
-function onClose() {
+function onDataClose() {
     clearTimeout(stalenessTimer);
     markStale();
     devStats.connectedAt = null;
     setStatus('disconnected', 'Disconnected');
-    operatorName = '';
-    updateOperatorButton();
-    updateCommandWidgets();
     scheduleReconnect();
 }
 
@@ -61,6 +66,62 @@ function scheduleReconnect() {
     reconnectDelay = Math.min(reconnectDelay * CONFIG.reconnect.factor, CONFIG.reconnect.maxMs);
 }
 
+// =============================================================================
+// Control WebSocket
+// =============================================================================
+
+function connectCtrl() {
+    if (simActive) return;
+    try {
+        wsCtrl           = new WebSocket(CONFIG.wsBase + '/ws/ctrl');
+        wsCtrl.onopen    = onCtrlOpen;
+        wsCtrl.onmessage = onCtrlMessage;
+        wsCtrl.onclose   = onCtrlClose;
+        wsCtrl.onerror   = (e) => console.warn('Ctrl WS error:', e);
+    } catch (e) {
+        scheduleReconnectCtrl();
+    }
+}
+
+function onCtrlOpen() {
+    reconnectDelayCtrl = CONFIG.reconnect.baseMs;
+}
+
+function onCtrlMessage(event) {
+    let msg;
+    try { msg = JSON.parse(event.data); }
+    catch { return; }
+
+    if (msg.type === 'auth_response') handleAuthResponse(msg);
+}
+
+function onCtrlClose() {
+    wsCtrl = null;
+    operatorName = '';
+    updateOperatorButton();
+    updateCommandWidgets();
+    scheduleReconnectCtrl();
+}
+
+function scheduleReconnectCtrl() {
+    if (reconnectTimerCtrl) return;
+    reconnectTimerCtrl = setTimeout(() => {
+        reconnectTimerCtrl = null;
+        connectCtrl();
+    }, reconnectDelayCtrl);
+    reconnectDelayCtrl = Math.min(reconnectDelayCtrl * CONFIG.reconnect.factor, CONFIG.reconnect.maxMs);
+}
+
+// sendWsCtrl sends a message on the control WebSocket.
+function sendWsCtrl(msg) {
+    if (!wsCtrl || wsCtrl.readyState !== WebSocket.OPEN) {
+        console.warn('Cannot send: ctrl WS not connected');
+        return;
+    }
+    wsCtrl.send(JSON.stringify(msg));
+    logConsole('out', msg);
+}
+
 function sendCommand(refDes, value) {
     const msg = { type: 'cmd', refDes, value, user: operatorName };
     if (simActive) {
@@ -68,14 +129,8 @@ function sendCommand(refDes, value) {
         if (typeof simReceiveCommand === 'function') simReceiveCommand(refDes, value);
         return;
     }
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-        console.warn('Cannot send command: not connected');
-        return;
-    }
-    ws.send(JSON.stringify(msg));
-    logConsole('out', msg);
+    sendWsCtrl(msg);
 }
-
 
 // =============================================================================
 // Config & data handling
@@ -85,6 +140,7 @@ function applyConfig(msg) {
     configControls = msg.controls ?? [];
     configApplied  = true;
     if (msg.broadcastRateHz) setLiveUpdateRate(msg.broadcastRateHz);
+    restoreTabState();
     for (const tab of tabs) {
         if (tab.type === 'dataView') rebuildDataView(tab);
         if (tab.type === 'frontPanel' && tab.pid && tab.pid.objects.length) renderPidAll(tab);
@@ -133,11 +189,15 @@ function handleDaqError(msg) {
 function applyPidLayout(msg) {
     if (!msg.filename || !msg.content) return;
     pidLayouts[msg.filename] = { name: msg.name || msg.filename, filename: msg.filename, content: msg.content };
-    // Refresh any open front panel tabs that have selected this layout
     for (const tab of tabs) {
         if (tab.type === 'frontPanel' && tab.pid) {
             refreshPidLayoutPicker(tab);
             if (tab.pid.layoutFilename === msg.filename) {
+                loadPidLayout(tab, pidLayouts[msg.filename]);
+            }
+            // Restore pending layout from tab persistence
+            if (tab.pid.pendingLayout === msg.filename) {
+                tab.pid.pendingLayout = null;
                 loadPidLayout(tab, pidLayouts[msg.filename]);
             }
         }

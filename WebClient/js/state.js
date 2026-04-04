@@ -3,7 +3,7 @@
 // =============================================================================
 
 const CONFIG = {
-    wsUrl:              `ws://${window.location.hostname || 'localhost'}:8000`,
+    wsBase:             `ws://${window.location.hostname || 'localhost'}:8000`,
     staleThresholdMs:   500,
     channelStaleMs:     2000,
     reconnect:          { baseMs: 1000, maxMs: 10000, factor: 2 },
@@ -12,10 +12,13 @@ const CONFIG = {
 };
 
 // --- Connection ---
-let ws             = null;
-let reconnectDelay = CONFIG.reconnect.baseMs;
-let reconnectTimer = null;
-let stalenessTimer = null;
+let ws                 = null;   // data WebSocket (/ws/data)
+let wsCtrl             = null;   // control WebSocket (/ws/ctrl)
+let reconnectDelay     = CONFIG.reconnect.baseMs;
+let reconnectDelayCtrl = CONFIG.reconnect.baseMs;
+let reconnectTimer     = null;
+let reconnectTimerCtrl = null;
+let stalenessTimer     = null;
 let simActive      = false;
 let devMode        = false;
 

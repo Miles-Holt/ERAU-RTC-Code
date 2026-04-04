@@ -152,8 +152,8 @@ function openValveDropdown(valveObj, clientX, clientY) {
     // Clamp to viewport after measuring
     const vw = window.innerWidth, vh = window.innerHeight;
     const ew = el.offsetWidth, eh = el.offsetHeight;
-    const left = Math.max(4, Math.min(clientX + 8, vw - ew - 4));
-    const top  = Math.max(4, Math.min(clientY + 8, vh - eh - 4));
+    const left = Math.max(4, Math.min(clientX - ew / 2, vw - ew - 4));
+    const top  = Math.max(4, Math.min(clientY, vh - eh - 4));
     el.style.left = left + 'px';
     el.style.top  = top  + 'px';
 

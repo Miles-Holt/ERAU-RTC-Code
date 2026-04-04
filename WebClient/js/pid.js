@@ -106,6 +106,7 @@ function pidToYaml(layout) {
         y += '    fromPort: ' + c.fromPort     + '\n';
         y += '    toId: '     + q(c.toId)     + '\n';
         y += '    toPort: '   + c.toPort       + '\n';
+        if (c.fluid)          y += '    fluid: '    + c.fluid        + '\n';
     }
     return y;
 }
@@ -475,6 +476,7 @@ function buildFrontPanelContent(tab) {
     // ── Canvas pan ──
     svg.addEventListener('pointerdown', e => {
         if (e.button !== 0) return;
+        closeValveDropdown(false);
         e.stopPropagation();
         startPidPan(tab, e);
     });
@@ -763,7 +765,8 @@ function makeValveGroup(obj) {
 
     g.addEventListener('click', (e) => {
         e.stopPropagation();
-        openValveDropdown(obj, e.clientX, e.clientY);
+        const rect = g.getBoundingClientRect();
+        openValveDropdown(obj, rect.left + rect.width / 2, rect.top + rect.height / 2);
     });
 
     return g;
@@ -1013,12 +1016,16 @@ function renderPidConn(tab, conn) {
         tab.pid.objects, conn.fromId, conn.toId
     );
 
-    let el = tab.pid.gConns.querySelector('[data-conn-id="' + conn.id + '"]');
-    if (!el) {
-        el = svgN('path', { class: 'pid-conn-path', 'data-conn-id': conn.id });
-        tab.pid.gConns.appendChild(el);
+    let wrap = tab.pid.gConns.querySelector('[data-conn-id="' + conn.id + '"]');
+    if (!wrap) {
+        wrap = svgN('g', { 'data-conn-id': conn.id });
+        wrap.append(svgN('path', { class: 'pid-conn-hit' }), svgN('path', { class: 'pid-conn-path' }));
+        tab.pid.gConns.appendChild(wrap);
     }
-    el.setAttribute('d', d);
+    wrap.children[0].setAttribute('d', d);
+    wrap.children[1].setAttribute('d', d);
+    wrap.className.baseVal = wrap.className.baseVal.replace(/\bpid-conn-fluid-\S+/g, '').trim();
+    if (conn.fluid) wrap.classList.add('pid-conn-fluid-' + conn.fluid);
 }
 
 // =============================================================================

@@ -183,6 +183,12 @@ function openObjectSidebar(refDes) {
 // Close
 // =============================================================================
 
+// Close the sidebar on any right-click outside it
+document.addEventListener('contextmenu', (e) => {
+    const sidebarEl = document.getElementById('object-sidebar');
+    if (!sidebarEl?.contains(e.target)) closeObjectSidebar();
+});
+
 function closeObjectSidebar() {
     const sidebarEl = document.getElementById('object-sidebar');
     if (!sidebarEl) return;

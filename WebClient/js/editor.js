@@ -40,7 +40,10 @@ const PID = {
 let edConfigControls = [];
 let edLayouts = {};   // filename → { name, filename, content }
 
-// Live data
+const FLUIDS       = ['', 'gn2', 'air', 'lox', 'gox', 'fuel', 'hydrogen'];
+const FLUID_LABELS = { '': 'None', gn2: 'GN2', air: 'Air', lox: 'LOX', gox: 'GOX', fuel: 'Fuel', hydrogen: 'Hydrogen' };
+
+// Live data WebSocket (/ws/data)
 let edWs               = null;
 let edWsReconnectDelay = 1000;
 let edWsReconnectTimer = null;
@@ -49,6 +52,13 @@ const edLiveValues     = {};            // refDes → latest value
 let edLiveRefDes       = null;          // refDes of the currently selected sensor
 let edLiveEl           = null;          // <span> in right sidebar to update
 let edLiveStaleTimer   = null;
+
+// Control WebSocket (/ws/ctrl) — authenticated, used for set_layout
+let edWsCtrl               = null;
+let edWsCtrlAuthed         = false;
+let edWsCtrlReconnectDelay = 1000;
+let edWsCtrlReconnectTimer = null;
+let edWsCtrlPending        = null;      // payload queued until auth completes
 
 // Single editor "tab" object — mirrors the tab.pid shape used in the main app.
 const tab = {
@@ -107,13 +117,14 @@ function pidToYaml(layout) {
                 }
             }
         } else {
-            if (o.refDes)              y += '    refDes: ' + q(o.refDes) + '\n';
-            if (o.units)               y += '    units: '  + q(o.units)  + '\n';
+            if (o.refDes)              y += '    refDes: '        + q(o.refDes)        + '\n';
+            if (o.units)               y += '    units: '         + q(o.units)         + '\n';
+            if (o.controlRefDes)       y += '    controlRefDes: ' + q(o.controlRefDes) + '\n';
             if (o.showRefDes === false) y += '    showRefDes: false\n';
             if (o.showUnits  === false) y += '    showUnits: false\n';
             if (o.showName   === true)  y += '    showName: true\n';
-            y +=                           '    gridX: '   + o.gridX    + '\n';
-            y +=                           '    gridY: '   + o.gridY    + '\n';
+            y +=                            '    gridX: '         + o.gridX             + '\n';
+            y +=                            '    gridY: '         + o.gridY             + '\n';
         }
     }
     y += 'connections:\n';
@@ -123,6 +134,7 @@ function pidToYaml(layout) {
         y += '    fromPort: ' + c.fromPort     + '\n';
         y += '    toId: '     + q(c.toId)     + '\n';
         y += '    toPort: '   + c.toPort       + '\n';
+        if (c.fluid)          y += '    fluid: '    + c.fluid      + '\n';
     }
     return y;
 }
@@ -416,7 +428,7 @@ function orthRouteAvoiding(p1, d1, p2, d2, objects, fromId, toId) {
 // =============================================================================
 
 function edConnect() {
-    const url = 'ws://' + (window.location.hostname || 'localhost') + ':8000';
+    const url = 'ws://' + (window.location.hostname || 'localhost') + ':8000/ws/data';
     try {
         edWs = new WebSocket(url);
     } catch (e) {
@@ -447,6 +459,132 @@ function scheduleEdReconnect() {
         edConnect();
     }, edWsReconnectDelay);
     edWsReconnectDelay = Math.min(edWsReconnectDelay * 2, 10000);
+}
+
+// ── Control WebSocket (/ws/ctrl) ──────────────────────────────────────────────
+
+function edConnectCtrl() {
+    const url = 'ws://' + (window.location.hostname || 'localhost') + ':8000/ws/ctrl';
+    try {
+        edWsCtrl = new WebSocket(url);
+    } catch (e) {
+        scheduleEdCtrlReconnect();
+        return;
+    }
+    edWsCtrl.onopen = () => {
+        edWsCtrlReconnectDelay = 1000;
+    };
+    edWsCtrl.onmessage = ev => {
+        let msg;
+        try { msg = JSON.parse(ev.data); } catch { return; }
+        if (msg.type !== 'auth_response') return;
+        if (msg.approved) {
+            edWsCtrlAuthed = true;
+            hideEdAuthModal();
+            if (edWsCtrlPending) {
+                edWsCtrl.send(edWsCtrlPending);
+                edWsCtrlPending = null;
+            }
+        } else {
+            showEdAuthModal(msg.reason || 'Authentication failed');
+        }
+    };
+    edWsCtrl.onclose = () => {
+        edWsCtrl       = null;
+        edWsCtrlAuthed = false;
+        scheduleEdCtrlReconnect();
+    };
+    edWsCtrl.onerror = () => {};
+}
+
+function scheduleEdCtrlReconnect() {
+    if (edWsCtrlReconnectTimer) return;
+    edWsCtrlReconnectTimer = setTimeout(() => {
+        edWsCtrlReconnectTimer = null;
+        edConnectCtrl();
+    }, edWsCtrlReconnectDelay);
+    edWsCtrlReconnectDelay = Math.min(edWsCtrlReconnectDelay * 2, 10000);
+}
+
+// edSendCtrl queues a payload on the control WS, prompting auth if needed.
+function edSendCtrl(payload) {
+    edWsCtrlPending = payload;
+    if (!edWsCtrl || edWsCtrl.readyState !== WebSocket.OPEN) {
+        edConnectCtrl();
+        showEdAuthModal();
+        return;
+    }
+    if (!edWsCtrlAuthed) {
+        showEdAuthModal();
+        return;
+    }
+    edWsCtrl.send(payload);
+    edWsCtrlPending = null;
+}
+
+// ── Editor auth modal ─────────────────────────────────────────────────────────
+
+let _edAuthModalEl = null;
+
+function showEdAuthModal(errorMsg) {
+    if (_edAuthModalEl) {
+        if (errorMsg) {
+            const status = _edAuthModalEl.querySelector('.ed-auth-status');
+            if (status) { status.textContent = errorMsg; status.style.display = ''; }
+            const btn = _edAuthModalEl.querySelector('.ed-auth-submit');
+            if (btn) btn.disabled = false;
+            _edAuthModalEl.querySelector('.ed-auth-pin')?.focus();
+        }
+        return;
+    }
+    const overlay = document.createElement('div');
+    overlay.className = 'ed-auth-overlay';
+    overlay.innerHTML =
+        '<div class="ed-auth-modal">' +
+            '<div class="ed-auth-title">Authenticate to Save</div>' +
+            '<input class="ed-auth-name" type="text" placeholder="Name" maxlength="32" autocomplete="off" spellcheck="false">' +
+            '<input class="ed-auth-pin" type="password" placeholder="PIN" maxlength="16" autocomplete="off">' +
+            '<div class="ed-auth-status" style="display:none"></div>' +
+            '<button class="ed-auth-submit">Authenticate &amp; Save</button>' +
+        '</div>';
+    document.body.appendChild(overlay);
+    _edAuthModalEl = overlay;
+
+    const nameInp = overlay.querySelector('.ed-auth-name');
+    const pinInp  = overlay.querySelector('.ed-auth-pin');
+    const btn     = overlay.querySelector('.ed-auth-submit');
+    if (errorMsg) {
+        const status = overlay.querySelector('.ed-auth-status');
+        status.textContent = errorMsg;
+        status.style.display = '';
+    }
+    nameInp.focus();
+
+    function submit() {
+        const name = nameInp.value.trim();
+        const pin  = pinInp.value;
+        if (!name || !pin) return;
+        btn.disabled = true;
+        const status = overlay.querySelector('.ed-auth-status');
+        status.textContent = 'Waiting...';
+        status.style.display = '';
+        if (edWsCtrl && edWsCtrl.readyState === WebSocket.OPEN) {
+            edWsCtrl.send(JSON.stringify({ type: 'auth_request', name, pin }));
+        } else {
+            edConnectCtrl();
+            setTimeout(submit, 500);
+        }
+    }
+
+    btn.addEventListener('click', submit);
+    [nameInp, pinInp].forEach(inp =>
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); })
+    );
+}
+
+function hideEdAuthModal() {
+    _edAuthModalEl?.remove();
+    _edAuthModalEl = null;
 }
 
 function edApplyData(msg) {
@@ -690,12 +828,23 @@ function savePidYaml() {
         objects:     tab.pid.objects,
         connections: tab.pid.connections,
     };
-    const yaml     = pidToYaml(layout);
-    const filename = (layout.name.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'panel') + '.yaml';
-    const blob     = new Blob([yaml], { type: 'text/yaml' });
-    const url      = URL.createObjectURL(blob);
-    const a        = document.createElement('a');
-    a.href = url; a.download = filename; a.click();
+    const yaml = pidToYaml(layout);
+
+    // Push to server (saves to disk + re-broadcasts to all front panel clients).
+    if (tab.pid.layoutFilename) {
+        edSendCtrl(JSON.stringify({
+            type:     'set_layout',
+            filename: tab.pid.layoutFilename,
+            content:  yaml,
+        }));
+    }
+
+    // Also download locally.
+    const dlName = (layout.name.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'panel') + '.yaml';
+    const blob   = new Blob([yaml], { type: 'text/yaml' });
+    const url    = URL.createObjectURL(blob);
+    const a      = document.createElement('a');
+    a.href = url; a.download = dlName; a.click();
     URL.revokeObjectURL(url);
 }
 
@@ -880,6 +1029,9 @@ function renderPidConn(conn) {
     hitPath.setAttribute('d', d);
     visPath.classList.toggle('pid-conn-error', !!error);
     grp.classList.toggle('pid-conn-selected', tab.pid.selectedConnId === conn.id);
+
+    grp.className.baseVal = grp.className.baseVal.replace(/\bpid-conn-fluid-\S+/g, '').trim();
+    if (conn.fluid) grp.classList.add('pid-conn-fluid-' + conn.fluid);
 }
 
 function updateConnsTouching() {
@@ -981,14 +1133,24 @@ function renderPidConnRsb(connId) {
     const fromName = fromObj ? (fromObj.refDes || fromObj.type + ' ' + fromObj.id) : conn.fromId;
     const toName   = toObj   ? (toObj.refDes   || toObj.type   + ' ' + toObj.id)   : conn.toId;
 
+    const fluidOpts = FLUIDS.map(f =>
+        '<option value="' + f + '"' + (conn.fluid === f ? ' selected' : '') + '>' + FLUID_LABELS[f] + '</option>'
+    ).join('');
+
     c.innerHTML =
         '<div class="pid-sb-heading">Pipe</div>' +
         '<div class="pid-sb-field"><label>From</label>' +
         '<span class="pid-sb-value">' + pidEsc(fromName) + ' : ' + pidEsc(conn.fromPort) + '</span></div>' +
         '<div class="pid-sb-field"><label>To</label>' +
         '<span class="pid-sb-value">' + pidEsc(toName) + ' : ' + pidEsc(conn.toPort) + '</span></div>' +
+        '<div class="pid-sb-field"><label>Fluid</label>' +
+        '<select class="pid-fluid-select">' + fluidOpts + '</select></div>' +
         '<button class="pid-delete-btn">Remove</button>';
 
+    c.querySelector('.pid-fluid-select').addEventListener('change', e => {
+        conn.fluid = e.target.value || undefined;
+        renderPidConn(conn);
+    });
     c.querySelector('.pid-delete-btn').addEventListener('click', () => deletePidConn(connId));
     rsb.appendChild(c);
 }
@@ -1553,6 +1715,7 @@ document.addEventListener('keydown', e => {
 
     buildEditorUI(rootEl);
     edConnect();
+    edConnectCtrl();
 
     // Auto-load the layout that was open on the front panel
     const sel = data && data.selectedLayout;

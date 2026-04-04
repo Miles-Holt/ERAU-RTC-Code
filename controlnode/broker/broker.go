@@ -55,6 +55,7 @@ type Broker struct {
 	dataIn    chan DataEvent
 	errIn     chan ErrEvent
 	cmdIn     chan CmdMsg
+	rawIn     chan []byte
 	subIn     chan subReq
 	daqRegIn  chan daqRegReq
 
@@ -81,6 +82,7 @@ func New(refDesMap map[string]string, restartRefDes []string) *Broker {
 		dataIn:        make(chan DataEvent, 256),
 		errIn:         make(chan ErrEvent, 64),
 		cmdIn:         make(chan CmdMsg, 64),
+		rawIn:         make(chan []byte, 64),
 		subIn:         make(chan subReq, 64),
 		daqRegIn:      make(chan daqRegReq, 32),
 		refDesMap:     refDesMap,
@@ -145,6 +147,15 @@ func (b *Broker) Run(broadcastRateHz int) {
 				}
 			}
 			b.LoopTimeNs.Store(time.Since(start).Nanoseconds())
+
+		// ── Raw broadcast (alerts, layout pushes) ─────────────────────────
+		case msg := <-b.rawIn:
+			for ch := range subscribers {
+				select {
+				case ch <- msg:
+				default:
+				}
+			}
 
 		// ── Web client subscribe / unsubscribe ────────────────────────────
 		case req := <-b.subIn:
@@ -236,6 +247,16 @@ func (b *Broker) Subscribe() (<-chan []byte, func()) {
 		b.subIn <- subReq{ch: ch, unsub: true}
 	}
 	return ch, unsub
+}
+
+// Publish broadcasts a raw JSON message to all subscribed web clients immediately.
+// Non-blocking: drops the message if the internal buffer is full.
+func (b *Broker) Publish(msg []byte) {
+	select {
+	case b.rawIn <- msg:
+	default:
+		log.Printf("broker: raw publish buffer full, dropping message")
+	}
 }
 
 // RegisterDaq registers (or deregisters when ch==nil) a DAQ node's cmd channel.

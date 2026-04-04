@@ -97,6 +97,13 @@ func main() {
 	}
 	panelMessages := loadPanelMessages(panelCfg, filepath.Dir(*configPath))
 
+	layoutPaths := make(map[string]string)
+	for _, p := range panelCfg.Panels {
+		if p.Enabled {
+			layoutPaths[filepath.Base(p.File)] = filepath.Join(filepath.Dir(*configPath), p.File)
+		}
+	}
+
 	// ── Load user auth config ─────────────────────────────────────────────
 	authCfg, err := webclient.LoadUserAuth(filepath.Join(filepath.Dir(*configPath), "userAuth.yaml"))
 	if err != nil {
@@ -105,7 +112,7 @@ func main() {
 	}
 
 	// ── Web client WebSocket server (blocks forever) ──────────────────────
-	srv := webclient.New(cfg.Network.WebSocketPort, wcConfigJSON, panelMessages, b, *webRoot, embeddedSub, authCfg)
+	srv := webclient.New(cfg.Network.WebSocketPort, wcConfigJSON, panelMessages, b, *webRoot, embeddedSub, authCfg, layoutPaths)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("webclient server: %v", err)
 	}

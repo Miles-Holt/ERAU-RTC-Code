@@ -92,6 +92,7 @@ function changeTabType(id, newType) {
 }
 
 function activateTab(id) {
+    const prevTab = tabs.find(t => t.id === activeTabId);
     activeTabId = id;
     for (const tab of tabs) {
         const active = tab.id === id;
@@ -99,6 +100,10 @@ function activateTab(id) {
         if (active && tab.type === 'graph') {
             setTimeout(() => resizeGraphCharts(id), 0);
         }
+    }
+    // Close the object sidebar when leaving a front panel tab
+    if (prevTab && prevTab.type === 'frontPanel' && prevTab.id !== id) {
+        closeObjectSidebar();
     }
     renderTabBar();
 }
