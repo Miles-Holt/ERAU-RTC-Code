@@ -110,7 +110,7 @@ function _renderAlerts() {
 
     // Toggle button label
     const toggleBtn = _barEl.querySelector('.alert-toggle-btn');
-    toggleBtn.textContent = _collapsed ? '▲ Alerts' : '▼ Alerts';
+    toggleBtn.textContent = _collapsed ? '▲' : '▼';
 
     // List rows (newest first)
     _listEl.innerHTML = '';
@@ -135,9 +135,9 @@ function _badgeHtml(category, count) {
 }
 
 function _categoryIcon(category) {
-    if (category === 'info')    return 'ⓘ';
-    if (category === 'warning') return '⚠';
-    if (category === 'alarm')   return '🔔';
+    if (category === 'info')    return 'ℹ️';
+    if (category === 'warning') return '⚠️';
+    if (category === 'alarm')   return '🚨';
     return '•';
 }
 
