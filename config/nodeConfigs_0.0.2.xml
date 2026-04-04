@@ -1598,7 +1598,7 @@
     <!-- CTR NODE -->
     <ctrNode>
         <refDes>CTR001</refDes>
-        <ip>localhost</ip>
+        <ip>MHOLT-LA</ip>
         <description>Central control and routing node</description>
         <enabled>true</enabled>
 
