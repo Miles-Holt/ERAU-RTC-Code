@@ -135,9 +135,9 @@ function _badgeHtml(category, count) {
 }
 
 function _categoryIcon(category) {
-    if (category === 'info')    return 'ⓘ';
-    if (category === 'warning') return '⚠';
-    if (category === 'alarm')   return '🔔';
+    if (category === 'info')    return 'ℹ️';
+    if (category === 'warning') return '⚠️';
+    if (category === 'alarm')   return '🚨';
     return '•';
 }
 

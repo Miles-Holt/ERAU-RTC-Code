@@ -85,6 +85,13 @@ function pidToYaml(layout) {
                     if (l.hidden)          y += '        hidden: true\n';
                 }
             }
+        } else if (o.type === 'tank') {
+            y +=                             '    gridX: '  + o.gridX           + '\n';
+            y +=                             '    gridY: '  + o.gridY           + '\n';
+            y +=                             '    gridW: '  + (o.gridW  || 5)   + '\n';
+            y +=                             '    gridH: '  + (o.gridH  || 8)   + '\n';
+            if (o.rotation)             y += '    rotation: ' + o.rotation      + '\n';
+            if (o.cornerR !== undefined) y += '    cornerR: ' + o.cornerR       + '\n';
         } else if (o.type === 'valve') {
             if (o.controlRefDes)        y += '    controlRefDes: ' + q(o.controlRefDes) + '\n';
             if (o.showRefDes === false)  y += '    showRefDes: false\n';
@@ -220,8 +227,19 @@ function portPos(obj, port) {
 function pidObstacleRects(objects, excludeIds) {
     const M = PID.OBS_MARGIN;
     return objects
-        .filter(o => !excludeIds.has(o.id) && (o.type === 'sensor' || o.type === 'graph' || o.type === 'valve'))
+        .filter(o => !excludeIds.has(o.id) && (o.type === 'sensor' || o.type === 'graph' || o.type === 'valve' || o.type === 'tank'))
         .map(o => {
+            if (o.type === 'tank') {
+                const rot = o.rotation || 0;
+                const W = (o.gridW || 5) * PID.GRID;
+                const H = (o.gridH || 8) * PID.GRID;
+                // For 90/270 rotations swap W and H for bounding box
+                const bW = (rot === 90 || rot === 270) ? H : W;
+                const bH = (rot === 90 || rot === 270) ? W : H;
+                const cx = o.gridX * PID.GRID + W / 2;
+                const cy = o.gridY * PID.GRID + H / 2;
+                return { x1: cx - bW/2 - M, y1: cy - bH/2 - M, x2: cx + bW/2 + M, y2: cy + bH/2 + M };
+            }
             if (o.type === 'graph') {
                 return {
                     x1: o.gridX * PID.GRID - M,
@@ -612,6 +630,7 @@ function renderPidObj(tab, obj) {
     const g = obj.type === 'graph'  ? makeGraphGroup(obj, tab)
             : obj.type === 'sensor' ? makeSensorGroup(obj)
             : obj.type === 'valve'  ? makeValveGroup(obj)
+            : obj.type === 'tank'   ? makeTankGroup(obj)
             : makeNodeGroup(obj);
     tab.pid.gObjs.appendChild(g);
 }
@@ -692,6 +711,29 @@ function makeNodeGroup(obj) {
         transform: 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')',
     });
     g.appendChild(svgN('circle', { class: 'pid-node-dot', cx: 0, cy: 0, r: PID.NODE_R }));
+    return g;
+}
+
+function makeTankGroup(obj) {
+    const W   = (obj.gridW  || 5) * PID.GRID;
+    const H   = (obj.gridH  || 8) * PID.GRID;
+    const rx  = obj.cornerR !== undefined ? obj.cornerR : PID.CORNER_R;
+    const rot = obj.rotation || 0;
+
+    const g = svgN('g', {
+        class: 'pid-obj pid-tank',
+        'data-pid-id': obj.id,
+        transform: 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')',
+    });
+
+    const rect = svgN('rect', {
+        x: 0, y: 0, width: W, height: H,
+        rx, ry: rx,
+        class: 'pid-tank-rect',
+    });
+    if (rot) rect.setAttribute('transform', 'rotate(' + rot + ',' + (W / 2) + ',' + (H / 2) + ')');
+    g.appendChild(rect);
+
     return g;
 }
 
