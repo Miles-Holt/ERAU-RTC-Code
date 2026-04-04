@@ -480,6 +480,11 @@ function buildFrontPanelContent(tab) {
         e.stopPropagation();
         startPidPan(tab, e);
     });
+
+    // ── Suppress browser context menu on canvas ──
+    svg.addEventListener('contextmenu', e => {
+        e.preventDefault();
+    });
 }
 
 // =============================================================================
