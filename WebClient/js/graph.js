@@ -633,9 +633,24 @@ function rebuildActivePidChannels() {
     for (const t of tabs) {
         if (t.type !== 'frontPanel' || !t.pid) continue;
         for (const obj of t.pid.objects) {
+            // Sensors: buffer the sensor's refDes
             if (obj.type === 'sensor' && obj.refDes) {
                 activePidChannels.add(obj.refDes);
                 if (!channelBuffers[obj.refDes]) channelBuffers[obj.refDes] = { ts: [], vals: [] };
+            }
+            // Valves: buffer the controlRefDes
+            else if (obj.type === 'valve' && obj.controlRefDes) {
+                activePidChannels.add(obj.controlRefDes);
+                if (!channelBuffers[obj.controlRefDes]) channelBuffers[obj.controlRefDes] = { ts: [], vals: [] };
+            }
+            // Graphs: buffer all pre-configured channel refDes values
+            else if (obj.type === 'graph' && obj.lines) {
+                for (const line of obj.lines) {
+                    if (line.refDes) {
+                        activePidChannels.add(line.refDes);
+                        if (!channelBuffers[line.refDes]) channelBuffers[line.refDes] = { ts: [], vals: [] };
+                    }
+                }
             }
         }
     }
