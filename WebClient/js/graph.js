@@ -685,7 +685,10 @@ function bufferGraphData(data) {
         if (!buf) continue;
         buf.ts.push(now);
         buf.vals.push(data[refDes]);
-        while (buf.ts.length && buf.ts[0] < graphCutoff) { buf.ts.shift(); buf.vals.shift(); }
+        // Use a single splice() instead of repeated shift() — one O(n) move vs many
+        let trimCount = 0;
+        while (trimCount < buf.ts.length && buf.ts[trimCount] < graphCutoff) trimCount++;
+        if (trimCount > 0) { buf.ts.splice(0, trimCount); buf.vals.splice(0, trimCount); }
     }
 
     // Buffer PID-only channels (skip any already handled above by the graph)
@@ -696,7 +699,9 @@ function bufferGraphData(data) {
         if (!buf) continue;
         buf.ts.push(now);
         buf.vals.push(data[refDes]);
-        while (buf.ts.length && buf.ts[0] < pidCutoff) { buf.ts.shift(); buf.vals.shift(); }
+        let trimCount = 0;
+        while (trimCount < buf.ts.length && buf.ts[trimCount] < pidCutoff) trimCount++;
+        if (trimCount > 0) { buf.ts.splice(0, trimCount); buf.vals.splice(0, trimCount); }
     }
 }
 
@@ -816,33 +821,40 @@ function attachScrollZoom(canvas, cell) {
 
 function attachProximityTooltip(canvas, cell) {
     const HOVER_PX = 14;
+    let rafId  = null;
+    let lastCx = 0, lastCy = 0;
+
     canvas.addEventListener('mousemove', (e) => {
-        const chart = cell.chart;
-        const rect  = canvas.getBoundingClientRect();
-        const cx    = e.clientX - rect.left;
-        const cy    = e.clientY - rect.top;
-
-        const activeEls = [];
-        for (let di = 0; di < chart.data.datasets.length; di++) {
-            const meta = chart.getDatasetMeta(di);
-            if (meta.hidden || !meta.data.length) continue;
-            let closestDist = Infinity;
-            let closestIdx  = -1;
-            for (let pi = 0; pi < meta.data.length; pi++) {
-                const pt   = meta.data[pi];
-                const dx   = cx - pt.x;
-                const dy   = cy - pt.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < closestDist) { closestDist = dist; closestIdx = pi; }
+        const rect = canvas.getBoundingClientRect();
+        lastCx = e.clientX - rect.left;
+        lastCy = e.clientY - rect.top;
+        if (rafId !== null) return;           // already a frame queued — just update coords
+        rafId = requestAnimationFrame(() => {
+            rafId = null;
+            const chart = cell.chart;
+            const cx = lastCx, cy = lastCy;
+            const activeEls = [];
+            for (let di = 0; di < chart.data.datasets.length; di++) {
+                const meta = chart.getDatasetMeta(di);
+                if (meta.hidden || !meta.data.length) continue;
+                let closestDist = Infinity;
+                let closestIdx  = -1;
+                for (let pi = 0; pi < meta.data.length; pi++) {
+                    const pt   = meta.data[pi];
+                    const dx   = cx - pt.x;
+                    const dy   = cy - pt.y;
+                    const dist = dx * dx + dy * dy;   // skip sqrt — comparing squared is enough
+                    if (dist < closestDist) { closestDist = dist; closestIdx = pi; }
+                }
+                if (closestDist <= HOVER_PX * HOVER_PX) activeEls.push({ datasetIndex: di, index: closestIdx });
             }
-            if (closestDist <= HOVER_PX) activeEls.push({ datasetIndex: di, index: closestIdx });
-        }
-
-        chart.tooltip.setActiveElements(activeEls, { x: cx, y: cy });
-        chart.update('none');
+            chart.tooltip.setActiveElements(activeEls, { x: cx, y: cy });
+            chart.update('none');
+        });
     });
 
     canvas.addEventListener('mouseleave', () => {
+        if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
         cell.chart.tooltip.setActiveElements([], {});
         cell.chart.update('none');
     });

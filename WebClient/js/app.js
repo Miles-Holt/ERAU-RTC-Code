@@ -86,7 +86,8 @@ function setLiveUpdateRate(hz) {
     const ms = Math.round(1000 / Math.max(1, hz));
     clearInterval(_graphInterval);
     clearInterval(_dvInterval);
-    _graphInterval = setInterval(updateAllGraphs,    ms);
+    // Graph renders are expensive (Chart.js canvas repaints); cap at 10 Hz regardless of data rate.
+    _graphInterval = setInterval(updateAllGraphs,    Math.max(ms, 100));
     _dvInterval    = setInterval(updateAllDataViews, ms);
 }
 connect();
