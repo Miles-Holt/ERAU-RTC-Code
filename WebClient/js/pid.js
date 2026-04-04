@@ -472,11 +472,7 @@ function buildFrontPanelContent(tab) {
 
     const gConns = svgN('g', { class: 'pid-g-conns' });
     const gObjs  = svgN('g', { class: 'pid-g-objs'  });
-    
-    // Wrapper group for zoom transform
-    const gWrapper = svgN('g', { class: 'pid-g-wrapper' });
-    gWrapper.append(gConns, gObjs);
-    svg.append(gWrapper);
+    svg.append(gConns, gObjs);
     canvasWrap.appendChild(svg);
 
     body.append(layoutPanel, canvasWrap);
@@ -492,12 +488,8 @@ function buildFrontPanelContent(tab) {
         svgEl: svg,
         gConns,
         gObjs,
-        gWrapper,
         canvasWrap,
         layoutPanelEl: panelItems,
-        zoomLevel: 1,
-        panOffsetX: 0,
-        panOffsetY: 0,
     };
 
     // Populate layout panel with any layouts already received
@@ -513,16 +505,10 @@ function buildFrontPanelContent(tab) {
         startPidPan(tab, e);
     });
 
-    // ── Canvas wheel zoom ──
-    canvasWrap.addEventListener('wheel', e => handleCanvasWheel(tab, e), { passive: false });
-
     // ── Suppress browser context menu on canvas ──
     svg.addEventListener('contextmenu', e => {
         e.preventDefault();
     });
-
-    // Center canvas view after initial setup
-    setTimeout(() => centerCanvasView(tab), 0);
 }
 
 // =============================================================================
@@ -555,7 +541,6 @@ function loadPidLayout(tab, record) {
     tab.pid.connections    = parsed.connections;
     buildLayoutPanelItems(tab);
     renderPidAll(tab);
-    centerCanvasView(tab);
 }
 
 function clearPidLayout(tab) {
@@ -565,7 +550,6 @@ function clearPidLayout(tab) {
     tab.pid.connections    = [];
     buildLayoutPanelItems(tab);
     renderPidAll(tab);
-    centerCanvasView(tab);
 }
 
 // Rebuilds the layout panel item list; called on load and when new layouts arrive.
@@ -1240,7 +1224,7 @@ function openObjectSidebarForGraph(obj) {
 }
 
 // =============================================================================
-// Canvas zoom and centering
+// Canvas centering
 // =============================================================================
 
 function centerCanvasView(tab) {
@@ -1258,54 +1242,6 @@ function centerCanvasView(tab) {
     // Center the canvas in the viewport
     wrap.scrollLeft = (canvasW - viewportW) / 2;
     wrap.scrollTop  = (canvasH - viewportH) / 2;
-}
-
-function updateCanvasZoom(tab) {
-    const gWrapper = tab.pid.gWrapper;
-    if (!gWrapper) return;
-    
-    // Apply zoom transform to wrapper
-    const scale = tab.pid.zoomLevel;
-    const offsetX = tab.pid.panOffsetX;
-    const offsetY = tab.pid.panOffsetY;
-    gWrapper.setAttribute('transform', `scale(${scale}) translate(${offsetX}, ${offsetY})`);
-}
-
-function handleCanvasWheel(tab, e) {
-    e.preventDefault();
-    
-    const wrap = tab.pid.canvasWrap;
-    
-    // Get cursor position in viewport space
-    const rect = wrap.getBoundingClientRect();
-    const viewportX = e.clientX - rect.left;
-    const viewportY = e.clientY - rect.top;
-    
-    // Get cursor position in canvas space (with scroll offset)
-    const canvasX = viewportX + wrap.scrollLeft;
-    const canvasY = viewportY + wrap.scrollTop;
-    
-    // Calculate the logical point in unscaled canvas coordinates
-    const logicalX = canvasX / tab.pid.zoomLevel;
-    const logicalY = canvasY / tab.pid.zoomLevel;
-    
-    // Calculate zoom delta (negative = zoom out, positive = zoom in)
-    const deltaY = e.deltaY > 0 ? 1 : -1;
-    const zoomFactor = 1.1; // 10% per wheel notch
-    
-    // Update zoom level (min 0.1, max 3)
-    const newZoom = tab.pid.zoomLevel * Math.pow(zoomFactor, deltaY);
-    tab.pid.zoomLevel = Math.max(0.1, Math.min(3, newZoom));
-    
-    updateCanvasZoom(tab);
-    
-    // After zoom, calculate new scroll position to keep cursor on the same logical point
-    const newCanvasX = logicalX * tab.pid.zoomLevel;
-    const newCanvasY = logicalY * tab.pid.zoomLevel;
-    
-    // Adjust scroll to keep the logical point at the cursor position
-    wrap.scrollLeft = newCanvasX - viewportX;
-    wrap.scrollTop = newCanvasY - viewportY;
 }
 
 // =============================================================================
