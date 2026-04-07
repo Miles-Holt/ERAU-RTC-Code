@@ -138,6 +138,8 @@ func (b *Broker) Run(broadcastRateHz int) {
 				log.Printf("broker: marshal error: %v", err)
 				continue
 			}
+			// Flush so next broadcast only contains freshly received values.
+			currentValues = make(map[string]float64)
 			b.WcConnected.Store(int32(len(subscribers)))
 			for ch := range subscribers {
 				select {

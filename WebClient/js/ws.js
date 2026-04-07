@@ -140,6 +140,7 @@ function applyConfig(msg) {
     configControls = msg.controls ?? [];
     configApplied  = true;
     if (msg.broadcastRateHz) setLiveUpdateRate(msg.broadcastRateHz);
+    if (msg.channelStaleMs)  CONFIG.channelStaleMs = msg.channelStaleMs;
     restoreTabState();
     for (const tab of tabs) {
         if (tab.type === 'dataView') rebuildDataView(tab);

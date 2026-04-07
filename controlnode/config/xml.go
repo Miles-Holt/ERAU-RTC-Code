@@ -24,7 +24,7 @@ type Network struct {
 	WebSocketPort        int `xml:"webSocketPort"`
 	BroadcastRateHz      int `xml:"broadcastRateHz"`
 	ManagementRateHz     int `xml:"connectionManagementRateHz"`
-	ConnectionHysteresis int `xml:"lostConnectionHysteresisCount"`
+	ChannelStaleMs       int `xml:"channelStaleMs"`
 }
 
 type CtrNodeDef struct {
@@ -262,6 +262,7 @@ func BuildWebClientConfigJSON(cfg *SystemConfig) (string, error) {
 	msg := map[string]interface{}{
 		"type":            "config",
 		"broadcastRateHz": cfg.Network.BroadcastRateHz,
+		"channelStaleMs":  cfg.Network.ChannelStaleMs,
 		"controls":        controls,
 	}
 	b, err := json.Marshal(msg)

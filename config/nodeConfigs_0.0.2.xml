@@ -196,7 +196,7 @@
         <control>
             <refDes required="true">TRIGGER-01</refDes>
             <description>Trigger signal</description>
-            <enabled>true</enabled> <!-- T/F -->
+            <enabled>false</enabled> <!-- T/F -->
             <type required="true">digitalOut</type>
             <subType></subType>
             <details>
@@ -221,7 +221,7 @@
             <description>Ignition ciruit</description>
             <enabled>true</enabled> <!-- T/F -->
             <type required="true">ignition</type>
-            <subType>IO-CMD_VAR-FB-CMD_IO-FB</subType>
+            <subType>IO-CMD</subType>
             <details>
             </details>
             <channels>
@@ -235,30 +235,6 @@
                     <channelNumber required="true">/port5/line0</channelNumber>
                     <daqMx required="true">
                         <taskName required="true">Digital-IO/port5/line0</taskName>
-                    </daqMx>
-                </channel>
-                <channel>
-                    <refDes required="true">IG-01-FB</refDes>
-                    <role></role>
-                    <modelNumber required="true">N/A</modelNumber>
-                    <serialNumber></serialNumber>
-                    <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">Digital-IO</moduleModelNumber>
-                    <channelNumber required="true">/port2/line0</channelNumber>
-                    <daqMx required="true">
-                        <taskName required="true">Digital-IO/port2/line0</taskName>
-                    </daqMx>
-                </channel>
-                <channel>
-                    <refDes required="true">IG-01-FB-CMD</refDes>
-                    <role>cmd-bool</role>
-                    <modelNumber required="true">N/A</modelNumber>
-                    <serialNumber></serialNumber>
-                    <refDesDaq required="true">DAQ001</refDesDaq>
-                    <moduleModelNumber required="true">Analog-Output</moduleModelNumber>
-                    <channelNumber required="true">ao11</channelNumber>
-                    <daqMx required="true">
-                        <taskName required="true">Analog-Output/ao11</taskName>
                     </daqMx>
                 </channel>
             </channels>
@@ -1591,7 +1567,7 @@
         <broadcastRateHz>50</broadcastRateHz>
         <connectionManagementRateHz>1</connectionManagementRateHz>
         <loggingRateHz>10</loggingRateHz>
-        <lostConnectionHysteresisCount>5</lostConnectionHysteresisCount>
+        <channelStaleMs>2000</channelStaleMs>
         <networkStreamBuffer>1</networkStreamBuffer>
     </network>
 
