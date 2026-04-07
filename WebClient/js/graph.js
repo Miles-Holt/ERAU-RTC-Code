@@ -134,7 +134,7 @@ function applyGraphLayout(layout, tabId) {
 }
 
 function buildGraphContent(tab) {
-    graphState[tab.id] = { rows: 1, cols: 1, gridEl: null, cells: [], sizeBtn: null, showDesc: false, _dismissHandler: null };
+    graphState[tab.id] = { rows: 1, cols: 1, gridEl: null, cells: [], sizeBtn: null, showDesc: true, _dismissHandler: null };
 
     const wrapper = mkEl('div', 'graph-tab');
     const toolbar = mkEl('div', 'graph-toolbar');
@@ -182,20 +182,6 @@ function buildGraphContent(tab) {
     sizeWrap.appendChild(sizeBtn);
     sizeWrap.appendChild(popover);
     toolbar.appendChild(sizeWrap);
-
-    // Description toggle button
-    const descBtn = mkEl('button', 'graph-desc-btn', 'Desc');
-    descBtn.title = 'Toggle description labels';
-    descBtn.addEventListener('click', () => {
-        graphState[tab.id].showDesc = !graphState[tab.id].showDesc;
-        descBtn.classList.toggle('graph-desc-btn--active', graphState[tab.id].showDesc);
-        const state = graphState[tab.id];
-        for (let i = 0; i < state.cells.length; i++) {
-            if (state.cells[i].chart) state.cells[i].chart.options._showDesc = state.showDesc;
-            updateCellPanel(tab.id, i);
-        }
-    });
-    toolbar.appendChild(descBtn);
 
     // Save layout button
     const saveBtn = mkEl('button', 'graph-desc-btn', 'Save');

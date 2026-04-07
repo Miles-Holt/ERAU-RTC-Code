@@ -95,12 +95,13 @@ function _renderDvSearchDropdown(tab, input) {
 
         for (const m of matches) {
             const item = mkEl('div', 'graph-dropdown-item');
-            item.textContent = m.refDes + (m.desc ? ` — ${m.desc}` : '');
+            item.appendChild(mkEl('span', 'graph-dropdown-refdes', m.refDes));
+            if (m.desc) item.appendChild(mkEl('span', 'graph-dropdown-desc', m.desc));
             item.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 _addDvRow(tab, m.refDes);
-                input.value = '';
-                closeDropdown();
+                input.focus();
+                populateDropdown();
             });
             dropdown.appendChild(item);
         }
@@ -108,7 +109,6 @@ function _renderDvSearchDropdown(tab, input) {
     }, 150);
 
     input.addEventListener('input', populateDropdown);
-    input.addEventListener('focus', populateDropdown);
     input.addEventListener('blur', () => setTimeout(closeDropdown, 150));
 
     // Remove the body-appended dropdown when this tab's content is replaced.
