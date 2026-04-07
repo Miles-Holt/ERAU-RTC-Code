@@ -31,7 +31,7 @@ const PID = {
     CANVAS_H:    1800,
     CORNER_R:    8,
     OBS_MARGIN:  6,
-    VALVE_R:     25,
+    VALVE_R:     18,
     VALVE_PORT_OFF: 40,
 };
 
@@ -116,6 +116,17 @@ function pidToYaml(layout) {
                     if (l.hidden)          y += '        hidden: true\n';
                 }
             }
+        } else if (o.type === 'tank') {
+            y +=                              '    gridX: '      + o.gridX            + '\n';
+            y +=                              '    gridY: '      + o.gridY            + '\n';
+            y +=                              '    gridW: '      + (o.gridW || 5)     + '\n';
+            y +=                              '    gridH: '      + (o.gridH || 8)     + '\n';
+            if (o.rotation)              y += '    rotation: '   + o.rotation         + '\n';
+            if (o.cornerR !== undefined) y += '    cornerR: '    + o.cornerR          + '\n';
+            if (o.label)                 y += '    label: '      + q(o.label)         + '\n';
+            if (o.showLabel === false)   y += '    showLabel: false\n';
+            if (o.labelOffsetX)          y += '    labelOffsetX: ' + o.labelOffsetX   + '\n';
+            if (o.labelOffsetY)          y += '    labelOffsetY: ' + o.labelOffsetY   + '\n';
         } else {
             if (o.refDes)              y += '    refDes: '        + q(o.refDes)        + '\n';
             if (o.units)               y += '    units: '         + q(o.units)         + '\n';
@@ -929,9 +940,19 @@ function makeTankGroupEditor(obj) {
     if (rot) rect.setAttribute('transform', 'rotate(' + rot + ',' + (W / 2) + ',' + (H / 2) + ')');
     g.appendChild(rect);
 
-    const lbl = svgN('text', { class: 'pid-tank-label', x: W / 2, y: H / 2 });
-    lbl.textContent = 'Tank';
-    g.appendChild(lbl);
+    if (obj.showLabel !== false) {
+        const lx  = obj.labelOffsetX || 0;
+        const ly  = obj.labelOffsetY || 0;
+        const lblG = svgN('g', {
+            'data-label-id': obj.id,
+            transform: 'translate(' + (W / 2 + lx) + ',' + (H / 2 + ly) + ')',
+            style: 'cursor:move',
+        });
+        const lbl = svgN('text', { class: 'pid-tank-label', x: 0, y: 0 });
+        lbl.textContent = obj.label || 'Tank';
+        lblG.appendChild(lbl);
+        g.appendChild(lblG);
+    }
 
     return g;
 }
@@ -940,11 +961,14 @@ function makeSensorGroup(obj) {
     const sel        = (tab.pid.selectedId === obj.id);
     const showRefDes = obj.showRefDes !== false;
     const showUnits  = obj.showUnits  !== false;
+    const rot        = obj.rotation   || 0;
 
+    const xf = 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')' +
+        (rot ? ' rotate(' + rot + ',' + (PID.SENSOR_W / 2) + ',' + (PID.SENSOR_H / 2) + ')' : '');
     const g = svgN('g', {
         class: 'pid-obj pid-sensor' + (sel ? ' pid-selected' : ''),
         'data-pid-id': obj.id,
-        transform: 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')',
+        transform: xf,
         cursor: 'grab',
     });
 
@@ -1037,6 +1061,7 @@ function makeValveGroupEditor(obj) {
     // Visual sub-group with rotation applied
     const rot = obj.rotation || 0;
     const vis = svgN('g', rot ? { transform: 'rotate(' + rot + ')' } : {});
+    vis.appendChild(svgN('circle', { class: 'pid-valve-bg', r: PID.VALVE_R }));
     vis.appendChild(svgN('circle', { class: 'pid-valve-ring', r: PID.VALVE_R }));
     if (!ctrl) {
         vis.appendChild(svgN('line', { class: 'pid-valve-uncfg', x1: -L, y1: L, x2: L, y2: -L }));
@@ -1289,6 +1314,7 @@ function renderPidRsb(objId) {
                   ).join('')
                 : null;
 
+            const curRot = obj.rotation || 0;
             c.innerHTML =
                 '<div class="pid-sb-heading">Sensor</div>' +
                 '<div class="pid-sb-field"><label>Channel refDes</label>' +
@@ -1302,6 +1328,13 @@ function renderPidRsb(objId) {
                 '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-refdes"' + (obj.showRefDes !== false ? ' checked' : '') + '> Show refDes</label></div>' +
                 '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-units"'  + (obj.showUnits  !== false ? ' checked' : '') + '> Show units</label></div>' +
                 '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-name"'   + (obj.showName   === true  ? ' checked' : '') + '> Show name (description)</label></div>' +
+                '<div class="pid-sb-field"><label>Rotation</label>' +
+                '<select class="pid-sensor-rotation">' +
+                    '<option value="0"'   + (curRot === 0   ? ' selected' : '') + '>0\u00b0</option>'   +
+                    '<option value="90"'  + (curRot === 90  ? ' selected' : '') + '>90\u00b0</option>'  +
+                    '<option value="180"' + (curRot === 180 ? ' selected' : '') + '>180\u00b0</option>' +
+                    '<option value="270"' + (curRot === 270 ? ' selected' : '') + '>270\u00b0</option>' +
+                '</select></div>' +
                 '<button class="pid-reset-label-btn">Reset label position</button>' +
                 '<button class="pid-apply-btn">Apply</button>' +
                 '<button class="pid-delete-btn">Remove</button>';
@@ -1331,6 +1364,7 @@ function renderPidRsb(objId) {
                 obj.showRefDes = c.querySelector('.pid-show-refdes').checked;
                 obj.showUnits  = c.querySelector('.pid-show-units').checked;
                 obj.showName   = c.querySelector('.pid-show-name').checked;
+                obj.rotation   = parseInt(c.querySelector('.pid-sensor-rotation').value) || 0;
                 // Re-render the object in place to reflect display flag changes
                 const existing = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
                 if (existing) existing.remove();
@@ -1584,19 +1618,36 @@ function renderPidRsb(objId) {
                 '<input class="pid-tank-corner" type="number" min="0" max="100" value="' + (obj.cornerR !== undefined ? obj.cornerR : PID.CORNER_R) + '"></div>' +
                 '<div class="pid-sb-field"><label>Rotation</label>' +
                 '<select class="pid-tank-rotation">' +
-                    '<option value="0"'   + (curRot === 0   ? ' selected' : '') + '>0°</option>'   +
-                    '<option value="90"'  + (curRot === 90  ? ' selected' : '') + '>90°</option>'  +
-                    '<option value="180"' + (curRot === 180 ? ' selected' : '') + '>180°</option>' +
-                    '<option value="270"' + (curRot === 270 ? ' selected' : '') + '>270°</option>' +
+                    '<option value="0"'   + (curRot === 0   ? ' selected' : '') + '>0\u00b0</option>'   +
+                    '<option value="90"'  + (curRot === 90  ? ' selected' : '') + '>90\u00b0</option>'  +
+                    '<option value="180"' + (curRot === 180 ? ' selected' : '') + '>180\u00b0</option>' +
+                    '<option value="270"' + (curRot === 270 ? ' selected' : '') + '>270\u00b0</option>' +
                 '</select></div>' +
+                '<div class="pid-sb-heading pid-sb-heading--sm">Label</div>' +
+                '<div class="pid-sb-field"><label>Text</label>' +
+                '<input class="pid-tank-label-inp" type="text" value="' + pidEsc(obj.label || '') + '" placeholder="e.g. LOX Tank"></div>' +
+                '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-label"' + (obj.showLabel !== false ? ' checked' : '') + '> Show label</label></div>' +
+                '<button class="pid-reset-label-btn">Reset label position</button>' +
                 '<button class="pid-apply-btn">Apply</button>' +
                 '<button class="pid-delete-btn">Remove</button>';
 
+            c.querySelector('.pid-reset-label-btn').addEventListener('click', () => {
+                obj.labelOffsetX = 0;
+                obj.labelOffsetY = 0;
+                const existing = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
+                if (existing) existing.remove();
+                renderPidObj(obj);
+                const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
+                if (updated) updated.classList.add('pid-selected');
+            });
+
             c.querySelector('.pid-apply-btn').addEventListener('click', () => {
-                obj.gridW    = parseInt(c.querySelector('.pid-tank-w').value)      || 5;
-                obj.gridH    = parseInt(c.querySelector('.pid-tank-h').value)      || 8;
-                obj.cornerR  = parseInt(c.querySelector('.pid-tank-corner').value);
-                obj.rotation = parseInt(c.querySelector('.pid-tank-rotation').value) || 0;
+                obj.gridW     = parseInt(c.querySelector('.pid-tank-w').value)       || 5;
+                obj.gridH     = parseInt(c.querySelector('.pid-tank-h').value)       || 8;
+                obj.cornerR   = parseInt(c.querySelector('.pid-tank-corner').value);
+                obj.rotation  = parseInt(c.querySelector('.pid-tank-rotation').value) || 0;
+                obj.label     = c.querySelector('.pid-tank-label-inp').value.trim();
+                obj.showLabel = c.querySelector('.pid-show-label').checked;
                 const existing = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
                 if (existing) existing.remove();
                 renderPidObj(obj);
@@ -1632,7 +1683,7 @@ function createPidObj(type, gridX, gridY) {
         obj.showName = true; obj.showLeftSidebar = false; obj.lines = [];
     }
     if (type === 'valve') { obj.controlRefDes = ''; }
-    if (type === 'tank')  { obj.gridW = 5; obj.gridH = 8; obj.rotation = 0; }
+    if (type === 'tank')  { obj.gridW = 5; obj.gridH = 8; obj.rotation = 0; obj.label = ''; obj.showLabel = true; }
     tab.pid.objects.push(obj);
     renderPidObj(obj);
     tab.pid.routingErrors = [];
@@ -1722,6 +1773,11 @@ function startLabelDrag(objId, e) {
             return { dx: PID.SENSOR_W / 2, dy: y };
         }
         if (o.type === 'valve') return { dx: 0, dy: PID.VALVE_R + 12 };
+        if (o.type === 'tank') {
+            const W = (o.gridW || 5) * PID.GRID;
+            const H = (o.gridH || 8) * PID.GRID;
+            return { dx: W / 2, dy: H / 2 };
+        }
         return { dx: 0, dy: 0 };
     }
 

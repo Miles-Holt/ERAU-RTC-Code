@@ -642,10 +642,15 @@ function rebuildActivePidChannels() {
                 activePidChannels.add(obj.refDes);
                 if (!channelBuffers[obj.refDes]) channelBuffers[obj.refDes] = { ts: [], vals: [] };
             }
-            // Valves: buffer the controlRefDes
+            // Valves: buffer the actual sub-channel refDes values (cmd + feedback),
+            // not the control-level refDes which is never a data key.
             else if (obj.type === 'valve' && obj.controlRefDes) {
-                activePidChannels.add(obj.controlRefDes);
-                if (!channelBuffers[obj.controlRefDes]) channelBuffers[obj.controlRefDes] = { ts: [], vals: [] };
+                const ctrl = configControls.find(c => c.refDes === obj.controlRefDes);
+                for (const ch of (ctrl?.channels ?? [])) {
+                    if (!ch.refDes) continue;
+                    activePidChannels.add(ch.refDes);
+                    if (!channelBuffers[ch.refDes]) channelBuffers[ch.refDes] = { ts: [], vals: [] };
+                }
             }
             // Graphs: buffer all pre-configured channel refDes values
             else if (obj.type === 'graph' && obj.lines) {

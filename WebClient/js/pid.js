@@ -52,7 +52,7 @@ const PID = {
     CANVAS_H:    1800,
     CORNER_R:    8,     // rounded corner radius px
     OBS_MARGIN:  6,     // obstacle clearance margin px
-    VALVE_R:     25,    // valve circle radius px
+    VALVE_R:     18,    // valve circle radius px
     VALVE_PORT_OFF: 0,  // valve port offset from centre px
 };
 
@@ -86,12 +86,16 @@ function pidToYaml(layout) {
                 }
             }
         } else if (o.type === 'tank') {
-            y +=                             '    gridX: '  + o.gridX           + '\n';
-            y +=                             '    gridY: '  + o.gridY           + '\n';
-            y +=                             '    gridW: '  + (o.gridW  || 5)   + '\n';
-            y +=                             '    gridH: '  + (o.gridH  || 8)   + '\n';
-            if (o.rotation)             y += '    rotation: ' + o.rotation      + '\n';
-            if (o.cornerR !== undefined) y += '    cornerR: ' + o.cornerR       + '\n';
+            y +=                              '    gridX: '  + o.gridX           + '\n';
+            y +=                              '    gridY: '  + o.gridY           + '\n';
+            y +=                              '    gridW: '  + (o.gridW  || 5)   + '\n';
+            y +=                              '    gridH: '  + (o.gridH  || 8)   + '\n';
+            if (o.rotation)              y += '    rotation: ' + o.rotation      + '\n';
+            if (o.cornerR !== undefined) y += '    cornerR: '  + o.cornerR       + '\n';
+            if (o.label)                 y += '    label: '    + q(o.label)      + '\n';
+            if (o.showLabel === false)   y += '    showLabel: false\n';
+            if (o.labelOffsetX)          y += '    labelOffsetX: ' + o.labelOffsetX + '\n';
+            if (o.labelOffsetY)          y += '    labelOffsetY: ' + o.labelOffsetY + '\n';
         } else if (o.type === 'valve') {
             if (o.controlRefDes)        y += '    controlRefDes: ' + q(o.controlRefDes) + '\n';
             if (o.showRefDes === false)  y += '    showRefDes: false\n';
@@ -106,6 +110,7 @@ function pidToYaml(layout) {
             if (o.showRefDes === false) y += '    showRefDes: false\n';
             if (o.showUnits  === false) y += '    showUnits: false\n';
             if (o.showName   === true)  y += '    showName: true\n';
+            if (o.rotation)            y += '    rotation: '    + o.rotation      + '\n';
             y +=                           '    gridX: '   + o.gridX    + '\n';
             y +=                           '    gridY: '   + o.gridY    + '\n';
             if (o.labelOffsetX)        y += '    labelOffsetX: ' + o.labelOffsetX + '\n';
@@ -623,11 +628,14 @@ function makeSensorGroup(obj) {
     const showRefDes = obj.showRefDes !== false;
     const showUnits  = obj.showUnits  !== false;
     const showName   = obj.showName   === true;
+    const rot        = obj.rotation   || 0;
 
+    const xf = 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')' +
+        (rot ? ' rotate(' + rot + ',' + (PID.SENSOR_W / 2) + ',' + (PID.SENSOR_H / 2) + ')' : '');
     const g = svgN('g', {
         class: 'pid-obj pid-sensor',
         'data-pid-id': obj.id,
-        transform: 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')',
+        transform: xf,
     });
 
     g.appendChild(svgN('rect', {
@@ -718,6 +726,18 @@ function makeTankGroup(obj) {
     if (rot) rect.setAttribute('transform', 'rotate(' + rot + ',' + (W / 2) + ',' + (H / 2) + ')');
     g.appendChild(rect);
 
+    if (obj.showLabel !== false && obj.label) {
+        const lx = obj.labelOffsetX || 0;
+        const ly = obj.labelOffsetY || 0;
+        const lbl = svgN('text', {
+            class: 'pid-tank-label',
+            x: W / 2 + lx,
+            y: H / 2 + ly,
+        });
+        lbl.textContent = obj.label;
+        g.appendChild(lbl);
+    }
+
     return g;
 }
 
@@ -785,6 +805,8 @@ function makeValveGroup(obj) {
     // Visual sub-group — rotated to orient the valve symbol
     const rot = obj.rotation || 0;
     const vis = svgN('g', rot ? { transform: 'rotate(' + rot + ')' } : {});
+    // Background fill to block pipe line behind valve
+    vis.appendChild(svgN('circle', { class: 'pid-valve-bg', r: PID.VALVE_R }));
     // Outer ring (starts stale until data arrives)
     vis.appendChild(svgN('circle', { class: 'pid-valve-ring stale', r: PID.VALVE_R }));
 

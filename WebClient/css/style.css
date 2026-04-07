@@ -2300,6 +2300,11 @@ header h1 {
 }
 
 /* Valve object */
+.pid-valve-bg {
+    fill: var(--bg);
+    stroke: none;
+}
+
 .pid-valve-ring {
     fill: none;
     stroke: var(--text);
