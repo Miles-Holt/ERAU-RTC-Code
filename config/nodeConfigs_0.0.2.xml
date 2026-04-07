@@ -196,7 +196,7 @@
         <control>
             <refDes required="true">TRIGGER-01</refDes>
             <description>Trigger signal</description>
-            <enabled>false</enabled> <!-- T/F -->
+            <enabled>true</enabled> <!-- T/F -->
             <type required="true">digitalOut</type>
             <subType></subType>
             <details>
