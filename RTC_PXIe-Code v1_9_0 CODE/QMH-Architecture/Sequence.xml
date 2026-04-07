@@ -1,0 +1,40 @@
+<?xml version='1.0' standalone='yes' ?>
+<LVData xmlns="http://www.ni.com/LVData">
+<Version>24.3.4f4</Version>
+<Cluster>
+<Name>Sequence Conditions In</Name>
+<NumElts>3</NumElts>
+<Array>
+<Name>Sequence Controller</Name>
+<Dimsize>0</Dimsize>
+<Cluster>
+<Name>Cluster</Name>
+<NumElts>3</NumElts>
+<DBL>
+<Name>Time (s)</Name>
+<Val></Val>
+</DBL>
+<Boolean>
+<Name>Enabled</Name>
+<Val></Val>
+</Boolean>
+<Array>
+<Name>Valve</Name>
+<Dimsize>0</Dimsize>
+<U16>
+<Name>Ring</Name>
+<Val></Val>
+</U16>
+</Array>
+</Cluster>
+</Array>
+<DBL>
+<Name>Sequence Delay</Name>
+<Val>0.00000000000000</Val>
+</DBL>
+<DBL>
+<Name>Sequence Duration</Name>
+<Val>0.00000000000000</Val>
+</DBL>
+</Cluster>
+</LVData>

@@ -1,0 +1,52 @@
+<?xml version='1.0' standalone='yes' ?>
+<LVData xmlns="http://www.ni.com/LVData">
+<Version>24.3.4f4</Version>
+<Cluster>
+<Name>BBCont Parameters In</Name>
+<NumElts>3</NumElts>
+<DBL>
+<Name>Sequence Delay (s)</Name>
+<Val>0.00000000000000</Val>
+</DBL>
+<DBL>
+<Name>Sequence Duration (s)</Name>
+<Val>0.00000000000000</Val>
+</DBL>
+<Array>
+<Name>BBControl Criteria</Name>
+<Dimsize>0</Dimsize>
+<Cluster>
+<Name>Cluster</Name>
+<NumElts>7</NumElts>
+<I32>
+<Name>Channel Name</Name>
+<Val></Val>
+</I32>
+<U16>
+<Name>Comparison</Name>
+<Val></Val>
+</U16>
+<DBL>
+<Name>Set</Name>
+<Val></Val>
+</DBL>
+<Boolean>
+<Name>Enabled</Name>
+<Val></Val>
+</Boolean>
+<I32>
+<Name>Valve Name</Name>
+<Val></Val>
+</I32>
+<DBL>
+<Name>Upper</Name>
+<Val></Val>
+</DBL>
+<DBL>
+<Name>Lower</Name>
+<Val></Val>
+</DBL>
+</Cluster>
+</Array>
+</Cluster>
+</LVData>
