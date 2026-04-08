@@ -9,25 +9,50 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// DaqControl holds the state machine definition for a single DAQ node,
-// parsed from config/control/<daqNode>_control.yaml.
-type DaqControl struct {
-	DaqNode string              `yaml:"daqNode" json:"daqNode"`
-	States  map[string]DaqState `yaml:"states"  json:"states"`
+// SequenceStep is one timed action in an entry or exit sequence.
+// T_ms may be an integer or a string variable reference like "{{BURN_DUR}}".
+// Value may be a bool (0/1) or a float.
+type SequenceStep struct {
+	T_ms   interface{} `yaml:"t_ms"`
+	RefDes string      `yaml:"refDes"`
+	Value  interface{} `yaml:"value"`
+	Label  string      `yaml:"label,omitempty"`
+}
+
+// AbortRule defines a sensor condition that triggers an abort.
+// If is a string like "CPT-01 > {{CPT_HIGH}}".
+// T_ms_on / T_ms_off bound the window (relative to sequence start) during which
+// the rule is active; either may be an int or a "{{VAR}}" reference.
+type AbortRule struct {
+	If      string      `yaml:"if"`
+	T_ms_on  interface{} `yaml:"t_ms_on"`
+	T_ms_off interface{} `yaml:"t_ms_off"`
+}
+
+// DaqTransition describes one possible transition out of a state.
+// ExitType controls whether the control node tells the DAQ to run its cached
+// exit sequence ("exit") or skip it ("hard_exit").  Defaults to "hard_exit".
+type DaqTransition struct {
+	Target   string `yaml:"target"    json:"target"`
+	On       string `yaml:"on"        json:"on"`
+	ExitType string `yaml:"exit_type" json:"exitType"`
 }
 
 // DaqState describes one state in a DAQ node's state machine.
 type DaqState struct {
-	OperatorControl bool              `yaml:"operator_control" json:"operatorControl"`
-	Transitions     []DaqTransition   `yaml:"transitions"      json:"transitions"`
-	EntrySequence   []json.RawMessage `yaml:"entry_sequence"   json:"-"` // not sent to browser
-	ExitSequence    []json.RawMessage `yaml:"exit_sequence"    json:"-"`
+	OperatorControl bool           `yaml:"operator_control" json:"operatorControl"`
+	Transitions     []DaqTransition `yaml:"transitions"      json:"transitions"`
+	EntrySequence   []SequenceStep  `yaml:"entry_sequence"   json:"-"`
+	ExitSequence    []SequenceStep  `yaml:"exit_sequence"    json:"-"`
+	AbortRules      []AbortRule     `yaml:"abort_rules"      json:"-"`
 }
 
-// DaqTransition describes one possible transition from a state.
-type DaqTransition struct {
-	Target string `yaml:"target" json:"target"`
-	On     string `yaml:"on"     json:"on"`
+// DaqControl holds the state machine definition for a single DAQ node,
+// parsed from config/control/<daqNode>_control.yaml.
+type DaqControl struct {
+	DaqNode   string              `yaml:"daqNode"   json:"daqNode"`
+	Variables map[string]string   `yaml:"variables" json:"-"` // VAR_NAME → softchan refDes
+	States    map[string]DaqState `yaml:"states"    json:"states"`
 }
 
 // parseDaqControls loads all *_control.yaml files from configDir/control/.

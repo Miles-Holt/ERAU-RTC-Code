@@ -78,6 +78,16 @@ func main() {
 	if stateConfigJSON != nil {
 		log.Printf("state_config: loaded %d DAQ control definition(s)", len(cfg.DaqControls))
 	}
+
+	// ── Build daqNode refDes → DaqControl map and add SYS-TARGET-STATE ───
+	daqControlMap := make(map[string]*config.DaqControl, len(cfg.DaqControls))
+	for i := range cfg.DaqControls {
+		dc := &cfg.DaqControls[i]
+		daqControlMap[dc.DaqNode] = dc
+		// Route SYS-TARGET-STATE commands through the broker to this DAQ node's
+		// cmd channel so the daqnode client can intercept them.
+		refDesMap["SYS-TARGET-STATE"] = dc.DaqNode
+	}
 	// ── Build channel bounds for bad-data detection ───────────────────────
 	cfgBounds := config.BuildChannelBoundsMap(cfg)
 	brokerBounds := make(map[string]broker.ChannelBounds, len(cfgBounds))
@@ -117,7 +127,7 @@ func main() {
 			log.Fatalf("build DAQ node config JSON for %s: %v", node.RefDes, err)
 		}
 
-		client := daqnode.New(node.RefDes, node.IP, node.WSPort, nodeConfigJSON, b)
+		client := daqnode.New(node.RefDes, node.IP, node.WSPort, nodeConfigJSON, b, daqControlMap[node.RefDes], sc)
 		go client.Run()
 		log.Printf("daqnode %s: client started → ws://%s:%d", node.RefDes, node.IP, node.WSPort)
 	}

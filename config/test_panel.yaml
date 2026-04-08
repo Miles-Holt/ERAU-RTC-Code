@@ -123,10 +123,16 @@ objects:
     type: tank
     gridX: 55
     gridY: 30
+    gridW: 4
+    gridH: 8
+    cornerR: 8
   - id: tank_1775295774403_593
     type: tank
     gridX: 63
     gridY: 30
+    gridW: 4
+    gridH: 8
+    cornerR: 8
   - id: node_1775295791413_5986
     type: node
     gridX: 65
@@ -139,6 +145,9 @@ objects:
     type: tank
     gridX: 44
     gridY: 19
+    gridW: 4
+    gridH: 8
+    cornerR: 8
   - id: node_1775295869790_813
     type: node
     gridX: 46
@@ -155,6 +164,10 @@ objects:
     type: node
     gridX: 63
     gridY: 18
+  - id: daqControl_1775676987239_5195
+    type: daqControl
+    gridX: 24
+    gridY: 17
 connections:
   - id: conn_1775290523610_4251
     fromId: valve_1775290497269_639

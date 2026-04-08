@@ -15,12 +15,12 @@ states:
   safe:
     # Entry: ensure all bang-bang outputs are off, open vent valves
     entry_sequence:
-      - { t_ms: 0,    refDes: NV-01-POS, value: 0 }
+      - { t_ms: 0,    refDes: NV-01-POS, value: 0 } # TODO: add all the other valves
       - { t_ms: 0,    refDes: NV-01-NEG, value: 0 }
       - { t_ms: 0,    refDes: NV-02-POS, value: 0 }
       - { t_ms: 0,    refDes: NV-02-NEG, value: 0 }
-      - { t_ms: 1000, refDes: OV-01-CMD, value: 1, label: "LOX vent open" }
-      - { t_ms: 1000, refDes: FV-01-CMD, value: 1, label: "Fuel vent open" }
+      - { t_ms: 1000, refDes: OV-01-CMD, value: 0 } # close presses and others before venting tanks
+      - { t_ms: 1000, refDes: FV-01-CMD, value: 0 }
     operator_control: false
     transitions:
       - { target: manualControl, on: operator_request }
@@ -32,6 +32,7 @@ states:
     transitions:
       - { target: autoSequence, on: operator_request }
       - { target: safe,         on: operator_request }
+      - { target: abort,        on: operator_abort,  exit_type: exit }
 
   autoSequence:
     entry_sequence:
@@ -65,9 +66,9 @@ states:
         t_ms_off: "{{BURN_DUR}}"
     operator_control: false
     transitions:
-      - { target: abort, on: abort_triggered }
-      - { target: safe,  on: sequence_complete }
-      - { target: abort, on: operator_abort }
+      - { target: abort, on: abort_triggered,   exit_type: hard_exit } # DAQ already ran exit locally
+      - { target: safe,  on: sequence_complete, exit_type: hard_exit }
+      - { target: abort, on: operator_abort,    exit_type: exit      }
 
   abort:
     entry_sequence:

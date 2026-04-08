@@ -4,6 +4,7 @@ package daqnode
 
 import (
 	"controlnode/broker"
+	"controlnode/config"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -26,11 +27,17 @@ type Client struct {
 	configJSON []byte // pre-marshalled config to send after config_req
 	b          *broker.Broker
 	cmdCh      chan []byte // broker writes cmd JSON here; we forward to DAQ node
+	stateCh    chan []byte // readLoop enqueues state messages; writeLoop sends them to DAQ
+	sm         *stateMachine
 }
 
 // New creates a Client.  configJSON is the config payload to send after the
-// DAQ node requests it.
-func New(refDes, ip string, port int, configJSON string, b *broker.Broker) *Client {
+// DAQ node requests it.  control may be nil if this DAQ node has no state
+// machine config; vars is the soft channel store used for variable resolution
+// and may be nil if control is nil.
+func New(refDes, ip string, port int, configJSON string, b *broker.Broker,
+	control *config.DaqControl, vars varGetter) *Client {
+
 	addr := fmt.Sprintf("%s:%d", ip, port)
 	return &Client{
 		refDes:     refDes,
@@ -38,6 +45,8 @@ func New(refDes, ip string, port int, configJSON string, b *broker.Broker) *Clie
 		configJSON: []byte(configJSON),
 		b:          b,
 		cmdCh:      make(chan []byte, 64),
+		stateCh:    make(chan []byte, 16),
+		sm:         newStateMachine(control, vars),
 	}
 }
 
@@ -49,7 +58,6 @@ func (c *Client) Run() {
 		connected, err := c.connect()
 		c.b.RegisterDaq(c.refDes, nil) // deregister while disconnected
 		if connected {
-			// Only decrement if we actually incremented on a successful connect.
 			c.b.DaqConnected.Add(-1)
 		}
 		if err != nil {
@@ -78,7 +86,7 @@ func (c *Client) connect() (connected bool, err error) {
 	if err != nil {
 		return false, fmt.Errorf("config_req read: %w", err)
 	}
-	conn.SetReadDeadline(time.Time{}) // clear deadline for normal operation
+	conn.SetReadDeadline(time.Time{})
 
 	var req struct {
 		Type   string `json:"type"`
@@ -95,6 +103,23 @@ func (c *Client) connect() (connected bool, err error) {
 	}
 	conn.SetWriteDeadline(time.Time{})
 
+	// ── State machine: push current state to DAQ immediately after config ─
+	// The DAQ may also send state_req after this, which is handled in readLoop.
+	if c.sm.control != nil {
+		payload, err := c.sm.HandleStateReq()
+		if err != nil {
+			log.Printf("daqnode %s: initial state_update error: %v", c.refDes, err)
+		} else {
+			conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+			if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
+				return false, fmt.Errorf("send initial state_update: %w", err)
+			}
+			conn.SetWriteDeadline(time.Time{})
+			c.b.Publish(stateChangeBroadcast(c.refDes, c.sm.Current()))
+			log.Printf("daqnode %s: sent initial state_update for state %q", c.refDes, c.sm.Current())
+		}
+	}
+
 	log.Printf("daqnode %s: connected", c.refDes)
 	c.b.DaqConnected.Add(1)
 
@@ -102,10 +127,10 @@ func (c *Client) connect() (connected bool, err error) {
 	errCh := make(chan error, 2)
 	go c.readLoop(conn, errCh)
 	go c.writeLoop(conn, errCh)
-	return true, <-errCh // first error wins; defer closes conn
+	return true, <-errCh
 }
 
-// readLoop reads data JSON from the DAQ node and publishes to the broker.
+// readLoop reads messages from the DAQ node and handles them.
 func (c *Client) readLoop(conn *websocket.Conn, errCh chan<- error) {
 	for {
 		_, raw, err := conn.ReadMessage()
@@ -126,23 +151,127 @@ func (c *Client) readLoop(conn *websocket.Conn, errCh chan<- error) {
 		switch msg.Type {
 		case "data":
 			c.b.PublishData(broker.DataEvent{Values: msg.D})
+
 		case "err":
 			log.Printf("daqnode %s: error: %s", c.refDes, msg.Err)
 			c.b.PublishErr(broker.ErrEvent{DaqRefDes: c.refDes, T: msg.T, Err: msg.Err})
+
+		case "state_req":
+			// DAQ is ready to receive the current state definition.
+			if c.sm.control != nil {
+				payload, err := c.sm.HandleStateReq()
+				if err != nil {
+					log.Printf("daqnode %s: state_req error: %v", c.refDes, err)
+				} else {
+					c.stateCh <- payload
+					c.b.Publish(stateChangeBroadcast(c.refDes, c.sm.Current()))
+					log.Printf("daqnode %s: state_req → sending state_update for %q", c.refDes, c.sm.Current())
+				}
+			}
+
+		case "abort_triggered":
+			// DAQ already ran its exit sequence locally; find the abort_triggered
+			// transition and send hard_exit so DAQ can request the abort state.
+			if c.sm.control != nil {
+				exitMsg, err := c.sm.HandleAbortTriggered()
+				if err != nil {
+					log.Printf("daqnode %s: abort_triggered error: %v", c.refDes, err)
+				} else {
+					c.stateCh <- exitMsg
+					c.b.Publish(stateChangeBroadcast(c.refDes, c.sm.Pending()))
+					log.Printf("daqnode %s: abort_triggered → pending state %q", c.refDes, c.sm.Pending())
+				}
+			}
+
+		case "sequence_complete":
+			// Entry sequence finished; check for an auto-transition.
+			if c.sm.control != nil {
+				exitMsg, err := c.sm.HandleSequenceComplete()
+				if err != nil {
+					log.Printf("daqnode %s: sequence_complete error: %v", c.refDes, err)
+				} else if exitMsg != nil {
+					c.stateCh <- exitMsg
+					c.b.Publish(stateChangeBroadcast(c.refDes, c.sm.Pending()))
+					log.Printf("daqnode %s: sequence_complete → transitioning to %q", c.refDes, c.sm.Pending())
+				}
+			}
+
 		default:
 			log.Printf("daqnode %s: unexpected message type %q", c.refDes, msg.Type)
 		}
 	}
 }
 
-// writeLoop forwards commands from the broker to the DAQ node.
+// writeLoop forwards commands from the broker and state messages to the DAQ node.
+// It is the only goroutine that writes to conn.
 func (c *Client) writeLoop(conn *websocket.Conn, errCh chan<- error) {
-	for payload := range c.cmdCh {
-		conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-		if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
-			errCh <- fmt.Errorf("write cmd: %w", err)
-			return
+	for {
+		select {
+		case payload, ok := <-c.cmdCh:
+			if !ok {
+				return
+			}
+
+			// Intercept SYS-TARGET-STATE commands — these drive state transitions
+			// rather than being forwarded directly to the DAQ node.
+			if c.sm.control != nil {
+				var cmd struct {
+					RefDes string      `json:"refDes"`
+					Value  interface{} `json:"value"`
+				}
+				if json.Unmarshal(payload, &cmd) == nil && cmd.RefDes == "SYS-TARGET-STATE" {
+					target, _ := cmd.Value.(string)
+					if target == "" {
+						log.Printf("daqnode %s: SYS-TARGET-STATE with non-string value, ignoring", c.refDes)
+						continue
+					}
+					exitMsg, err := c.sm.RequestTransition("operator_request", target)
+					if err != nil {
+						// Try operator_abort as the trigger in case no operator_request exists
+						exitMsg, err = c.sm.RequestTransition("operator_abort", target)
+					}
+					if err != nil {
+						log.Printf("daqnode %s: invalid transition to %q: %v", c.refDes, target, err)
+						continue
+					}
+					conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+					if err := conn.WriteMessage(websocket.TextMessage, exitMsg); err != nil {
+						errCh <- fmt.Errorf("write exit msg: %w", err)
+						return
+					}
+					conn.SetWriteDeadline(time.Time{})
+					c.b.Publish(stateChangeBroadcast(c.refDes, c.sm.Pending()))
+					log.Printf("daqnode %s: operator transition → %q, sent exit msg", c.refDes, c.sm.Pending())
+					continue
+				}
+			}
+
+			// Normal command — forward to DAQ node.
+			conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+			if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
+				errCh <- fmt.Errorf("write cmd: %w", err)
+				return
+			}
+			conn.SetWriteDeadline(time.Time{})
+
+		case payload := <-c.stateCh:
+			// State machine response (state_update, hard_exit, etc.) queued by readLoop.
+			conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+			if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
+				errCh <- fmt.Errorf("write state msg: %w", err)
+				return
+			}
+			conn.SetWriteDeadline(time.Time{})
 		}
-		conn.SetWriteDeadline(time.Time{})
 	}
+}
+
+// stateChangeBroadcast builds a state_change JSON broadcast for web clients.
+func stateChangeBroadcast(daqNode, state string) []byte {
+	b, _ := json.Marshal(map[string]interface{}{
+		"type":    "state_change",
+		"daqNode": daqNode,
+		"state":   state,
+	})
+	return b
 }
