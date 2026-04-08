@@ -77,6 +77,7 @@ func main() {
 	stateConfigJSON := config.BuildStateConfigJSON(cfg.DaqControls)
 	if stateConfigJSON != nil {
 		log.Printf("state_config: loaded %d DAQ control definition(s)", len(cfg.DaqControls))
+	}
 	// ── Build channel bounds for bad-data detection ───────────────────────
 	cfgBounds := config.BuildChannelBoundsMap(cfg)
 	brokerBounds := make(map[string]broker.ChannelBounds, len(cfgBounds))
