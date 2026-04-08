@@ -23,6 +23,7 @@ type SystemConfig struct {
 	Network     Network
 	CtrNode     CtrNodeDef
 	DaqNodes    DaqNodes
+	DaqControls []DaqControl // state machine definitions per DAQ node
 }
 
 // Network holds system-wide timing and port settings from system.yaml.
@@ -411,6 +412,13 @@ func ParseDir(configDir string) (*SystemConfig, error) {
 		}
 		cfg.DaqNodes.Nodes = append(cfg.DaqNodes.Nodes, node)
 	}
+
+	// control/*.yaml (DAQ node state machine definitions)
+	daqControls, err := parseDaqControls(configDir)
+	if err != nil {
+		return nil, fmt.Errorf("control configs: %w", err)
+	}
+	cfg.DaqControls = daqControls
 
 	return cfg, nil
 }

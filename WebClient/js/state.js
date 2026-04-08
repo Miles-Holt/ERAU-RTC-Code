@@ -65,3 +65,11 @@ let consoleTabs  = [];
 // --- Front Panel layouts ---
 // Keyed by filename; value = { name, filename, content } (content is raw YAML string)
 const pidLayouts = {};
+
+// --- DAQ Control state machine config ---
+// Keyed by DAQ refDes; value = { daqNode, states: { stateName: { operatorControl, transitions } } }
+const daqControlConfig = {};
+
+// --- Soft channel config ---
+// Keyed by refDes; value = { refDes, description, units, role, default, min, max }
+const softchanConfigMap = {};

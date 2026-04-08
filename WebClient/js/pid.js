@@ -54,6 +54,8 @@ const PID = {
     OBS_MARGIN:  6,     // obstacle clearance margin px
     VALVE_R:     18,    // valve circle radius px
     VALVE_PORT_OFF: 0,  // valve port offset from centre px
+    DAQCTRL_W:   200,   // daqControl widget default width px (10 cells)
+    DAQCTRL_H:   60,    // daqControl widget default height px (3 cells)
 };
 
 // ── YAML serialiser ──────────────────────────────────────────────────────────
@@ -104,6 +106,12 @@ function pidToYaml(layout) {
             y +=                             '    gridY: ' + o.gridY + '\n';
             if (o.labelOffsetX)         y += '    labelOffsetX: ' + o.labelOffsetX + '\n';
             if (o.labelOffsetY)         y += '    labelOffsetY: ' + o.labelOffsetY + '\n';
+        } else if (o.type === 'daqControl') {
+            if (o.daqRefDes)           y += '    daqRefDes: ' + q(o.daqRefDes) + '\n';
+            y +=                           '    gridX: ' + o.gridX + '\n';
+            y +=                           '    gridY: ' + o.gridY + '\n';
+            if (o.gridW && o.gridW !== 10) y += '    gridW: ' + o.gridW + '\n';
+            if (o.gridH && o.gridH !== 3)  y += '    gridH: ' + o.gridH + '\n';
         } else {
             if (o.refDes)              y += '    refDes: ' + q(o.refDes) + '\n';
             if (o.units)               y += '    units: '  + q(o.units)  + '\n';
@@ -224,6 +232,14 @@ function portPos(obj, port) {
         if (port === 'bottom') return { x,        y: y + off };
         if (port === 'left')   return { x: x-off, y };
     }
+    if (obj.type === 'daqControl') {
+        const w = (obj.gridW || 10) * PID.GRID;
+        const h = (obj.gridH || 3)  * PID.GRID;
+        if (port === 'top')    return { x: x + w / 2, y };
+        if (port === 'right')  return { x: x + w,     y: y + h / 2 };
+        if (port === 'bottom') return { x: x + w / 2, y: y + h };
+        if (port === 'left')   return { x,             y: y + h / 2 };
+    }
     return { x, y };
 }
 
@@ -232,7 +248,7 @@ function portPos(obj, port) {
 function pidObstacleRects(objects, excludeIds) {
     const M = PID.OBS_MARGIN;
     return objects
-        .filter(o => !excludeIds.has(o.id) && (o.type === 'sensor' || o.type === 'graph' || o.type === 'valve' || o.type === 'tank'))
+        .filter(o => !excludeIds.has(o.id) && (o.type === 'sensor' || o.type === 'graph' || o.type === 'valve' || o.type === 'tank' || o.type === 'daqControl'))
         .map(o => {
             if (o.type === 'tank') {
                 const rot = o.rotation || 0;
@@ -256,6 +272,14 @@ function pidObstacleRects(objects, excludeIds) {
             if (o.type === 'valve') {
                 const x = o.gridX * PID.GRID, y = o.gridY * PID.GRID, R = PID.VALVE_R;
                 return { x1: x-R-M, y1: y-R-M, x2: x+R+M, y2: y+R+M };
+            }
+            if (o.type === 'daqControl') {
+                return {
+                    x1: o.gridX * PID.GRID - M,
+                    y1: o.gridY * PID.GRID - M,
+                    x2: o.gridX * PID.GRID + (o.gridW || 10) * PID.GRID + M,
+                    y2: o.gridY * PID.GRID + (o.gridH || 3) * PID.GRID + M,
+                };
             }
             return {
                 x1: o.gridX * PID.GRID - M,
@@ -616,10 +640,11 @@ function renderPidAll(tab) {
 }
 
 function renderPidObj(tab, obj) {
-    const g = obj.type === 'graph'  ? makeGraphGroup(obj, tab)
-            : obj.type === 'sensor' ? makeSensorGroup(obj)
-            : obj.type === 'valve'  ? makeValveGroup(obj)
-            : obj.type === 'tank'   ? makeTankGroup(obj)
+    const g = obj.type === 'graph'      ? makeGraphGroup(obj, tab)
+            : obj.type === 'sensor'     ? makeSensorGroup(obj)
+            : obj.type === 'valve'      ? makeValveGroup(obj)
+            : obj.type === 'tank'       ? makeTankGroup(obj)
+            : obj.type === 'daqControl' ? makeDaqControlGroup(obj)
             : makeNodeGroup(obj);
     tab.pid.gObjs.appendChild(g);
 }
@@ -689,6 +714,70 @@ function makeSensorGroup(obj) {
             el.textContent = item.text;
             g.appendChild(el);
         }
+    }
+
+    return g;
+}
+
+function makeDaqControlGroup(obj) {
+    const W = (obj.gridW || 10) * PID.GRID;
+    const H = (obj.gridH || 3)  * PID.GRID;
+    const daqRef = obj.daqRefDes || '';
+    const cfg = daqControlConfig[daqRef];
+
+    const g = svgN('g', {
+        class: 'pid-obj pid-daqctrl',
+        'data-pid-id': obj.id,
+        transform: 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')',
+    });
+
+    // Background rect
+    g.appendChild(svgN('rect', {
+        class: 'pid-daqctrl-bg', x: 0, y: 0, width: W, height: H, rx: 4,
+    }));
+
+    // Top row: DAQ refDes label (left) + connection status (right)
+    const labelEl = svgN('text', { class: 'pid-daqctrl-label', x: 8, y: 18 });
+    labelEl.textContent = daqRef || 'DAQ???';
+    g.appendChild(labelEl);
+
+    const connEl = svgN('text', { class: 'pid-daqctrl-conn', x: W - 8, y: 18 });
+    connEl.textContent = '---';
+    g.appendChild(connEl);
+
+    // Bottom row: state label (left) + dropdown (right via foreignObject)
+    const stateEl = svgN('text', { class: 'pid-daqctrl-state', x: 8, y: H - 12 });
+    stateEl.textContent = 'State: ---';
+    g.appendChild(stateEl);
+
+    // Dropdown in foreignObject
+    const foW = Math.min(110, W - 120);
+    if (foW > 40) {
+        const fo = svgN('foreignObject', { x: W - foW - 8, y: H - 30, width: foW, height: 24 });
+        const sel = document.createElement('select');
+        sel.className = 'pid-daqctrl-select';
+        sel.setAttribute('data-daqctrl-select', '');
+        sel.style.width = '100%';
+
+        // Populate with initial placeholder
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = '-- transition --';
+        placeholder.disabled = true;
+        placeholder.selected = true;
+        sel.appendChild(placeholder);
+
+        sel.addEventListener('change', () => {
+            const target = sel.value;
+            if (!target) return;
+            // Send command to request state transition
+            // Use SYS-TARGET-STATE or a per-DAQ channel
+            sendCommand('SYS-TARGET-STATE', target);
+            sel.selectedIndex = 0;
+        });
+
+        fo.appendChild(sel);
+        g.appendChild(fo);
     }
 
     return g;
@@ -1152,6 +1241,49 @@ function renderPidConn(tab, conn) {
 }
 
 // =============================================================================
+// DAQ Control helpers
+// =============================================================================
+
+function _updateDaqControlState(svgEl, id, daqRef, stateValue) {
+    const cfg = daqControlConfig[daqRef];
+    if (!cfg) return;
+    const stateNames = Object.keys(cfg.states);
+    const stateIdx = typeof stateValue === 'number' ? Math.round(stateValue) : parseInt(stateValue, 10);
+    const stateName = stateNames[stateIdx] || ('state_' + stateValue);
+
+    // Update state text
+    const stateEl = svgEl.querySelector('[data-pid-id="' + id + '"] .pid-daqctrl-state');
+    if (stateEl) stateEl.textContent = 'State: ' + stateName;
+
+    // Update dropdown with valid operator transitions from current state
+    const sel = svgEl.querySelector('[data-pid-id="' + id + '"] [data-daqctrl-select]');
+    if (!sel) return;
+
+    const stDef = cfg.states[stateName];
+    const opTransitions = stDef
+        ? stDef.transitions.filter(t => t.on === 'operator_request' || t.on === 'operator_abort')
+        : [];
+
+    // Rebuild dropdown options
+    sel.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = opTransitions.length ? '-- transition --' : '(no transitions)';
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    sel.appendChild(placeholder);
+
+    for (const t of opTransitions) {
+        const opt = document.createElement('option');
+        const targetIdx = stateNames.indexOf(t.target);
+        opt.value = targetIdx >= 0 ? String(targetIdx) : t.target;
+        opt.textContent = t.target;
+        sel.appendChild(opt);
+    }
+    sel.disabled = opTransitions.length === 0;
+}
+
+// =============================================================================
 // Live data binding
 // =============================================================================
 
@@ -1205,6 +1337,31 @@ function rebindPidLiveData(tab) {
                     }, CONFIG.channelStaleMs);
                 };
             }
+        }
+
+        // ── daqControl: bind SYS-STATE + connection staleness ──────────────
+        if (obj.type === 'daqControl' && obj.daqRefDes) {
+            const id = obj.id;
+            const daqRef = obj.daqRefDes;
+            const cfg = daqControlConfig[daqRef];
+            const stateNames = cfg ? Object.keys(cfg.states) : [];
+            let connStaleTimer = null;
+
+            // Listen for SYS-STATE to update current state + dropdown
+            tab.channelUpdaters['SYS-STATE'] = value => {
+                _updateDaqControlState(tab.pid.svgEl, id, daqRef, value);
+            };
+
+            // Track connection via CTR001-daqConnected
+            tab.channelUpdaters['CTR001-daqConnected'] = value => {
+                const connEl = tab.pid.svgEl.querySelector('[data-pid-id="' + id + '"] .pid-daqctrl-conn');
+                if (!connEl) return;
+                connEl.textContent = value >= 1 ? 'Connected' : 'Disconnected';
+                clearTimeout(connStaleTimer);
+                connStaleTimer = setTimeout(() => {
+                    if (connEl) connEl.textContent = 'Stale';
+                }, CONFIG.channelStaleMs);
+            };
         }
     }
     rebuildActivePidChannels();

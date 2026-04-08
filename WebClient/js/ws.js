@@ -44,6 +44,8 @@ function onDataMessage(event) {
         case 'alert':           ingestAlert(msg);             break;
         case 'alert_acked':     ackAlertLocally(msg.id);      break;
         case 'alert_snapshot':  msg.alerts.forEach(ingestAlert); break;
+        case 'state_config':    applyStateConfig(msg);          break;
+        case 'softchan_config': applySoftchanConfig(msg);       break;
         default: console.warn('Unknown data message type:', msg.type);
     }
 }
@@ -201,6 +203,28 @@ function applyPidLayout(msg) {
                 tab.pid.pendingLayout = null;
                 loadPidLayout(tab, pidLayouts[msg.filename]);
             }
+        }
+    }
+}
+
+function applyStateConfig(msg) {
+    if (!msg.daqNodes) return;
+    for (const dn of msg.daqNodes) {
+        daqControlConfig[dn.daqNode] = dn;
+    }
+    // Re-render any front panel tabs that have daqControl widgets
+    for (const tab of tabs) {
+        if (tab.type === 'frontPanel' && tab.pid && tab.pid.objects.length) {
+            renderPidAll(tab);
+        }
+    }
+}
+
+function applySoftchanConfig(msg) {
+    // Store soft channel definitions for future use
+    if (msg.channels) {
+        for (const ch of msg.channels) {
+            softchanConfigMap[ch.refDes] = ch;
         }
     }
 }

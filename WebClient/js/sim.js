@@ -217,11 +217,30 @@ const SIM_CHANNELS = {
     // Fuel blanks (cmd only, no FB)
     'FV-BLANK-01': { type: 'bool_cmd', cmdRefDes: 'FV-BLANK-01' },
     'FV-BLANK-02': { type: 'bool_cmd', cmdRefDes: 'FV-BLANK-02' },
+
+    // Health channels
+    'CTR001-uptime':       { type: 'sine', base: 3600, amp: 0, freq: 0, phase: 0, noise: 0 },
+    'CTR001-daqConnected': { type: 'sine', base: 1,    amp: 0, freq: 0, phase: 0, noise: 0 },
+    'CTR001-wcConnected':  { type: 'sine', base: 1,    amp: 0, freq: 0, phase: 0, noise: 0 },
+
+    // State machine channels
+    'SYS-STATE':        { type: 'state', stateIdx: 0 },
+    'SYS-TARGET-STATE': { type: 'bool_cmd', cmdRefDes: 'SYS-TARGET-STATE' },
 };
 
 // --- Command intercept ────────────────────────────────────────────────────────
 
 function simReceiveCommand(refDes, value) {
+    // Handle state transition commands
+    if (refDes === 'SYS-TARGET-STATE') {
+        const sysState = SIM_CHANNELS['SYS-STATE'];
+        if (sysState) {
+            const idx = typeof value === 'number' ? value : parseInt(value, 10);
+            if (!isNaN(idx)) sysState.stateIdx = idx;
+        }
+        return;
+    }
+
     simCmdState[refDes] = value ? 1 : 0;
     // Schedule FB to follow after ~150 ms
     const fbRefDes = refDes.replace(/-CMD$/, '-FB');
@@ -254,6 +273,9 @@ function generateData(tSec) {
                 d[refDes] = simCmdState[refDes] ?? 0;
                 break;
             }
+            case 'state':
+                d[refDes] = ch.stateIdx;
+                break;
         }
     }
     return d;
@@ -272,6 +294,20 @@ function startSim() {
     setStatus('connected', 'Sim mode active');
 
     applyConfig(SIM_CONFIG);
+
+    // Inject fake state machine config for the daqControl widget
+    applyStateConfig({
+        type: 'state_config',
+        daqNodes: [{
+            daqNode: 'DAQ001',
+            states: {
+                safe:           { operatorControl: false, transitions: [{ target: 'manualControl', on: 'operator_request' }] },
+                manualControl:  { operatorControl: true,  transitions: [{ target: 'autoSequence', on: 'operator_request' }, { target: 'safe', on: 'operator_request' }] },
+                autoSequence:   { operatorControl: false, transitions: [{ target: 'abort', on: 'operator_abort' }] },
+                abort:          { operatorControl: false, transitions: [{ target: 'safe', on: 'operator_request' }] },
+            }
+        }]
+    });
 
     simInterval = setInterval(() => {
         const t = Date.now() / 1000;

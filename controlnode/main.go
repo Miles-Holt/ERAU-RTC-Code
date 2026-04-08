@@ -73,6 +73,12 @@ func main() {
 		softchanConfigJSON = sc.ConfigJSON()
 	}
 
+	// ── Build DAQ control state machine config (sent to browsers) ────────
+	stateConfigJSON := config.BuildStateConfigJSON(cfg.DaqControls)
+	if stateConfigJSON != nil {
+		log.Printf("state_config: loaded %d DAQ control definition(s)", len(cfg.DaqControls))
+	}
+
 	// ── Create broker ─────────────────────────────────────────────────────
 	b := broker.New(refDesMap, restartRefDes)
 	go b.Run(cfg.Network.BroadcastRateHz)
@@ -133,7 +139,7 @@ func main() {
 	}
 
 	// ── Web client WebSocket server (blocks forever) ──────────────────────
-	srv := webclient.New(cfg.Network.WebSocketPort, wcConfigJSON, softchanConfigJSON, panelMessages, b, *webRoot, embeddedSub, authCfg, layoutPaths)
+	srv := webclient.New(cfg.Network.WebSocketPort, wcConfigJSON, softchanConfigJSON, stateConfigJSON, panelMessages, b, *webRoot, embeddedSub, authCfg, layoutPaths)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("webclient server: %v", err)
 	}

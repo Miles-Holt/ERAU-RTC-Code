@@ -33,6 +33,8 @@ const PID = {
     OBS_MARGIN:  6,
     VALVE_R:     18,
     VALVE_PORT_OFF: 40,
+    DAQCTRL_W:   200,
+    DAQCTRL_H:   60,
 };
 
 // ── Editor state ─────────────────────────────────────────────────────────────
@@ -127,6 +129,12 @@ function pidToYaml(layout) {
             if (o.showLabel === false)   y += '    showLabel: false\n';
             if (o.labelOffsetX)          y += '    labelOffsetX: ' + o.labelOffsetX   + '\n';
             if (o.labelOffsetY)          y += '    labelOffsetY: ' + o.labelOffsetY   + '\n';
+        } else if (o.type === 'daqControl') {
+            if (o.daqRefDes)           y += '    daqRefDes: ' + q(o.daqRefDes) + '\n';
+            y +=                           '    gridX: ' + o.gridX + '\n';
+            y +=                           '    gridY: ' + o.gridY + '\n';
+            if (o.gridW && o.gridW !== 10) y += '    gridW: ' + o.gridW + '\n';
+            if (o.gridH && o.gridH !== 3)  y += '    gridH: ' + o.gridH + '\n';
         } else {
             if (o.refDes)              y += '    refDes: '        + q(o.refDes)        + '\n';
             if (o.units)               y += '    units: '         + q(o.units)         + '\n';
@@ -242,6 +250,14 @@ function portPos(obj, port) {
         if (port === 'bottom') return { x,        y: y + off };
         if (port === 'left')   return { x: x-off, y };
     }
+    if (obj.type === 'daqControl') {
+        const w = (obj.gridW || 10) * PID.GRID;
+        const h = (obj.gridH || 3)  * PID.GRID;
+        if (port === 'top')    return { x: x + w / 2, y };
+        if (port === 'right')  return { x: x + w,     y: y + h / 2 };
+        if (port === 'bottom') return { x: x + w / 2, y: y + h };
+        if (port === 'left')   return { x,             y: y + h / 2 };
+    }
     return { x, y };
 }
 
@@ -264,7 +280,7 @@ function pidEsc(s) {
 function pidObstacleRects(objects, excludeIds) {
     const M = PID.OBS_MARGIN;
     return objects
-        .filter(o => !excludeIds.has(o.id) && (o.type === 'sensor' || o.type === 'graph' || o.type === 'valve'))
+        .filter(o => !excludeIds.has(o.id) && (o.type === 'sensor' || o.type === 'graph' || o.type === 'valve' || o.type === 'daqControl'))
         .map(o => {
             if (o.type === 'graph') {
                 return {
@@ -277,6 +293,14 @@ function pidObstacleRects(objects, excludeIds) {
             if (o.type === 'valve') {
                 const x = o.gridX * PID.GRID, y = o.gridY * PID.GRID, R = PID.VALVE_R;
                 return { x1: x-R-M, y1: y-R-M, x2: x+R+M, y2: y+R+M };
+            }
+            if (o.type === 'daqControl') {
+                return {
+                    x1: o.gridX * PID.GRID - M,
+                    y1: o.gridY * PID.GRID - M,
+                    x2: o.gridX * PID.GRID + (o.gridW || 10) * PID.GRID + M,
+                    y2: o.gridY * PID.GRID + (o.gridH || 3) * PID.GRID + M,
+                };
             }
             return {
                 x1: o.gridX * PID.GRID - M,
@@ -737,7 +761,9 @@ function buildEditorUI(rootEl) {
         '<div class="pid-obj-item" draggable="true" data-type="valve">' +
             '<div class="pid-obj-preview pid-obj-preview-valve">Valve</div></div>' +
         '<div class="pid-obj-item" draggable="true" data-type="tank">' +
-            '<div class="pid-obj-preview pid-obj-preview-tank">Tank</div></div>';
+            '<div class="pid-obj-preview pid-obj-preview-tank">Tank</div></div>' +
+        '<div class="pid-obj-item" draggable="true" data-type="daqControl">' +
+            '<div class="pid-obj-preview pid-obj-preview-daqctrl">DAQ Ctrl</div></div>';
 
     // Canvas
     const canvasWrap = document.createElement('div');
@@ -882,10 +908,11 @@ function renderPidAll() {
 }
 
 function renderPidObj(obj) {
-    const g = obj.type === 'graph'  ? makeGraphGroup(obj)
-            : obj.type === 'sensor' ? makeSensorGroup(obj)
-            : obj.type === 'valve'  ? makeValveGroupEditor(obj)
-            : obj.type === 'tank'   ? makeTankGroupEditor(obj)
+    const g = obj.type === 'graph'      ? makeGraphGroup(obj)
+            : obj.type === 'sensor'     ? makeSensorGroup(obj)
+            : obj.type === 'valve'      ? makeValveGroupEditor(obj)
+            : obj.type === 'tank'       ? makeTankGroupEditor(obj)
+            : obj.type === 'daqControl' ? makeDaqControlGroupEditor(obj)
             : makeNodeGroup(obj);
     tab.pid.gObjs.appendChild(g);
 }
@@ -1094,6 +1121,55 @@ function makeValveGroupEditor(obj) {
             cx: px, cy: py, r: PID.PORT_R,
         }));
     }
+    return g;
+}
+
+function makeDaqControlGroupEditor(obj) {
+    const sel = (tab.pid.selectedId === obj.id);
+    const W = (obj.gridW || 10) * PID.GRID;
+    const H = (obj.gridH || 3)  * PID.GRID;
+
+    const g = svgN('g', {
+        class: 'pid-obj pid-daqctrl' + (sel ? ' pid-selected' : ''),
+        'data-pid-id': obj.id,
+        transform: 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')',
+        cursor: 'grab',
+    });
+
+    g.appendChild(svgN('rect', {
+        class: 'pid-daqctrl-bg', x: 0, y: 0, width: W, height: H, rx: 4,
+    }));
+
+    const labelEl = svgN('text', { class: 'pid-daqctrl-label', x: 8, y: 18 });
+    labelEl.textContent = obj.daqRefDes || '(no DAQ)';
+    g.appendChild(labelEl);
+
+    const stateEl = svgN('text', { class: 'pid-daqctrl-state', x: 8, y: H - 12 });
+    stateEl.textContent = 'State: ---';
+    g.appendChild(stateEl);
+
+    // Connection ports on all four sides
+    const ports = {
+        top:    [W / 2, 0],
+        right:  [W, H / 2],
+        bottom: [W / 2, H],
+        left:   [0, H / 2],
+    };
+    for (const [pname, [px, py]] of Object.entries(ports)) {
+        g.appendChild(svgN('circle', {
+            class: 'pid-port',
+            'data-obj-id': obj.id, 'data-port': pname,
+            cx: px, cy: py, r: PID.PORT_R,
+        }));
+    }
+
+    // Resize handle (bottom-right)
+    g.appendChild(svgN('rect', {
+        class: 'pid-resize-handle',
+        x: W - 8, y: H - 8, width: 8, height: 8, cursor: 'nwse-resize',
+        'data-obj-id': obj.id,
+    }));
+
     return g;
 }
 
@@ -1658,6 +1734,49 @@ function renderPidRsb(objId) {
                 renderPidWarning();
             });
 
+        } else if (obj.type === 'daqControl') {
+            // Build DAQ node options from daqControlConfig or provide text input
+            const daqNodes = Object.keys(daqControlConfig);
+            const daqOpts = daqNodes.length > 0
+                ? daqNodes.map(dn =>
+                    '<option value="' + pidEsc(dn) + '"' +
+                    (dn === obj.daqRefDes ? ' selected' : '') + '>' +
+                    pidEsc(dn) + '</option>'
+                  ).join('')
+                : null;
+
+            c.innerHTML =
+                '<div class="pid-sb-heading">DAQ Control</div>' +
+                '<div class="pid-sb-field"><label>DAQ Node</label>' +
+                (daqOpts
+                    ? '<select class="pid-daqctrl-sel"><option value="">-- pick --</option>' + daqOpts + '</select>'
+                    : '<input class="pid-daqctrl-inp" type="text" value="' + pidEsc(obj.daqRefDes || '') + '" placeholder="e.g. DAQ001">') +
+                '</div>' +
+                '<div class="pid-sb-field pid-sb-field--row">' +
+                    '<div><label>Width (cells)</label>' +
+                    '<input class="pid-daqctrl-w" type="number" min="4" max="100" value="' + (obj.gridW || 10) + '"></div>' +
+                    '<div><label>Height (cells)</label>' +
+                    '<input class="pid-daqctrl-h" type="number" min="2" max="100" value="' + (obj.gridH || 3) + '"></div>' +
+                '</div>' +
+                '<button class="pid-apply-btn">Apply</button>' +
+                '<button class="pid-delete-btn">Remove</button>';
+
+            c.querySelector('.pid-apply-btn').addEventListener('click', () => {
+                const sel = c.querySelector('.pid-daqctrl-sel');
+                const inp = c.querySelector('.pid-daqctrl-inp');
+                obj.daqRefDes = sel ? sel.value : (inp ? inp.value.trim() : '');
+                obj.gridW     = parseInt(c.querySelector('.pid-daqctrl-w').value) || 10;
+                obj.gridH     = parseInt(c.querySelector('.pid-daqctrl-h').value) || 3;
+                const existing = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
+                if (existing) existing.remove();
+                renderPidObj(obj);
+                const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
+                if (updated) updated.classList.add('pid-selected');
+                tab.pid.routingErrors = [];
+                for (const conn of tab.pid.connections) renderPidConn(conn);
+                renderPidWarning();
+            });
+
         } else {
             c.innerHTML =
                 '<div class="pid-sb-heading">Junction Node</div>' +
@@ -1684,6 +1803,7 @@ function createPidObj(type, gridX, gridY) {
     }
     if (type === 'valve') { obj.controlRefDes = ''; }
     if (type === 'tank')  { obj.gridW = 5; obj.gridH = 8; obj.rotation = 0; obj.label = ''; obj.showLabel = true; }
+    if (type === 'daqControl') { obj.daqRefDes = ''; obj.gridW = 10; obj.gridH = 3; }
     tab.pid.objects.push(obj);
     renderPidObj(obj);
     tab.pid.routingErrors = [];

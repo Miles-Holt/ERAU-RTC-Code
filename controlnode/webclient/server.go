@@ -35,6 +35,7 @@ type Server struct {
 	port               int
 	configJSON         []byte
 	softchanConfigJSON []byte // softchan_config message; nil if no software channels
+	stateConfigJSON    []byte // state_config message; nil if no DAQ control configs
 	b                  *broker.Broker
 	fileServer         http.Handler
 	userAuth           *UserAuthConfig
@@ -49,9 +50,9 @@ type Server struct {
 // layoutPaths maps layout filename (e.g. "test_panel.yaml") → absolute path on disk.
 // Pass userAuth=nil to disable authentication (any credentials are accepted).
 // Pass softchanConfigJSON=nil if there are no software channels.
-func New(port int, configJSON string, softchanConfigJSON []byte, panelMessages [][]byte,
-	b *broker.Broker, webRoot string, embedded fs.FS, userAuth *UserAuthConfig,
-	layoutPaths map[string]string) *Server {
+func New(port int, configJSON string, softchanConfigJSON []byte, stateConfigJSON []byte,
+	panelMessages [][]byte, b *broker.Broker, webRoot string, embedded fs.FS,
+	userAuth *UserAuthConfig, layoutPaths map[string]string) *Server {
 
 	var fsh http.Handler
 	if webRoot != "" {
@@ -63,6 +64,7 @@ func New(port int, configJSON string, softchanConfigJSON []byte, panelMessages [
 		port:               port,
 		configJSON:         []byte(configJSON),
 		softchanConfigJSON: softchanConfigJSON,
+		stateConfigJSON:    stateConfigJSON,
 		panelMessages:      panelMessages,
 		b:                  b,
 		fileServer:         fsh,
@@ -129,6 +131,14 @@ func (s *Server) ServeWsData(w http.ResponseWriter, r *http.Request) {
 	if s.softchanConfigJSON != nil {
 		if err := conn.WriteMessage(websocket.TextMessage, s.softchanConfigJSON); err != nil {
 			log.Printf("webclient data: send softchan_config to %s: %v", r.RemoteAddr, err)
+			return
+		}
+	}
+
+	// Send DAQ control state machine config (if any).
+	if s.stateConfigJSON != nil {
+		if err := conn.WriteMessage(websocket.TextMessage, s.stateConfigJSON); err != nil {
+			log.Printf("webclient data: send state_config to %s: %v", r.RemoteAddr, err)
 			return
 		}
 	}
