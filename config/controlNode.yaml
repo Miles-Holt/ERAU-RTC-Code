@@ -1,3 +1,13 @@
+# controlNode.yaml — control node identity and virtual health channels.
+# Parsed by controlnode/config/yaml.go (ParseDir).
+#
+# Health sensors are published as read-only virtual channels in the data stream
+# at broadcastRateHz. They appear in the browser Channel List like any sensor.
+#
+# Health commands are routed internally (not to a DAQ node). Any command whose
+# refDes contains "restart" causes the control node process to exit, which
+# allows a process supervisor (e.g. systemd) to restart it cleanly.
+
 refDes: CTR001
 ip: MHOLT-LA
 description: Central control and routing node

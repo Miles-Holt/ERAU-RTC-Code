@@ -1,3 +1,10 @@
+# daq001.yaml — TC3 PXIe DAQ node definition.
+# Parsed by controlnode/config/yaml.go (ParseDir → daqNodes/*.yaml).
+#
+# modules: list the NI modules installed in the chassis. The moduleModelNumber
+# must match the string used in controls.yaml channel entries (daqMx.module).
+# Disabled modules are excluded from the config JSON sent to LabVIEW.
+
 refDes: DAQ001
 ip: MHOLT-AA
 wsPort: 8001

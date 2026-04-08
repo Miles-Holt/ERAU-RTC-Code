@@ -140,8 +140,8 @@ func main() {
 }
 
 // loadPanelMessages reads each enabled front-panel YAML from disk and builds
-// the pid_layout JSON payloads that are broadcast to browsers on connect.
-// Paths in <file> are resolved relative to configDir.
+// the pid_layout JSON payloads that are sent to browsers on connect.
+// File paths in panelLayouts.yaml are resolved relative to configDir.
 func loadPanelMessages(cfg *config.PanelLayoutsConfig, configDir string) [][]byte {
 	var msgs [][]byte
 	for _, p := range cfg.Panels {
@@ -171,8 +171,9 @@ func loadPanelMessages(cfg *config.PanelLayoutsConfig, configDir string) [][]byt
 	return msgs
 }
 
-// buildHealthSensorMap maps the well-known metric keys to refDes values from
-// the <ctrNode><health><sensors> XML section, by matching keywords in the refDes.
+// buildHealthSensorMap maps well-known metric keys ("uptime", "loopTime",
+// "daqConnected", "wcConnected") to their refDes values from controlNode.yaml
+// by matching keywords in the refDes string.
 func buildHealthSensorMap(cfg *config.SystemConfig) map[string]string {
 	m := make(map[string]string)
 	for _, s := range cfg.CtrNode.Health.Sensors {

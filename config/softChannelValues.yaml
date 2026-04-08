@@ -1,4 +1,7 @@
-# Auto-written by the control node on every value change.
-# Edit manually only when the system is stopped.
-# DO NOT edit while the control node is running.
+# softChannelValues.yaml — persisted runtime values for software channels.
+# This file is auto-written by the control node on every Set() call.
+#
+# Values here override the 'default' in softChannels.yaml on startup.
+# Safe to edit manually ONLY when the control node is not running.
+# Format: values: { <refDes>: <float>, ... }
 values: {}

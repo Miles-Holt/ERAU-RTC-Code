@@ -1,3 +1,6 @@
+# daq000.yaml — test/development DAQ node (disabled in normal operation).
+# enabled: false means the control node skips this node on startup.
+
 refDes: DAQ000
 ip: localhost
 wsPort: 8001

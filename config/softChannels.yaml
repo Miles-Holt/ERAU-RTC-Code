@@ -1,3 +1,19 @@
+# softChannels.yaml — software (virtual) channel definitions.
+# Parsed by controlnode/softchan/store.go (New).
+#
+# Software channels live in control node memory. They appear in the browser
+# Channel List and are commandable via the same cmd messages as hardware channels.
+# Values are persisted to softChannelValues.yaml on every change and restored
+# on restart, so tuned parameters survive a control node reboot.
+#
+# Schema:
+#   refDes:      unique identifier (routed to "_SOFTCHAN" sentinel in the broker)
+#   description: human-readable label
+#   units:       engineering units string shown in the browser
+#   role:        cmd-float | cmd-bool | (empty = read-only, set only by state machine)
+#   default:     value used on first startup (before softChannelValues.yaml exists)
+#   min/max:     optional bounds; Set() rejects values outside this range
+
 channels:
   # ── Sequence Timings ──────────────────────────────────────────────────────────
   - refDes: SEQ-BURN-DUR

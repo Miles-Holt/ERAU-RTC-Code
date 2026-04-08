@@ -1,3 +1,26 @@
+# controls.yaml — all physical instruments and actuators for TC3.
+# Parsed by controlnode/config/yaml.go (ParseDir).
+#
+# Schema summary:
+#   refDes:      unique identifier (used as the channel name in the data stream)
+#   description: human-readable label shown in the browser
+#   enabled:     true/false — disabled controls are stripped before sending config to browsers
+#   type:        thrust | ignition | temperature | pressure | flowMeter |
+#                valve | bangBang | digitalOut | VFD
+#   subType:     valve: IO-CMD_IO-FB | IO-CMD | IO-CMD_POS-FB | POS-CMD_POS-FB
+#                bangBang: press | press2 (press + vent) | pressVent
+#   details:     type-specific fields (see DaqMx comment in config/yaml.go)
+#
+#   channels[]:
+#     refDes:    channel identifier (parent refDes + role suffix, e.g. OV-01-CMD)
+#     role:      cmd-bool | cmd-pct | cmd-float | (empty = read-only)
+#     daqNode:   refDes of the DAQ node that owns this channel (e.g. DAQ001)
+#     module:    DAQmx module model number (e.g. Analog-Input, Digital-IO)
+#     channel:   DAQmx channel string (e.g. /port3/line0, ai05)
+#     validMin:  optional lower bound for bad-data detection in the browser
+#     validMax:  optional upper bound for bad-data detection in the browser
+#     daqMx:     NI-DAQmx task configuration (fields vary by module type)
+
 controls:
 
   # ── Load Cells ──────────────────────────────────────────────────────────────

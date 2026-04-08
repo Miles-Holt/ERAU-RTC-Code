@@ -1,5 +1,17 @@
+# system.yaml — system-wide network and timing settings.
+# Parsed by controlnode/config/yaml.go (ParseDir).
+
+# Port the web client WebSocket server listens on.
 webSocketPort: 8000
+
+# Rate at which the broker ticks aggregated channel data to all browsers.
 broadcastRateHz: 50
+
+# Rate at which DAQ node clients send heartbeat/keepalive messages.
 connectionManagementRateHz: 1
+
+# Rate at which data is written to the log file (if logging is implemented).
 loggingRateHz: 10
+
+# Milliseconds without a new value before a channel is marked stale in the browser.
 channelStaleMs: 2000

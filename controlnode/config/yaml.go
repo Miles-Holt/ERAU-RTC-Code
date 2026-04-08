@@ -15,6 +15,9 @@ import (
 
 // ── Go struct types (shared by YAML parser and JSON builders) ─────────────────
 
+// SystemConfig is the root configuration object assembled from all YAML files
+// in the config directory.  It is consumed by the JSON builder functions and
+// main.go to configure the broker, DAQ node clients, and web server.
 type SystemConfig struct {
 	ControlList ControlList
 	Network     Network
@@ -22,13 +25,16 @@ type SystemConfig struct {
 	DaqNodes    DaqNodes
 }
 
+// Network holds system-wide timing and port settings from system.yaml.
 type Network struct {
-	WebSocketPort            int
-	BroadcastRateHz          int
-	ManagementRateHz         int
-	ChannelStaleMs           int
+	WebSocketPort    int // port the web client WebSocket server listens on
+	BroadcastRateHz  int // rate at which the broker ticks data to browsers
+	ManagementRateHz int // rate at which DAQ node clients send keepalives
+	ChannelStaleMs   int // milliseconds before a channel value is considered stale
 }
 
+// CtrNodeDef describes the control node itself, including the virtual health
+// channels it exposes to browsers (from controlNode.yaml).
 type CtrNodeDef struct {
 	RefDes      string
 	IP          string
@@ -38,27 +44,40 @@ type CtrNodeDef struct {
 	Health      CtrHealth
 }
 
+// CtrHealth groups the read-only sensor metrics and commandable actions that
+// the control node publishes as virtual channels in the data stream.
 type CtrHealth struct {
-	Sensors  []CtrSensor
-	Commands []CtrCommand
+	Sensors  []CtrSensor  // read-only metrics (uptime, loop time, connection counts)
+	Commands []CtrCommand // commandable actions (e.g. CTR001-restart)
 }
 
+// CtrSensor is a single read-only health metric published by the control node.
 type CtrSensor struct {
 	RefDes      string
 	Description string
 	Units       string
 }
 
+// CtrCommand is a commandable action on the control node (role: "cmd-bool").
+// Any command whose refDes contains "restart" triggers os.Exit(1) when fired.
 type CtrCommand struct {
 	RefDes      string
 	Description string
-	Role        string
+	Role        string // "cmd-bool"
 }
 
+// ControlList holds all controls loaded from controls.yaml.
 type ControlList struct {
 	Controls []Control
 }
 
+// Control represents one physical instrument or actuator group.
+//
+// Type values: "thrust", "ignition", "temperature", "pressure", "flowMeter",
+// "valve", "bangBang", "digitalOut", "VFD".
+//
+// SubType values (valve): "IO-CMD_IO-FB", "IO-CMD", "IO-CMD_POS-FB", "POS-CMD_POS-FB".
+// SubType values (bangBang): "press", "press2" (press + vent valves), "pressVent".
 type Control struct {
 	RefDes      string
 	Description string
@@ -69,63 +88,90 @@ type Control struct {
 	Channels    []Channel
 }
 
-// Details holds type-specific fields; unused fields are zero values.
+// Details holds type-specific configuration; only the fields relevant to the
+// control's Type are populated — all others are zero values.
 type Details struct {
-	// pressure
+	// pressure: whether the sensor reads absolute pressure (true) or gauge (false).
+	// When false and AbsoluteSensorRefDes is empty, a 0 offset is applied on the front panel.
 	Absolute             bool
-	AbsoluteSensorRefDes string
-	// bangBang
+	AbsoluteSensorRefDes string // refDes of the absolute PT used as the reference offset
+	// bangBang: refDes of the pressure transducer the controller regulates against
 	SenseRefDes string
 }
 
+// Channel is one physical I/O line within a Control.
+//
+// Role values: "cmd-bool" (toggle), "cmd-pct" (0–100% setpoint),
+// "cmd-float" (arbitrary float), "" (read-only sensor/feedback).
+//
+// ValidMin/ValidMax are optional engineering-unit bounds used by the browser for
+// bad-data detection (red LED + red value text).  Empty string disables the check.
 type Channel struct {
 	RefDes            string
 	Role              string
-	RefDesDaq         string // DAQ node refDes
-	ModuleModelNumber string
-	ChannelNumber     string
+	RefDesDaq         string // refDes of the DAQ node that owns this channel
+	ModuleModelNumber string // e.g. "Analog-Input", "Digital-IO", "Thermocouple"
+	ChannelNumber     string // DAQmx channel string, e.g. "/port3/line0" or "ai05"
 	DaqMx             DaqMx
-	ValidMin          string
-	ValidMax          string
+	ValidMin          string // optional; float string or empty
+	ValidMax          string // optional; float string or empty
 }
 
-// DaqMx holds all possible DAQmx configuration fields; unused fields stay empty.
+// DaqMx holds all possible NI-DAQmx configuration fields.  Only the fields
+// relevant to the channel's module type are populated; the rest stay empty
+// and are omitted from the JSON sent to LabVIEW.
+//
+// Fields by module type:
+//
+//	Thermocouple:     TaskName, TCType (K/E/T), Units
+//	Analog-Input:     TaskName, Sensitivity, Balance, InputTerminalConfiguration, Units
+//	Analog-Output:    TaskName
+//	Digital-IO (out): TaskName
+//	Digital-IO (in):  TaskName
+//	Bridge-Completion: TaskName, BridgeConfiguration, VoltageExcitationSource,
+//	                   ExcitationVoltage, NominalBridgeResistance,
+//	                   FirstElectricalValue, SecondElectricalValue,
+//	                   FirstPhysicalValue, SecondPhysicalValue, ElectricalUnits, Units
 type DaqMx struct {
 	TaskName                   string `json:"taskName,omitempty"`
-	TCType                     string `json:"type,omitempty"`
-	Units                      string `json:"units,omitempty"`
-	Sensitivity                string `json:"sensitivity,omitempty"`
-	Balance                    string `json:"balance,omitempty"`
-	InputTerminalConfiguration string `json:"inputTerminalConfiguration,omitempty"`
-	BridgeConfiguration        string `json:"bridgeConfiguration,omitempty"`
-	VoltageExcitationSource    string `json:"voltageExcitationSource,omitempty"`
-	ExcitationVoltage          string `json:"excitationVoltage,omitempty"`
-	NominalBridgeResistance    string `json:"nominalBridgeResistance,omitempty"`
-	FirstElectricalValue       string `json:"firstElectricalValue,omitempty"`
-	SecondElectricalValue      string `json:"secondElectricalValue,omitempty"`
-	FirstPhysicalValue         string `json:"firstPhysicalValue,omitempty"`
-	SecondPhysicalValue        string `json:"secondPhysicalValue,omitempty"`
-	ElectricalUnits            string `json:"electricalUnits,omitempty"`
+	TCType                     string `json:"type,omitempty"`                       // thermocouple type: K, E, or T
+	Units                      string `json:"units,omitempty"`                       // engineering units, e.g. "psi", "Deg F", "Pounds"
+	Sensitivity                string `json:"sensitivity,omitempty"`                 // analog input: V/EU scaling factor
+	Balance                    string `json:"balance,omitempty"`                     // analog input: zero-offset correction
+	InputTerminalConfiguration string `json:"inputTerminalConfiguration,omitempty"` // "Differential", "NRSE", "RSE"
+	BridgeConfiguration        string `json:"bridgeConfiguration,omitempty"`         // "Full Bridge", "Half Bridge", "Quarter Bridge"
+	VoltageExcitationSource    string `json:"voltageExcitationSource,omitempty"`     // "Internal" or "External"
+	ExcitationVoltage          string `json:"excitationVoltage,omitempty"`           // volts
+	NominalBridgeResistance    string `json:"nominalBridgeResistance,omitempty"`     // ohms
+	FirstElectricalValue       string `json:"firstElectricalValue,omitempty"`        // mV/V at first calibration point
+	SecondElectricalValue      string `json:"secondElectricalValue,omitempty"`       // mV/V at second calibration point
+	FirstPhysicalValue         string `json:"firstPhysicalValue,omitempty"`          // EU at first calibration point
+	SecondPhysicalValue        string `json:"secondPhysicalValue,omitempty"`         // EU at second calibration point
+	ElectricalUnits            string `json:"electricalUnits,omitempty"`             // e.g. "mVolts/Volt"
 }
 
+// DaqNodes holds the list of DAQ node definitions loaded from daqNodes/*.yaml.
 type DaqNodes struct {
 	Nodes []DaqNodeDef
 }
 
+// DaqNodeDef describes one DAQ node (NI PXIe chassis or test node).
+// One YAML file per node lives in config/daqNodes/.
 type DaqNodeDef struct {
 	RefDes      string
-	IP          string
+	IP          string // hostname or IP address
 	Description string
 	Enabled     bool
-	WSPort      int
+	WSPort      int     // WebSocket port the DAQ node listens on
 	Modules     []Module
 }
 
+// Module describes one NI module slot in a DAQ node chassis.
 type Module struct {
-	SlotID            int
-	ModuleModelNumber string
+	SlotID            int    // physical slot number in the chassis (0 if unassigned)
+	ModuleModelNumber string // e.g. "Thermocouple", "Analog-Input", "Digital-IO"
 	Description       string
-	IOMode            string
+	IOMode            string // "input" or "output"
 	Enabled           bool
 	SampleRateHz      int
 }
@@ -369,6 +415,7 @@ func ParseDir(configDir string) (*SystemConfig, error) {
 	return cfg, nil
 }
 
+// readYAML reads the file at path and unmarshals it into v.
 func readYAML(path string, v interface{}) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -606,6 +653,9 @@ func BuildRefDesMap(cfg *SystemConfig) map[string]string {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// buildDetails converts a Control's Details struct into the loosely-typed map
+// that the browser expects in the "details" field of the config message.
+// Only the fields relevant to the control's Type are populated.
 func buildDetails(ctrl Control) map[string]interface{} {
 	m := make(map[string]interface{})
 	switch ctrl.Type {
