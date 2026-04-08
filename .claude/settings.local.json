@@ -19,7 +19,8 @@
       "Bash(timeout 3 ./controlnode.exe)",
       "Bash(find c:UsersmilesmyrepoERAU-RTC_Code -name *.xml -o -name *.json)",
       "Bash(cat:*)",
-      "Bash(grep -E \"\\\\.\\(js|html\\)$\")"
+      "Bash(grep -E \"\\\\.\\(js|html\\)$\")",
+      "Bash(go vet:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\miles\\myrepo\\ERAM-RTC_Code"

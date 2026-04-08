@@ -77,10 +77,15 @@ func main() {
 	stateConfigJSON := config.BuildStateConfigJSON(cfg.DaqControls)
 	if stateConfigJSON != nil {
 		log.Printf("state_config: loaded %d DAQ control definition(s)", len(cfg.DaqControls))
+	// ── Build channel bounds for bad-data detection ───────────────────────
+	cfgBounds := config.BuildChannelBoundsMap(cfg)
+	brokerBounds := make(map[string]broker.ChannelBounds, len(cfgBounds))
+	for k, v := range cfgBounds {
+		brokerBounds[k] = broker.ChannelBounds{Min: v.Min, Max: v.Max}
 	}
 
 	// ── Create broker ─────────────────────────────────────────────────────
-	b := broker.New(refDesMap, restartRefDes)
+	b := broker.New(refDesMap, restartRefDes, brokerBounds)
 	go b.Run(cfg.Network.BroadcastRateHz)
 
 	// ── Start software channel publisher/handler ───────────────────────────
