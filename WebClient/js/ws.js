@@ -44,6 +44,8 @@ function onDataMessage(event) {
         case 'alert':           ingestAlert(msg);             break;
         case 'alert_acked':     ackAlertLocally(msg.id);      break;
         case 'alert_snapshot':  msg.alerts.forEach(ingestAlert); break;
+        case 'bad_data':          handleBadData(msg);                      break;
+        case 'bad_data_snapshot': msg.channels.forEach(handleBadData);     break;
         default: console.warn('Unknown data message type:', msg.type);
     }
 }

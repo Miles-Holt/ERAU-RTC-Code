@@ -24,6 +24,26 @@ let _listEl    = null;
 // Public API (called from ws.js)
 // =============================================================================
 
+// handleBadData converts a bad_data (or bad_data_snapshot entry) message from
+// the server into an alert bar entry.  Uses a stable ID ("bad:<refDes>") so
+// that updates replace the existing entry rather than adding duplicates.
+function handleBadData(msg) {
+    const id = 'bad:' + msg.refDes;
+    if (msg.status === 'ok') {
+        ackAlertLocally(id);
+        return;
+    }
+    const dir   = msg.status === 'high' ? '>' : '<';
+    const bound = msg.status === 'high' ? msg.validMax : msg.validMin;
+    ingestAlert({
+        id,
+        category:  'alarm',
+        message:   `${msg.refDes} out of range: ${msg.value.toFixed(2)} ${dir} ${bound}`,
+        timestamp: Math.round((msg.t ?? Date.now() / 1000) * 1000),
+        acked:     false,
+    });
+}
+
 function ingestAlert(a) {
     const existing = _alerts.findIndex(x => x.id === a.id);
     if (existing >= 0) {

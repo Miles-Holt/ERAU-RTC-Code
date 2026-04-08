@@ -651,6 +651,33 @@ func BuildRefDesMap(cfg *SystemConfig) map[string]string {
 	return m
 }
 
+// ── Channel bounds ────────────────────────────────────────────────────────────
+
+// ChannelBounds holds optional engineering-unit bounds for bad-data detection.
+type ChannelBounds struct {
+	Min *float64
+	Max *float64
+}
+
+// BuildChannelBoundsMap returns a map from channel refDes → ChannelBounds for
+// every enabled channel that has at least one of validMin / validMax set.
+func BuildChannelBoundsMap(cfg *SystemConfig) map[string]ChannelBounds {
+	m := make(map[string]ChannelBounds)
+	for _, ctrl := range cfg.ControlList.Controls {
+		if !ctrl.Enabled {
+			continue
+		}
+		for _, ch := range ctrl.Channels {
+			min := parseOptFloat(ch.ValidMin)
+			max := parseOptFloat(ch.ValidMax)
+			if min != nil || max != nil {
+				m[ch.RefDes] = ChannelBounds{Min: min, Max: max}
+			}
+		}
+	}
+	return m
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // buildDetails converts a Control's Details struct into the loosely-typed map

@@ -153,6 +153,14 @@ func (s *Server) ServeWsData(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Send bad-data snapshot so the client sees any currently out-of-range channels.
+	if snap := s.b.BadDataSnapshot(); snap != nil {
+		if err := conn.WriteMessage(websocket.TextMessage, snap); err != nil {
+			log.Printf("webclient data: send bad_data snapshot to %s: %v", r.RemoteAddr, err)
+			return
+		}
+	}
+
 	// Subscribe to broker and forward all broadcasts.
 	broadcastCh, unsub := s.b.Subscribe()
 	defer unsub()

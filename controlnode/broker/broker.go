@@ -8,11 +8,28 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 )
 
 // ── Public types ──────────────────────────────────────────────────────────────
+
+// ChannelBounds holds optional engineering-unit min/max for bad-data detection.
+// Nil means that side is unchecked.
+type ChannelBounds struct {
+	Min *float64
+	Max *float64
+}
+
+// badEntry tracks the last-known bad state for one channel.
+type badEntry struct {
+	Value  float64
+	Min    *float64
+	Max    *float64
+	Status string  // "high" or "low"
+	T      float64 // Unix timestamp (seconds) when it went bad
+}
 
 // DataEvent carries a batch of channel values from one source (a DAQ node or
 // the health goroutine).
@@ -50,7 +67,8 @@ type daqRegReq struct {
 // ── Broker ────────────────────────────────────────────────────────────────────
 
 // Broker fans data in and commands out.  All fields are only accessed from the
-// Run goroutine except the atomic counters, which are safe to read from anywhere.
+// Run goroutine except the atomic counters and badMu-protected fields, which
+// are safe to read from anywhere.
 type Broker struct {
 	dataIn    chan DataEvent
 	errIn     chan ErrEvent
@@ -65,6 +83,13 @@ type Broker struct {
 	// Restart refDes values that cause os.Exit(1) when commanded (immutable)
 	restartRefDes map[string]bool
 
+	// channelBounds is the set of channels to range-check (immutable after construction).
+	channelBounds map[string]ChannelBounds
+
+	// badMu protects badSnapshot; written by Run, read by BadDataSnapshot.
+	badMu       sync.RWMutex
+	badSnapshot []byte // nil when no channels are currently bad
+
 	// Atomic health counters — readable from outside the Run goroutine.
 	DaqConnected atomic.Int32
 	WcConnected  atomic.Int32
@@ -73,10 +98,15 @@ type Broker struct {
 
 // New creates a Broker.  refDesMap maps channel refDes → DAQ node refDes.
 // restartRefDes is the set of refDes values that trigger a CTR restart.
-func New(refDesMap map[string]string, restartRefDes []string) *Broker {
+// channelBounds is the set of channels to range-check for bad-data detection;
+// pass nil to disable range checking entirely.
+func New(refDesMap map[string]string, restartRefDes []string, channelBounds map[string]ChannelBounds) *Broker {
 	rr := make(map[string]bool, len(restartRefDes))
 	for _, r := range restartRefDes {
 		rr[r] = true
+	}
+	if channelBounds == nil {
+		channelBounds = make(map[string]ChannelBounds)
 	}
 	return &Broker{
 		dataIn:        make(chan DataEvent, 256),
@@ -87,6 +117,7 @@ func New(refDesMap map[string]string, restartRefDes []string) *Broker {
 		daqRegIn:      make(chan daqRegReq, 32),
 		refDesMap:     refDesMap,
 		restartRefDes: rr,
+		channelBounds: channelBounds,
 	}
 }
 
@@ -101,6 +132,7 @@ func (b *Broker) Run(broadcastRateHz int) {
 	currentValues := make(map[string]float64)
 	subscribers := make(map[chan []byte]struct{})
 	daqCmds := make(map[string]chan []byte) // DAQ refDes → write channel
+	badState := make(map[string]badEntry)   // refDes → current bad state (only bad channels present)
 
 	for {
 		select {
@@ -128,6 +160,7 @@ func (b *Broker) Run(broadcastRateHz int) {
 		case ev := <-b.dataIn:
 			for k, v := range ev.Values {
 				currentValues[k] = v
+				b.checkBounds(k, v, time.Now(), badState, subscribers)
 			}
 
 		// ── Broadcast tick ────────────────────────────────────────────────
@@ -264,6 +297,134 @@ func (b *Broker) Publish(msg []byte) {
 // RegisterDaq registers (or deregisters when ch==nil) a DAQ node's cmd channel.
 func (b *Broker) RegisterDaq(daqRefDes string, ch chan []byte) {
 	b.daqRegIn <- daqRegReq{refDes: daqRefDes, ch: ch}
+}
+
+// BadDataSnapshot returns a bad_data_snapshot JSON message containing all
+// channels currently outside their configured bounds, or nil if there are none.
+// Safe to call from any goroutine.
+func (b *Broker) BadDataSnapshot() []byte {
+	b.badMu.RLock()
+	defer b.badMu.RUnlock()
+	return b.badSnapshot
+}
+
+// checkBounds evaluates one channel value against its configured bounds.
+// Must only be called from the Run goroutine (badState is not mutex-protected).
+// On a bad↔ok state transition it fans a bad_data message out to all subscribers
+// and updates the mutex-protected snapshot used by BadDataSnapshot.
+func (b *Broker) checkBounds(refDes string, value float64, t time.Time,
+	badState map[string]badEntry, subscribers map[chan []byte]struct{}) {
+
+	bounds, ok := b.channelBounds[refDes]
+	if !ok {
+		return
+	}
+
+	// Determine new status.
+	var newStatus string
+	switch {
+	case bounds.Min != nil && value < *bounds.Min:
+		newStatus = "low"
+	case bounds.Max != nil && value > *bounds.Max:
+		newStatus = "high"
+	default:
+		newStatus = "ok"
+	}
+
+	_, wasBad := badState[refDes]
+	isBad := newStatus != "ok"
+
+	if !wasBad && !isBad {
+		return // was fine, still fine — nothing to do
+	}
+	if wasBad && isBad && badState[refDes].Status == newStatus {
+		return // still bad in the same direction — no transition
+	}
+
+	// State changed — update badState map.
+	if isBad {
+		badState[refDes] = badEntry{
+			Value:  value,
+			Min:    bounds.Min,
+			Max:    bounds.Max,
+			Status: newStatus,
+			T:      float64(t.UnixMilli()) / 1000.0,
+		}
+	} else {
+		delete(badState, refDes)
+	}
+
+	// Rebuild the shared snapshot from the updated badState.
+	b.updateBadSnapshot(badState)
+
+	// Build and fan-out the transition message immediately.
+	ts := float64(t.UnixMilli()) / 1000.0
+	msg := map[string]interface{}{
+		"type":   "bad_data",
+		"refDes": refDes,
+		"value":  value,
+		"status": newStatus,
+		"t":      ts,
+	}
+	if bounds.Min != nil {
+		msg["validMin"] = *bounds.Min
+	}
+	if bounds.Max != nil {
+		msg["validMax"] = *bounds.Max
+	}
+	payload, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("broker: marshal bad_data: %v", err)
+		return
+	}
+	for ch := range subscribers {
+		select {
+		case ch <- payload:
+		default:
+		}
+	}
+}
+
+// updateBadSnapshot rebuilds the mutex-protected bad_data_snapshot from the
+// current badState map.  Must only be called from the Run goroutine.
+func (b *Broker) updateBadSnapshot(badState map[string]badEntry) {
+	b.badMu.Lock()
+	defer b.badMu.Unlock()
+
+	if len(badState) == 0 {
+		b.badSnapshot = nil
+		return
+	}
+
+	type snapshotEntry struct {
+		RefDes   string   `json:"refDes"`
+		Value    float64  `json:"value"`
+		ValidMin *float64 `json:"validMin,omitempty"`
+		ValidMax *float64 `json:"validMax,omitempty"`
+		Status   string   `json:"status"`
+		T        float64  `json:"t"`
+	}
+	entries := make([]snapshotEntry, 0, len(badState))
+	for refDes, e := range badState {
+		entries = append(entries, snapshotEntry{
+			RefDes:   refDes,
+			Value:    e.Value,
+			ValidMin: e.Min,
+			ValidMax: e.Max,
+			Status:   e.Status,
+			T:        e.T,
+		})
+	}
+	snap, err := json.Marshal(map[string]interface{}{
+		"type":     "bad_data_snapshot",
+		"channels": entries,
+	})
+	if err != nil {
+		log.Printf("broker: marshal bad_data_snapshot: %v", err)
+		b.badSnapshot = nil
+		return
+	}
+	b.badSnapshot = snap
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -37,7 +37,7 @@ channels:
     description: Chamber pressure high abort threshold
     units: psia
     role: cmd-float
-    default: 850
+    default: 450
     min: 0
     max: 2000
 
