@@ -1,0 +1,80 @@
+daqNode: DAQ001
+updatedBy: mholt
+dateUpdated: 2026-04-07
+
+# Variable names map to software channel refDes values.
+# Use {{VAR}} in sequences and abort_rules to reference them.
+variables:
+  BURN_DUR:  SEQ-BURN-DUR       # burn duration (ms)
+  IGN_LEAD:  SEQ-IGN-LEAD       # igniter lead time before main valves open (ms)
+  CPT_HIGH:  LIM-CPT01-HIGH     # chamber pressure high abort threshold (psia)
+  CPT_LOW:   LIM-CPT01-LOW      # chamber pressure low abort threshold (psia)
+
+states:
+
+  safe:
+    # Entry: ensure all bang-bang outputs are off, open vent valves
+    entry_sequence:
+      - { t_ms: 0,    refDes: NV-01-POS, value: 0 }
+      - { t_ms: 0,    refDes: NV-01-NEG, value: 0 }
+      - { t_ms: 0,    refDes: NV-02-POS, value: 0 }
+      - { t_ms: 0,    refDes: NV-02-NEG, value: 0 }
+      - { t_ms: 1000, refDes: OV-01-CMD, value: 1, label: "LOX vent open" }
+      - { t_ms: 1000, refDes: FV-01-CMD, value: 1, label: "Fuel vent open" }
+    operator_control: false
+    transitions:
+      - { target: manualControl, on: operator_request }
+
+  manualControl:
+    entry_sequence: []
+    # Operator has full command authority over all commandable channels
+    operator_control: true
+    transitions:
+      - { target: autoSequence, on: operator_request }
+      - { target: safe,         on: operator_request }
+
+  autoSequence:
+    entry_sequence:
+      - { t_ms: 0,              refDes: OV-01-CMD, value: 0, label: "LOX vent close" }
+      - { t_ms: 0,              refDes: FV-01-CMD, value: 0, label: "Fuel vent close" }
+      - { t_ms: 0,              refDes: NV-03-CMD, value: 1, label: "LOX press open" }
+      - { t_ms: 0,              refDes: NV-04-CMD, value: 1, label: "Fuel press open" }
+      - { t_ms: 2000,           refDes: OV-05-CMD, value: 1, label: "LOX main open" }
+      - { t_ms: 2000,           refDes: FV-03-CMD, value: 1, label: "Fuel main open" }
+      - { t_ms: "{{IGN_LEAD}}", refDes: IG-01-CMD, value: 1, label: "Igniter fire" }
+      - { t_ms: "{{BURN_DUR}}", refDes: OV-05-CMD, value: 0, label: "LOX main close" }
+      - { t_ms: "{{BURN_DUR}}", refDes: FV-03-CMD, value: 0, label: "Fuel main close" }
+      - { t_ms: "{{BURN_DUR}}", refDes: IG-01-CMD, value: 0, label: "Igniter off" }
+    # Time-critical exit: runs locally on LabVIEW (<1ms) when abort_rules trigger.
+    # Control node sends the abort state entry_sequence after exit_complete is received.
+    exit_sequence:
+      - { t_ms: 0, refDes: OV-05-CMD, value: 0, label: "LOX main close" }
+      - { t_ms: 0, refDes: FV-03-CMD, value: 0, label: "Fuel main close" }
+      - { t_ms: 0, refDes: IG-01-CMD, value: 0, label: "Igniter off" }
+      - { t_ms: 0, refDes: NV-03-CMD, value: 0, label: "LOX press close" }
+      - { t_ms: 0, refDes: NV-04-CMD, value: 0, label: "Fuel press close" }
+    # Abort rules: checked every LabVIEW scan cycle.
+    # refDes + comparison + value parsed by Go, sent to LabVIEW as structured JSON (no string parsing on DAQ).
+    # t_ms_on / t_ms_off define the active window relative to sequence start.
+    abort_rules:
+      - if: "CPT-01 > {{CPT_HIGH}}"
+        t_ms_on: 0
+        t_ms_off: 20000
+      - if: "CPT-01 < {{CPT_LOW}}"
+        t_ms_on: "{{IGN_LEAD}}"
+        t_ms_off: "{{BURN_DUR}}"
+    operator_control: false
+    transitions:
+      - { target: abort, on: abort_triggered }
+      - { target: safe,  on: sequence_complete }
+      - { target: abort, on: operator_abort }
+
+  abort:
+    entry_sequence:
+      - { t_ms: 0,    refDes: NV-05-CMD, value: 1, label: "LOX purge open" }
+      - { t_ms: 0,    refDes: NV-06-CMD, value: 1, label: "Fuel purge open" }
+      - { t_ms: 5000, refDes: OV-01-CMD, value: 1, label: "LOX vent open" }
+      - { t_ms: 5000, refDes: FV-01-CMD, value: 1, label: "Fuel vent open" }
+    operator_control: false
+    transitions:
+      - { target: safe, on: operator_request }

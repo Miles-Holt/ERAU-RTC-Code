@@ -1,0 +1,844 @@
+controls:
+
+  # ── Load Cells ──────────────────────────────────────────────────────────────
+
+  - refDes: LCC-01
+    description: TC3 Load cell cluster
+    enabled: true
+    type: thrust
+    channels:
+      - refDes: LCC-01-01
+        daqNode: DAQ001
+        module: Bridge-Completion-2
+        channel: /ai0
+        daqMx:
+          taskName: Bridge-Completion-2/ai0
+          bridgeConfiguration: Full Bridge
+          voltageExcitationSource: Internal
+          excitationVoltage: "10"
+          nominalBridgeResistance: "350"
+          firstElectricalValue: "0.01355"
+          secondElectricalValue: "-0.0243"
+          firstPhysicalValue: "0"
+          secondPhysicalValue: "25.15"
+          electricalUnits: mVolts/Volt
+          units: Pounds
+      - refDes: LCC-01-02
+        daqNode: DAQ001
+        module: Bridge-Completion-2
+        channel: /ai1
+        daqMx:
+          taskName: Bridge-Completion-2/ai1
+          bridgeConfiguration: Full Bridge
+          voltageExcitationSource: Internal
+          excitationVoltage: "10"
+          nominalBridgeResistance: "350"
+          firstElectricalValue: "0.008"
+          secondElectricalValue: "-0.0294"
+          firstPhysicalValue: "0"
+          secondPhysicalValue: "25.15"
+          electricalUnits: mVolts/Volt
+          units: Pounds
+      - refDes: LCC-01-03
+        daqNode: DAQ001
+        module: Bridge-Completion-2
+        channel: /ai2
+        daqMx:
+          taskName: Bridge-Completion-2/ai2
+          bridgeConfiguration: Full Bridge
+          voltageExcitationSource: Internal
+          excitationVoltage: "10"
+          nominalBridgeResistance: "350"
+          firstElectricalValue: "0.0117"
+          secondElectricalValue: "-0.0259"
+          firstPhysicalValue: "0"
+          secondPhysicalValue: "25.15"
+          electricalUnits: mVolts/Volt
+          units: Pounds
+      - refDes: LCC-01-04
+        daqNode: DAQ001
+        module: Bridge-Completion-2
+        channel: /ai3
+        daqMx:
+          taskName: Bridge-Completion-2/ai3
+          bridgeConfiguration: Full Bridge
+          voltageExcitationSource: Internal
+          excitationVoltage: "10"
+          nominalBridgeResistance: "350"
+          firstElectricalValue: "0.01165"
+          secondElectricalValue: "-0.02618"
+          firstPhysicalValue: "0"
+          secondPhysicalValue: "25.15"
+          electricalUnits: mVolts/Volt
+          units: Pounds
+
+  # ── Trigger ─────────────────────────────────────────────────────────────────
+
+  - refDes: TRIGGER-01
+    description: Trigger signal
+    enabled: true
+    type: digitalOut
+    channels:
+      - refDes: TRIGGER-01
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Analog-Output
+        channel: /port0/line0
+        daqMx:
+          taskName: Analog-Output/port0/line0
+
+  # ── Ignition ─────────────────────────────────────────────────────────────────
+
+  - refDes: IG-01
+    description: Ignition circuit
+    enabled: true
+    type: ignition
+    subType: IO-CMD
+    channels:
+      - refDes: IG-01-CMD
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port5/line0
+        daqMx:
+          taskName: Digital-IO/port5/line0
+
+  # ── Thermocouples ─────────────────────────────────────────────────────────────
+
+  - refDes: FT-02
+    description: Fuel Injector Temperature
+    enabled: true
+    type: temperature
+    channels:
+      - refDes: FT-02
+        daqNode: DAQ001
+        module: Thermocouple
+        channel: ai13
+        daqMx:
+          taskName: Thermocouple/ai13
+          type: K
+          units: Deg F
+
+  - refDes: FT-01
+    description: Fuel Tank Temperature
+    enabled: true
+    type: temperature
+    channels:
+      - refDes: FT-01
+        daqNode: DAQ001
+        module: Thermocouple
+        channel: ai12
+        daqMx:
+          taskName: Thermocouple/ai12
+          type: K
+          units: Deg F
+
+  - refDes: OT-01
+    description: LOX Tank Temperature 0%
+    enabled: true
+    type: temperature
+    channels:
+      - refDes: OT-01
+        daqNode: DAQ001
+        module: Thermocouple
+        channel: ai25
+        daqMx:
+          taskName: Thermocouple/ai25
+          type: E
+          units: Deg F
+
+  - refDes: OT-02
+    description: LOX Tank Temperature 25%
+    enabled: true
+    type: temperature
+    channels:
+      - refDes: OT-02
+        daqNode: DAQ001
+        module: Thermocouple
+        channel: ai28
+        daqMx:
+          taskName: Thermocouple/ai28
+          type: E
+          units: Deg F
+
+  - refDes: OT-03
+    description: LOX Tank Temperature 50%
+    enabled: true
+    type: temperature
+    channels:
+      - refDes: OT-03
+        daqNode: DAQ001
+        module: Thermocouple
+        channel: ai29
+        daqMx:
+          taskName: Thermocouple/ai29
+          type: E
+          units: Deg F
+
+  - refDes: OT-04
+    description: LOX Tank Temperature 75%
+    enabled: true
+    type: temperature
+    channels:
+      - refDes: OT-04
+        daqNode: DAQ001
+        module: Thermocouple
+        channel: ai30
+        daqMx:
+          taskName: Thermocouple/ai30
+          type: E
+          units: Deg F
+
+  - refDes: OT-05
+    description: LOX Tank Temperature 100%
+    enabled: true
+    type: temperature
+    channels:
+      - refDes: OT-05
+        daqNode: DAQ001
+        module: Thermocouple
+        channel: ai31
+        daqMx:
+          taskName: Thermocouple/ai31
+          type: E
+          units: Deg F
+
+  - refDes: OT-06
+    description: LOX Fill Temperature
+    enabled: true
+    type: temperature
+    channels:
+      - refDes: OT-06
+        daqNode: DAQ001
+        module: Thermocouple
+        channel: ai24
+        daqMx:
+          taskName: Thermocouple/ai24
+          type: E
+          units: Deg F
+
+  - refDes: OT-07
+    description: LOX Upstream Temperature
+    enabled: true
+    type: temperature
+    channels:
+      - refDes: OT-07
+        daqNode: DAQ001
+        module: Thermocouple
+        channel: ai26
+        daqMx:
+          taskName: Thermocouple/ai26
+          type: E
+          units: Deg F
+
+  - refDes: OT-08
+    description: LOX Injector Temperature
+    enabled: true
+    type: temperature
+    channels:
+      - refDes: OT-08
+        daqNode: DAQ001
+        module: Thermocouple
+        channel: ai27
+        daqMx:
+          taskName: Thermocouple/ai27
+          type: E
+          units: Deg F
+
+  # ── N2 Pressure Transducers ──────────────────────────────────────────────────
+
+  - refDes: NPT-01
+    description: Bottle Pressure
+    enabled: true
+    type: pressure
+    details:
+      absolute: false
+    channels:
+      - refDes: NPT-01
+        daqNode: DAQ001
+        module: Analog-Input
+        channel: ai02
+        daqMx:
+          taskName: Analog-Input/ai2
+          sensitivity: "73943.66197"
+          balance: "2.21831"
+          inputTerminalConfiguration: Differential
+          units: psig
+
+  - refDes: NPT-02
+    description: Muscle Pressure
+    enabled: true
+    type: pressure
+    details:
+      absolute: false
+    channels:
+      - refDes: NPT-02
+        daqNode: DAQ001
+        module: Analog-Input
+        channel: ai01
+        daqMx:
+          taskName: Analog-Input/ai1
+          sensitivity: "3002.5"
+          balance: "0.3854"
+          inputTerminalConfiguration: Differential
+          units: psig
+
+  - refDes: NPT-03
+    description: High-Pressure Purge Pressure
+    enabled: true
+    type: pressure
+    details:
+      absolute: false
+    channels:
+      - refDes: NPT-03
+        daqNode: DAQ001
+        module: Analog-Input
+        channel: ai13
+        daqMx:
+          taskName: Analog-Input/ai13
+          sensitivity: "-19859.9870910083"
+          balance: "3.61451765056352"
+          inputTerminalConfiguration: Differential
+          units: psig
+
+  # ── Fuel Pressure Transducers ────────────────────────────────────────────────
+
+  - refDes: FPT-01
+    description: Fuel Panel Pressure
+    enabled: true
+    type: pressure
+    details:
+      absolute: false
+    channels:
+      - refDes: FPT-01
+        daqNode: DAQ001
+        module: Analog-Input
+        channel: ai03
+        daqMx:
+          taskName: Analog-Input/ai3
+          sensitivity: "20309.48"
+          balance: "4.26499"
+          inputTerminalConfiguration: Differential
+          units: psig
+
+  - refDes: FPT-02
+    description: Fuel Tank Pressure
+    enabled: true
+    type: pressure
+    details:
+      absolute: false
+    channels:
+      - refDes: FPT-02
+        daqNode: DAQ001
+        module: Analog-Input
+        channel: ai07
+        daqMx:
+          taskName: Analog-Input/ai7
+          sensitivity: "20153.55"
+          balance: "-6.2476"
+          inputTerminalConfiguration: Differential
+          units: psig
+
+  - refDes: FPT-03
+    description: Fuel Venturi Upstream Pressure
+    enabled: true
+    type: pressure
+    details:
+      absolute: false
+    channels:
+      - refDes: FPT-03
+        daqNode: DAQ001
+        module: Analog-Input
+        channel: ai10
+        daqMx:
+          taskName: Analog-Input/ai10
+          sensitivity: "20063.4231925066"
+          balance: "11.2409341120657"
+          inputTerminalConfiguration: Differential
+          units: psig
+
+  - refDes: FPT-04
+    description: Fuel Injector Pressure
+    enabled: true
+    type: pressure
+    details:
+      absolute: false
+    channels:
+      - refDes: FPT-04
+        daqNode: DAQ001
+        module: Analog-Input
+        channel: ai12
+        daqMx:
+          taskName: Analog-Input/ai12
+          sensitivity: "10011"
+          balance: "-0.1097"
+          inputTerminalConfiguration: Differential
+          units: psig
+
+  # ── LOX Pressure Transducers ─────────────────────────────────────────────────
+
+  - refDes: OPT-01
+    description: LOX Panel Pressure
+    enabled: true
+    type: pressure
+    details:
+      absolute: false
+    channels:
+      - refDes: OPT-01
+        daqNode: DAQ001
+        module: Analog-Input
+        channel: ai00
+        daqMx:
+          taskName: Analog-Input/ai0
+          sensitivity: "20309.48"
+          balance: "4.26499"
+          inputTerminalConfiguration: Differential
+          units: psig
+
+  - refDes: OPT-02
+    description: LOX Tank Pressure
+    enabled: true
+    type: pressure
+    details:
+      absolute: false
+    channels:
+      - refDes: OPT-02
+        daqNode: DAQ001
+        module: Analog-Input
+        channel: ai04
+        daqMx:
+          taskName: Analog-Input/ai4
+          sensitivity: "19848.7712665406"
+          balance: "14.88658"
+          inputTerminalConfiguration: Differential
+          units: psig
+
+  - refDes: OPT-03
+    description: LOX Venturi Upstream Pressure
+    enabled: true
+    type: pressure
+    details:
+      absolute: false
+    channels:
+      - refDes: OPT-03
+        daqNode: DAQ001
+        module: Analog-Input
+        channel: ai05
+        daqMx:
+          taskName: Analog-Input/ai5
+          sensitivity: "249.6"
+          balance: "-116.79"
+          inputTerminalConfiguration: NRSE
+          units: psig
+
+  - refDes: OPT-04
+    description: LOX Injector Pressure
+    enabled: true
+    type: pressure
+    details:
+      absolute: false
+    channels:
+      - refDes: OPT-04
+        daqNode: DAQ001
+        module: Analog-Input
+        channel: ai06
+        daqMx:
+          taskName: Analog-Input/ai6
+          sensitivity: "10038"
+          balance: "-4.5825"
+          inputTerminalConfiguration: Differential
+          units: psig
+
+  # ── Chamber Pressure ──────────────────────────────────────────────────────────
+
+  - refDes: CPT-01
+    description: Chamber Pressure
+    enabled: true
+    type: pressure
+    details:
+      absolute: true
+    channels:
+      - refDes: CPT-01
+        daqNode: DAQ001
+        module: Analog-Input
+        channel: ai31
+        daqMx:
+          taskName: Analog-Input/ai31
+          sensitivity: "189.9696"
+          balance: "-250"
+          inputTerminalConfiguration: Differential
+          units: psia
+
+  - refDes: CPT-02
+    description: ASI Chamber Pressure
+    enabled: false
+    type: pressure
+    details:
+      absolute: true
+    channels:
+      - refDes: CPT-02
+        daqNode: DAQ001
+        module: Analog-Input
+        channel: ai18
+        daqMx:
+          taskName: Analog-Input/ai18
+          sensitivity: "1"
+          balance: "0"
+          inputTerminalConfiguration: Differential
+          units: psia
+
+  # ── Flow Meters ───────────────────────────────────────────────────────────────
+
+  - refDes: FFM-01
+    description: Fuel Turbine Flow Meter
+    enabled: true
+    type: flowMeter
+    channels:
+      - refDes: FFM-01
+        daqNode: DAQ001
+        module: Analog-Input
+        channel: ai29
+        daqMx:
+          taskName: Analog-Input/ai29
+          sensitivity: "904.46"
+          balance: "0"
+          inputTerminalConfiguration: Differential
+          units: GPM
+
+  - refDes: OFM-01
+    description: LOX Turbine Flow Meter
+    enabled: true
+    type: flowMeter
+    channels:
+      - refDes: OFM-01
+        daqNode: DAQ001
+        module: Analog-Input
+        channel: ai30
+        daqMx:
+          taskName: Analog-Input/ai30
+          sensitivity: "728.9"
+          balance: "0"
+          inputTerminalConfiguration: Differential
+          units: GPM
+
+  # ── Bang-Bang Controllers ─────────────────────────────────────────────────────
+
+  - refDes: NV-01
+    description: LOX Bang Bang
+    enabled: true
+    type: bangBang
+    subType: press2
+    details:
+      senseRefDes: OPT-02
+    channels:
+      - refDes: NV-01-POS
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port5/line2
+        daqMx:
+          taskName: Digital-IO/port5/line2
+      - refDes: NV-01-NEG
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port5/line3
+        daqMx:
+          taskName: Digital-IO/port5/line3
+
+  - refDes: NV-02
+    description: Fuel Bang Bang
+    enabled: true
+    type: bangBang
+    subType: press2
+    details:
+      senseRefDes: FPT-02
+    channels:
+      - refDes: NV-02-POS
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port5/line4
+        daqMx:
+          taskName: Digital-IO/port5/line4
+      - refDes: NV-02-NEG
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port5/line5
+        daqMx:
+          taskName: Digital-IO/port5/line5
+
+  # ── N2 Valves ─────────────────────────────────────────────────────────────────
+
+  - refDes: NV-03
+    description: LOX Press
+    enabled: true
+    type: valve
+    subType: IO-CMD_IO-FB
+    channels:
+      - refDes: NV-03-CMD
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port3/line0
+        daqMx:
+          taskName: Digital-IO/port3/line0
+      - refDes: NV-03-FB
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port0/line0
+        daqMx:
+          taskName: Digital-IO/port0/line0
+
+  - refDes: NV-04
+    description: Fuel Press
+    enabled: true
+    type: valve
+    subType: IO-CMD_IO-FB
+    channels:
+      - refDes: NV-04-CMD
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port3/line7
+        daqMx:
+          taskName: Digital-IO/port3/line7
+      - refDes: NV-04-FB
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port0/line7
+        daqMx:
+          taskName: Digital-IO/port0/line7
+
+  - refDes: NV-05
+    description: LOX Purge
+    enabled: true
+    type: valve
+    subType: IO-CMD_IO-FB
+    channels:
+      - refDes: NV-05-CMD
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port3/line1
+        daqMx:
+          taskName: Digital-IO/port3/line1
+      - refDes: NV-05-FB
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port0/line1
+        daqMx:
+          taskName: Digital-IO/port0/line1
+
+  - refDes: NV-06
+    description: Fuel Purge
+    enabled: true
+    type: valve
+    subType: IO-CMD_IO-FB
+    channels:
+      - refDes: NV-06-CMD
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port4/line0
+        daqMx:
+          taskName: Digital-IO/port4/line0
+      - refDes: NV-06-FB
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port1/line0
+        daqMx:
+          taskName: Digital-IO/port1/line0
+
+  # ── LOX Valves ────────────────────────────────────────────────────────────────
+
+  - refDes: OV-01
+    description: LOX Vent
+    enabled: true
+    type: valve
+    subType: IO-CMD_IO-FB
+    channels:
+      - refDes: OV-01-CMD
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port3/line2
+        daqMx:
+          taskName: Digital-IO/port3/line2
+      - refDes: OV-01-FB
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port0/line2
+        daqMx:
+          taskName: Digital-IO/port0/line2
+
+  - refDes: OV-02
+    description: LOX Fill
+    enabled: true
+    type: valve
+    subType: IO-CMD_IO-FB
+    channels:
+      - refDes: OV-02-CMD
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port3/line6
+        daqMx:
+          taskName: Digital-IO/port3/line6
+      - refDes: OV-02-FB
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port0/line6
+        daqMx:
+          taskName: Digital-IO/port0/line6
+
+  - refDes: OV-03
+    description: LOX Iso
+    enabled: true
+    type: valve
+    subType: IO-CMD_IO-FB
+    channels:
+      - refDes: OV-03-CMD
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port3/line3
+        daqMx:
+          taskName: Digital-IO/port3/line3
+      - refDes: OV-03-FB
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port0/line3
+        daqMx:
+          taskName: Digital-IO/port0/line3
+
+  - refDes: OV-04
+    description: LOX Bleed
+    enabled: true
+    type: valve
+    subType: IO-CMD_IO-FB
+    channels:
+      - refDes: OV-04-CMD
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port3/line5
+        daqMx:
+          taskName: Digital-IO/port3/line5
+      - refDes: OV-04-FB
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port0/line5
+        daqMx:
+          taskName: Digital-IO/port0/line5
+
+  - refDes: OV-05
+    description: LOX Main
+    enabled: true
+    type: valve
+    subType: IO-CMD_IO-FB
+    channels:
+      - refDes: OV-05-CMD
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port3/line4
+        daqMx:
+          taskName: Digital-IO/port3/line4
+      - refDes: OV-05-FB
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port0/line4
+        daqMx:
+          taskName: Digital-IO/port0/line4
+
+  # ── Fuel Valves ───────────────────────────────────────────────────────────────
+
+  - refDes: FV-01
+    description: Fuel Vent
+    enabled: true
+    type: valve
+    subType: IO-CMD_IO-FB
+    channels:
+      - refDes: FV-01-CMD
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port4/line1
+        daqMx:
+          taskName: Digital-IO/port4/line1
+      - refDes: FV-01-FB
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port1/line1
+        daqMx:
+          taskName: Digital-IO/port1/line1
+
+  - refDes: FV-02
+    description: Fuel Iso
+    enabled: true
+    type: valve
+    subType: IO-CMD_IO-FB
+    channels:
+      - refDes: FV-02-CMD
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port4/line2
+        daqMx:
+          taskName: Digital-IO/port4/line2
+      - refDes: FV-02-FB
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port1/line2
+        daqMx:
+          taskName: Digital-IO/port1/line2
+
+  - refDes: FV-03
+    description: Fuel Main
+    enabled: true
+    type: valve
+    subType: IO-CMD_IO-FB
+    channels:
+      - refDes: FV-03-CMD
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port4/line3
+        daqMx:
+          taskName: Digital-IO/port4/line3
+      - refDes: FV-03-FB
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port1/line3
+        daqMx:
+          taskName: Digital-IO/port1/line3
+
+  - refDes: FV-BLANK-01
+    description: Fuel Blank 1
+    enabled: true
+    type: valve
+    subType: IO-CMD
+    channels:
+      - refDes: FV-BLANK-01
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port4/line4
+        daqMx:
+          taskName: Digital-IO/port4/line4
+
+  - refDes: FV-BLANK-02
+    description: Fuel Blank 2
+    enabled: true
+    type: valve
+    subType: IO-CMD
+    channels:
+      - refDes: FV-BLANK-02
+        role: cmd-bool
+        daqNode: DAQ001
+        module: Digital-IO
+        channel: /port4/line5
+        daqMx:
+          taskName: Digital-IO/port4/line5

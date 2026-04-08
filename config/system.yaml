@@ -1,0 +1,5 @@
+webSocketPort: 8000
+broadcastRateHz: 50
+connectionManagementRateHz: 1
+loggingRateHz: 10
+channelStaleMs: 2000

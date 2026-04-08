@@ -1,0 +1,28 @@
+refDes: DAQ001
+ip: MHOLT-AA
+wsPort: 8001
+description: PXIe configuration file
+enabled: true
+
+modules:
+  - slotId: 1
+    moduleModelNumber: Thermocouple
+    description: Thermocouple Module
+    enabled: true
+    sampleRateHz: 1000
+  - moduleModelNumber: Analog-Input
+    description: Analog-input module
+    enabled: true
+    sampleRateHz: 1000
+  - moduleModelNumber: Bridge-Completion-2
+    description: Bridge Completion Modules
+    enabled: true
+    sampleRateHz: 1000
+  - moduleModelNumber: Digital-IO
+    description: Digital IO Module
+    enabled: true
+    sampleRateHz: 1000
+  - moduleModelNumber: Analog-Output
+    description: Analog-Output Module
+    enabled: true
+    sampleRateHz: 1000

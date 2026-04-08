@@ -5,6 +5,7 @@ import (
 	"controlnode/config"
 	"controlnode/daqnode"
 	"controlnode/health"
+	"controlnode/softchan"
 	"controlnode/webclient"
 	"encoding/json"
 	"flag"
@@ -16,7 +17,7 @@ import (
 )
 
 func main() {
-	configPath := flag.String("config", "../config/nodeConfigs_0.0.2.xml", "path to nodeConfigs XML file")
+	configDir := flag.String("config-dir", "../config", "path to config directory")
 	webRoot := flag.String("webroot", "", "directory to serve as web client UI (empty = use embedded)")
 	flag.Parse()
 
@@ -26,8 +27,8 @@ func main() {
 		log.Fatalf("embedded FS sub: %v", err)
 	}
 
-	// ── Parse XML config ──────────────────────────────────────────────────
-	cfg, err := config.Parse(*configPath)
+	// ── Parse YAML config ─────────────────────────────────────────────────
+	cfg, err := config.ParseDir(*configDir)
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
@@ -57,9 +58,29 @@ func main() {
 		log.Fatalf("build web client config JSON: %v", err)
 	}
 
+	// ── Software channels (load before broker so refDesMap is complete) ─────
+	var softchanConfigJSON []byte
+	sc, scErr := softchan.New(
+		filepath.Join(*configDir, "softChannels.yaml"),
+		filepath.Join(*configDir, "softChannelValues.yaml"),
+	)
+	if scErr != nil {
+		log.Printf("softchan: failed to load, continuing without: %v", scErr)
+	} else {
+		for k, v := range sc.RefDesMap() {
+			refDesMap[k] = v
+		}
+		softchanConfigJSON = sc.ConfigJSON()
+	}
+
 	// ── Create broker ─────────────────────────────────────────────────────
 	b := broker.New(refDesMap, restartRefDes)
 	go b.Run(cfg.Network.BroadcastRateHz)
+
+	// ── Start software channel publisher/handler ───────────────────────────
+	if sc != nil {
+		go sc.Run(b, cfg.Network.BroadcastRateHz)
+	}
 
 	// ── Health publisher ──────────────────────────────────────────────────
 	sensorRefDes := buildHealthSensorMap(cfg)
@@ -71,7 +92,7 @@ func main() {
 	// ── DAQ node clients (one goroutine per enabled DAQ node) ─────────────
 	for i := range cfg.DaqNodes.Nodes {
 		node := &cfg.DaqNodes.Nodes[i]
-		if !isEnabled(node.Enabled) {
+		if !node.Enabled {
 			log.Printf("daqnode %s: disabled, skipping", node.RefDes)
 			continue
 		}
@@ -90,29 +111,29 @@ func main() {
 	}
 
 	// ── Load front panel layout files ─────────────────────────────────────
-	panelLayoutsPath := filepath.Join(filepath.Dir(*configPath), "panelLayouts.yaml")
+	panelLayoutsPath := filepath.Join(*configDir, "panelLayouts.yaml")
 	panelCfg, err := config.LoadPanelLayouts(panelLayoutsPath)
 	if err != nil {
 		log.Fatalf("panelLayouts.yaml: %v", err)
 	}
-	panelMessages := loadPanelMessages(panelCfg, filepath.Dir(*configPath))
+	panelMessages := loadPanelMessages(panelCfg, *configDir)
 
 	layoutPaths := make(map[string]string)
 	for _, p := range panelCfg.Panels {
 		if p.Enabled {
-			layoutPaths[filepath.Base(p.File)] = filepath.Join(filepath.Dir(*configPath), p.File)
+			layoutPaths[filepath.Base(p.File)] = filepath.Join(*configDir, p.File)
 		}
 	}
 
 	// ── Load user auth config ─────────────────────────────────────────────
-	authCfg, err := webclient.LoadUserAuth(filepath.Join(filepath.Dir(*configPath), "userAuth.yaml"))
+	authCfg, err := webclient.LoadUserAuth(filepath.Join(*configDir, "userAuth.yaml"))
 	if err != nil {
 		log.Printf("webclient: userAuth.yaml not loaded, auth disabled: %v", err)
 		authCfg = nil
 	}
 
 	// ── Web client WebSocket server (blocks forever) ──────────────────────
-	srv := webclient.New(cfg.Network.WebSocketPort, wcConfigJSON, panelMessages, b, *webRoot, embeddedSub, authCfg, layoutPaths)
+	srv := webclient.New(cfg.Network.WebSocketPort, wcConfigJSON, softchanConfigJSON, panelMessages, b, *webRoot, embeddedSub, authCfg, layoutPaths)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("webclient server: %v", err)
 	}
@@ -171,6 +192,3 @@ func buildHealthSensorMap(cfg *config.SystemConfig) map[string]string {
 	return m
 }
 
-func isEnabled(s string) bool {
-	return strings.EqualFold(strings.TrimSpace(s), "true")
-}

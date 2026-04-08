@@ -32,12 +32,13 @@ type alertRecord struct {
 // Server listens for browser WebSocket connections on the configured port.
 // It also serves static files from webRoot for plain HTTP requests.
 type Server struct {
-	port         int
-	configJSON   []byte
-	b            *broker.Broker
-	fileServer   http.Handler
-	userAuth     *UserAuthConfig
-	layoutPaths  map[string]string // filename → absolute disk path (immutable)
+	port               int
+	configJSON         []byte
+	softchanConfigJSON []byte // softchan_config message; nil if no software channels
+	b                  *broker.Broker
+	fileServer         http.Handler
+	userAuth           *UserAuthConfig
+	layoutPaths        map[string]string // filename → absolute disk path (immutable)
 
 	mu            sync.RWMutex
 	panelMessages [][]byte      // pid_layout messages; updated when a layout is saved
@@ -47,8 +48,9 @@ type Server struct {
 // New creates a Server.
 // layoutPaths maps layout filename (e.g. "test_panel.yaml") → absolute path on disk.
 // Pass userAuth=nil to disable authentication (any credentials are accepted).
-func New(port int, configJSON string, panelMessages [][]byte, b *broker.Broker,
-	webRoot string, embedded fs.FS, userAuth *UserAuthConfig,
+// Pass softchanConfigJSON=nil if there are no software channels.
+func New(port int, configJSON string, softchanConfigJSON []byte, panelMessages [][]byte,
+	b *broker.Broker, webRoot string, embedded fs.FS, userAuth *UserAuthConfig,
 	layoutPaths map[string]string) *Server {
 
 	var fsh http.Handler
@@ -58,13 +60,14 @@ func New(port int, configJSON string, panelMessages [][]byte, b *broker.Broker,
 		fsh = http.FileServer(http.FS(embedded))
 	}
 	return &Server{
-		port:          port,
-		configJSON:    []byte(configJSON),
-		panelMessages: panelMessages,
-		b:             b,
-		fileServer:    fsh,
-		userAuth:      userAuth,
-		layoutPaths:   layoutPaths,
+		port:               port,
+		configJSON:         []byte(configJSON),
+		softchanConfigJSON: softchanConfigJSON,
+		panelMessages:      panelMessages,
+		b:                  b,
+		fileServer:         fsh,
+		userAuth:           userAuth,
+		layoutPaths:        layoutPaths,
 	}
 }
 
@@ -120,6 +123,14 @@ func (s *Server) ServeWsData(w http.ResponseWriter, r *http.Request) {
 	if err := conn.WriteMessage(websocket.TextMessage, s.configJSON); err != nil {
 		log.Printf("webclient data: send config to %s: %v", r.RemoteAddr, err)
 		return
+	}
+
+	// Send software channel config (if any).
+	if s.softchanConfigJSON != nil {
+		if err := conn.WriteMessage(websocket.TextMessage, s.softchanConfigJSON); err != nil {
+			log.Printf("webclient data: send softchan_config to %s: %v", r.RemoteAddr, err)
+			return
+		}
 	}
 
 	// Send panel layout messages.

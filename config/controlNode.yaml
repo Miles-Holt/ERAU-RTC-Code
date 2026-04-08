@@ -1,0 +1,24 @@
+refDes: CTR001
+ip: MHOLT-LA
+description: Central control and routing node
+enabled: true
+
+health:
+  sensors:
+    - refDes: CTR001-uptime
+      description: CTR Node Uptime
+      units: s
+    - refDes: CTR001-loopTime
+      description: CTR Broker Loop Time
+      units: ms
+    - refDes: CTR001-daqConnected
+      description: DAQ Nodes Connected
+      units: count
+    - refDes: CTR001-wcConnected
+      description: Web Clients Connected
+      units: count
+
+  commands:
+    - refDes: CTR001-restart
+      description: Force Restart CTR Node
+      role: cmd-bool

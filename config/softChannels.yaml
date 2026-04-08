@@ -1,0 +1,47 @@
+channels:
+  # ── Sequence Timings ──────────────────────────────────────────────────────────
+  - refDes: SEQ-BURN-DUR
+    description: Burn duration
+    units: ms
+    role: cmd-float
+    default: 3000
+    min: 500
+    max: 10000
+
+  - refDes: SEQ-IGN-LEAD
+    description: Igniter lead time (before main valves open)
+    units: ms
+    role: cmd-float
+    default: 500
+    min: 0
+    max: 5000
+
+  # ── Abort Limits ──────────────────────────────────────────────────────────────
+  - refDes: LIM-CPT01-HIGH
+    description: Chamber pressure high abort threshold
+    units: psia
+    role: cmd-float
+    default: 850
+    min: 0
+    max: 2000
+
+  - refDes: LIM-CPT01-LOW
+    description: Chamber pressure low abort threshold
+    units: psia
+    role: cmd-float
+    default: 50
+    min: 0
+    max: 500
+
+  # ── System State ──────────────────────────────────────────────────────────────
+  - refDes: SYS-STATE
+    description: Current system state (encoded as integer)
+    units: ""
+    role: ""
+    default: 0
+
+  - refDes: SYS-TARGET-STATE
+    description: Requested state transition (set by operator)
+    units: ""
+    role: cmd-float
+    default: 0
