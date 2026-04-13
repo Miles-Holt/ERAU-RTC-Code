@@ -84,9 +84,10 @@ func main() {
 	for i := range cfg.DaqControls {
 		dc := &cfg.DaqControls[i]
 		daqControlMap[dc.DaqNode] = dc
-		// Route SYS-TARGET-STATE commands through the broker to this DAQ node's
-		// cmd channel so the daqnode client can intercept them.
-		refDesMap["SYS-TARGET-STATE"] = dc.DaqNode
+		// Route per-DAQ-node SYS-TARGET-STATE commands through the broker so the
+		// daqnode client can intercept them.  Using a per-node key lets multiple
+		// DAQ nodes each have their own state machine commanding channel.
+		refDesMap["SYS-TARGET-STATE-"+dc.DaqNode] = dc.DaqNode
 	}
 	// ── Build channel bounds for bad-data detection ───────────────────────
 	cfgBounds := config.BuildChannelBoundsMap(cfg)

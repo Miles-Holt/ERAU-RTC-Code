@@ -212,17 +212,17 @@ func (c *Client) writeLoop(conn *websocket.Conn, errCh chan<- error) {
 				return
 			}
 
-			// Intercept SYS-TARGET-STATE commands — these drive state transitions
-			// rather than being forwarded directly to the DAQ node.
+			// Intercept SYS-TARGET-STATE-<daqNode> commands — these drive state
+			// transitions rather than being forwarded directly to the DAQ node.
 			if c.sm.control != nil {
 				var cmd struct {
 					RefDes string      `json:"refDes"`
 					Value  interface{} `json:"value"`
 				}
-				if json.Unmarshal(payload, &cmd) == nil && cmd.RefDes == "SYS-TARGET-STATE" {
+				if json.Unmarshal(payload, &cmd) == nil && cmd.RefDes == "SYS-TARGET-STATE-"+c.refDes {
 					target, _ := cmd.Value.(string)
 					if target == "" {
-						log.Printf("daqnode %s: SYS-TARGET-STATE with non-string value, ignoring", c.refDes)
+						log.Printf("daqnode %s: SYS-TARGET-STATE-%s with non-string value, ignoring", c.refDes, c.refDes)
 						continue
 					}
 					exitMsg, err := c.sm.RequestTransition("operator_request", target)

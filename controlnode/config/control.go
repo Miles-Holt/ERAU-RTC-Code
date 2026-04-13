@@ -93,9 +93,25 @@ func BuildStateConfigJSON(controls []DaqControl) []byte {
 	if len(controls) == 0 {
 		return nil
 	}
+
+	// Build a richer JSON shape that includes the per-DAQ-node command refDes
+	// so the web client knows what refDes to send when commanding a state change.
+	type daqControlJSON struct {
+		DaqNode              string              `json:"daqNode"`
+		SysTargetStateRefDes string              `json:"sysTargetStateRefDes"`
+		States               map[string]DaqState `json:"states"`
+	}
+	nodes := make([]daqControlJSON, len(controls))
+	for i, dc := range controls {
+		nodes[i] = daqControlJSON{
+			DaqNode:              dc.DaqNode,
+			SysTargetStateRefDes: "SYS-TARGET-STATE-" + dc.DaqNode,
+			States:               dc.States,
+		}
+	}
 	payload, _ := json.Marshal(map[string]interface{}{
 		"type":     "state_config",
-		"daqNodes": controls,
+		"daqNodes": nodes,
 	})
 	return payload
 }
