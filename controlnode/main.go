@@ -140,7 +140,7 @@ func main() {
 	}
 
 	// ── Web client WebSocket server (blocks forever) ──────────────────────
-	srv := webclient.New(cfg.Network.WebSocketPort, wcConfigJSON, softchanConfigJSON, panelMessages, b, *webRoot, embeddedSub, authCfg, layoutPaths)
+	srv := webclient.New(cfg.Network.WebSocketPort, wcConfigJSON, softchanConfigJSON, nil, panelMessages, b, *webRoot, embeddedSub, authCfg, layoutPaths)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("webclient server: %v", err)
 	}
