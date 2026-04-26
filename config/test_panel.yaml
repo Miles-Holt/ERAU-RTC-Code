@@ -133,14 +133,6 @@ objects:
     gridW: 4
     gridH: 8
     cornerR: 8
-  - id: node_1775295791413_5986
-    type: node
-    gridX: 65
-    gridY: 36
-  - id: node_1775295808746_8461
-    type: node
-    gridX: 57
-    gridY: 36
   - id: tank_1775295829094_3137
     type: tank
     gridX: 44
@@ -148,22 +140,18 @@ objects:
     gridW: 4
     gridH: 8
     cornerR: 8
-  - id: node_1775295869790_813
-    type: node
-    gridX: 46
-    gridY: 22
   - id: node_1775295882863_347
     type: node
     gridX: 48
-    gridY: 18
+    gridY: 16
   - id: node_1775295890235_4182
     type: node
     gridX: 57
-    gridY: 18
+    gridY: 16
   - id: node_1775295903345_2517
     type: node
     gridX: 63
-    gridY: 18
+    gridY: 16
   - id: daqControl_1775676987239_5195
     type: daqControl
     gridX: 24
@@ -247,36 +235,6 @@ connections:
     toId: valve_1775290509570_9535
     toPort: top
     fluid: lox
-  - id: conn_1775295795456_118
-    fromId: node_1775295791413_5986
-    fromPort: bottom
-    toId: valve_1775290497269_639
-    toPort: top
-    fluid: fuel
-  - id: conn_1775295800638_2458
-    fromId: node_1775295791413_5986
-    fromPort: top
-    toId: node_1775290775568_4129
-    toPort: bottom
-    fluid: gn2
-  - id: conn_1775295812338_858
-    fromId: node_1775295808746_8461
-    fromPort: bottom
-    toId: node_1775290543239_7399
-    toPort: top
-    fluid: lox
-  - id: conn_1775295816666_541
-    fromId: node_1775295808746_8461
-    fromPort: top
-    toId: node_1775290682271_7380
-    toPort: bottom
-    fluid: gox
-  - id: conn_1775295885165_7769
-    fromId: node_1775295869790_813
-    fromPort: top
-    toId: node_1775295882863_347
-    toPort: left
-    fluid: gn2
   - id: conn_1775295896445_4677
     fromId: node_1775295882863_347
     fromPort: right
@@ -301,3 +259,33 @@ connections:
     toId: node_1775295903345_2517
     toPort: right
     fluid: gn2
+  - id: conn_1777181836461_47
+    fromId: tank_1775295829094_3137
+    fromPort: top
+    toId: node_1775295882863_347
+    toPort: left
+    fluid: gn2
+  - id: conn_1777181866604_8442
+    fromId: tank_1775295774403_593
+    fromPort: top
+    toId: node_1775290775568_4129
+    toPort: bottom
+    fluid: gn2
+  - id: conn_1777181871585_532
+    fromId: tank_1775295763288_3873
+    fromPort: top
+    toId: node_1775290682271_7380
+    toPort: bottom
+    fluid: gox
+  - id: conn_1777181884830_1569
+    fromId: tank_1775295763288_3873
+    fromPort: bottom
+    toId: node_1775290543239_7399
+    toPort: top
+    fluid: lox
+  - id: conn_1777181889487_8569
+    fromId: tank_1775295774403_593
+    fromPort: bottom
+    toId: valve_1775290497269_639
+    toPort: top
+    fluid: fuel

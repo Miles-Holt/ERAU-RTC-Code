@@ -68,7 +68,8 @@ const SIDEBAR_CELL_IDX = 0;
         viewEnd:       null,
     };
 
-    // Attach scroll-zoom and proximity tooltip — same as graph tab cells
+    // Attach drag-pan, scroll-zoom and proximity tooltip — same as graph tab cells
+    attachDragPan(canvas, cell);
     attachScrollZoom(canvas, cell);
     attachProximityTooltip(canvas, cell);
 

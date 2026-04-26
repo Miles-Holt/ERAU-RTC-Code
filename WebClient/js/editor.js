@@ -89,6 +89,10 @@ const tab = {
     },
 };
 
+// In the editor there is no WebSocket, so daqControlConfig is always empty.
+// The sidebar falls back to a free-text input for daqRefDes.
+const daqControlConfig = {};
+
 // ── YAML serialiser ──────────────────────────────────────────────────────────
 
 function pidToYaml(layout) {
@@ -131,6 +135,7 @@ function pidToYaml(layout) {
             if (o.labelOffsetY)          y += '    labelOffsetY: ' + o.labelOffsetY   + '\n';
         } else if (o.type === 'daqControl') {
             if (o.daqRefDes)           y += '    daqRefDes: ' + q(o.daqRefDes) + '\n';
+            if (o.label)               y += '    label: '     + q(o.label)     + '\n';
             y +=                           '    gridX: ' + o.gridX + '\n';
             y +=                           '    gridY: ' + o.gridY + '\n';
             if (o.gridW && o.gridW !== 10) y += '    gridW: ' + o.gridW + '\n';
@@ -258,6 +263,14 @@ function portPos(obj, port) {
         if (port === 'bottom') return { x: x + w / 2, y: y + h };
         if (port === 'left')   return { x,             y: y + h / 2 };
     }
+    if (obj.type === 'tank') {
+        const w = (obj.gridW || 5) * PID.GRID;
+        const h = (obj.gridH || 8) * PID.GRID;
+        if (port === 'top')    return { x: x + w / 2, y };
+        if (port === 'right')  return { x: x + w,     y: y + h / 2 };
+        if (port === 'bottom') return { x: x + w / 2, y: y + h };
+        if (port === 'left')   return { x,             y: y + h / 2 };
+    }
     return { x, y };
 }
 
@@ -273,6 +286,41 @@ function pidUid(prefix) {
 
 function pidEsc(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── Valve symbol helpers (mirror of pid.js) ──────────────────────────────────
+
+function _valveSubtypeInfo(ctrl) {
+    if (!ctrl) return { hasCmd: false, cmdRole: null, hasFb: false, fbIsPct: false };
+    const st = (ctrl.subType || '').toUpperCase();
+    const hasCmd  = st.includes('IO-CMD') || st.includes('POS-CMD');
+    const cmdRole = st.includes('POS-CMD') ? 'cmd-pct' : (hasCmd ? 'cmd-bool' : null);
+    const hasFb   = st.includes('IO-FB') || st.includes('POS-FB');
+    const fbIsPct = st.includes('POS-FB');
+    return { hasCmd, cmdRole, hasFb, fbIsPct };
+}
+
+function _valveLineAttrs(isOpen) {
+    const L = PID.VALVE_R - 3;
+    return isOpen
+        ? { x1: -L, y1: 0,  x2: L, y2: 0  }
+        : { x1: 0,  y1: -L, x2: 0, y2: L  };
+}
+
+function _valveArcPath(pct) {
+    const R = PID.VALVE_R + 7;
+    const endAngle   = Math.PI - (Math.max(0, Math.min(100, pct)) / 100) * (Math.PI / 2);
+    const startAngle = Math.PI;
+    if (Math.abs(startAngle - endAngle) < 0.01) return '';
+    const x1 = Math.cos(startAngle) * R, y1 = Math.sin(startAngle) * R;
+    const x2 = Math.cos(endAngle)   * R, y2 = Math.sin(endAngle)   * R;
+    return 'M ' + x1 + ' ' + y1 + ' A ' + R + ' ' + R + ' 0 0 1 ' + x2 + ' ' + y2;
+}
+
+function _valvePtrPos(pct) {
+    const R = PID.VALVE_R + 7;
+    const angle = Math.PI - (Math.max(0, Math.min(100, pct)) / 100) * (Math.PI / 2);
+    return { cx: Math.cos(angle) * R, cy: Math.sin(angle) * R };
 }
 
 // ── Obstacle-aware orthogonal router ─────────────────────────────────────────
@@ -918,9 +966,11 @@ function renderPidObj(obj) {
 }
 
 function makeGraphGroup(obj) {
-    const sel = (tab.pid.selectedId === obj.id);
-    const W = (obj.gridW || 20) * PID.GRID;
-    const H = (obj.gridH || 10) * PID.GRID;
+    const sel     = (tab.pid.selectedId === obj.id);
+    const W       = (obj.gridW || 20) * PID.GRID;
+    const H       = (obj.gridH || 10) * PID.GRID;
+    const showTitle = obj.showName !== false && obj.name;
+    const TB      = showTitle ? 20 : 0;   // title bar height (matches .pid-graph-titlebar ~20px)
 
     const g = svgN('g', {
         class: 'pid-obj pid-graph' + (sel ? ' pid-selected' : ''),
@@ -929,16 +979,45 @@ function makeGraphGroup(obj) {
         cursor: 'grab',
     });
 
+    // Outer border (matches .pid-graph-body border)
     g.appendChild(svgN('rect', {
         x: 0, y: 0, width: W, height: H,
         rx: 4, class: 'pid-graph-rect',
     }));
 
-    const lbl = svgN('text', { class: 'pid-graph-label', x: W / 2, y: H / 2 - 8 });
-    lbl.textContent = obj.name || '(no name)';
-    g.appendChild(lbl);
+    // Title bar section (sits inside the outer rect)
+    if (showTitle) {
+        // Rounded-top only: draw rect + plain rect to square off the bottom corners
+        g.appendChild(svgN('rect', { x: 1, y: 1, width: W - 2, height: TB, rx: 3, class: 'pid-graph-titlebar-rect' }));
+        g.appendChild(svgN('rect', { x: 1, y: Math.ceil(TB / 2), width: W - 2, height: Math.ceil(TB / 2), class: 'pid-graph-titlebar-rect' }));
+        // Separator line between title bar and chart area
+        g.appendChild(svgN('line', { class: 'pid-graph-gridline', x1: 0, y1: TB, x2: W, y2: TB }));
+        const titleEl = svgN('text', { class: 'pid-graph-titlebar-text', x: 8, y: TB - 5 });
+        titleEl.textContent = obj.name;
+        g.appendChild(titleEl);
+    }
 
-    const sub = svgN('text', { class: 'pid-graph-sublabel', x: W / 2, y: H / 2 + 10 });
+    // Chart area: subtle horizontal grid lines
+    const chartTop  = TB;
+    const chartH    = H - TB;
+    const numLines  = 4;
+    for (let i = 1; i <= numLines; i++) {
+        const ly = chartTop + Math.round(chartH * i / (numLines + 1));
+        g.appendChild(svgN('line', {
+            class: 'pid-graph-gridline',
+            x1: 0, y1: ly, x2: W, y2: ly,
+        }));
+    }
+
+    // Centered sublabel (and name label only if no title bar)
+    const midY = chartTop + chartH / 2;
+    if (!showTitle) {
+        const lbl = svgN('text', { class: 'pid-graph-label', x: W / 2, y: midY - 8 });
+        lbl.textContent = obj.name || '(no name)';
+        g.appendChild(lbl);
+    }
+
+    const sub = svgN('text', { class: 'pid-graph-sublabel', x: W / 2, y: showTitle ? midY : midY + 10 });
     sub.textContent = 'Graph \u2022 ' + (obj.lines?.length || 0) + ' line' + (obj.lines?.length === 1 ? '' : 's');
     g.appendChild(sub);
 
@@ -981,6 +1060,20 @@ function makeTankGroupEditor(obj) {
         g.appendChild(lblG);
     }
 
+    const tankPorts = {
+        top:    [W / 2, 0],
+        right:  [W,     H / 2],
+        bottom: [W / 2, H],
+        left:   [0,     H / 2],
+    };
+    for (const [pname, [px, py]] of Object.entries(tankPorts)) {
+        g.appendChild(svgN('circle', {
+            class: 'pid-port',
+            'data-obj-id': obj.id, 'data-port': pname,
+            cx: px, cy: py, r: PID.PORT_R,
+        }));
+    }
+
     return g;
 }
 
@@ -988,6 +1081,7 @@ function makeSensorGroup(obj) {
     const sel        = (tab.pid.selectedId === obj.id);
     const showRefDes = obj.showRefDes !== false;
     const showUnits  = obj.showUnits  !== false;
+    const showName   = obj.showName   === true;
     const rot        = obj.rotation   || 0;
 
     const xf = 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')' +
@@ -1004,19 +1098,28 @@ function makeSensorGroup(obj) {
         rx: 3, class: 'pid-sensor-rect',
     }));
 
-    // Dynamic layout matching view mode: value always shown; refDes and units optional
+    // Dynamic layout matching view mode: value always shown; other elements optional
     const items = [];
-    if (showRefDes) items.push('refdes');
-    items.push('value');
-    if (showUnits)  items.push('units');
+    if (showName) {
+        const desc = (edConfigControls.find(c => c.channels?.some(ch => ch.refDes === obj.refDes)))?.description || '';
+        items.push({ type: 'name', text: desc });
+    }
+    if (showRefDes) items.push({ type: 'refdes', text: obj.refDes || '(no refDes)' });
+    items.push({ type: 'value', text: '--' });
+    if (showUnits)  items.push({ type: 'units',  text: obj.units || '' });
+
     const step = PID.SENSOR_H / (items.length + 1);
     const lx = obj.labelOffsetX || 0;
     const ly = obj.labelOffsetY || 0;
 
     for (let i = 0; i < items.length; i++) {
-        const type = items[i];
+        const item = items[i];
         const y = Math.round(step * (i + 1));
-        if (type === 'refdes') {
+        if (item.type === 'name') {
+            const el = svgN('text', { class: 'pid-sensor-name', x: PID.SENSOR_W / 2, y });
+            el.textContent = item.text;
+            g.appendChild(el);
+        } else if (item.type === 'refdes') {
             // Moveable label group — cursor:move signals it can be dragged independently
             const lblG = svgN('g', {
                 'data-label-id': obj.id,
@@ -1024,16 +1127,16 @@ function makeSensorGroup(obj) {
                 style: 'cursor:move',
             });
             const el = svgN('text', { class: 'pid-sensor-label', x: 0, y: 0 });
-            el.textContent = obj.refDes || '(no refDes)';
+            el.textContent = item.text;
             lblG.appendChild(el);
             g.appendChild(lblG);
-        } else if (type === 'value') {
-            const el = svgN('text', { class: 'pid-sensor-value', x: PID.SENSOR_W / 2, y });
-            el.textContent = '--';
+        } else if (item.type === 'value') {
+            const el = svgN('text', { class: 'pid-sensor-value stale', x: PID.SENSOR_W / 2, y });
+            el.textContent = item.text;
             g.appendChild(el);
         } else {
             const el = svgN('text', { class: 'pid-sensor-units', x: PID.SENSOR_W / 2, y });
-            el.textContent = obj.units || '';
+            el.textContent = item.text;
             g.appendChild(el);
         }
     }
@@ -1089,11 +1192,40 @@ function makeValveGroupEditor(obj) {
     const rot = obj.rotation || 0;
     const vis = svgN('g', rot ? { transform: 'rotate(' + rot + ')' } : {});
     vis.appendChild(svgN('circle', { class: 'pid-valve-bg', r: PID.VALVE_R }));
-    vis.appendChild(svgN('circle', { class: 'pid-valve-ring', r: PID.VALVE_R }));
+    vis.appendChild(svgN('circle', { class: 'pid-valve-ring stale', r: PID.VALVE_R }));
     if (!ctrl) {
         vis.appendChild(svgN('line', { class: 'pid-valve-uncfg', x1: -L, y1: L, x2: L, y2: -L }));
     } else {
-        vis.appendChild(svgN('line', { class: 'pid-valve-line', x1: -L, y1: 0, x2: L, y2: 0 }));
+        const info = _valveSubtypeInfo(ctrl);
+        // POS-FB arc + pointer at default (closed) position
+        if (info.hasFb && info.fbIsPct) {
+            vis.appendChild(svgN('path',   { class: 'pid-valve-arc', d: _valveArcPath(0) }));
+            const pos = _valvePtrPos(0);
+            vis.appendChild(svgN('circle', { class: 'pid-valve-ptr', r: 4, cx: pos.cx, cy: pos.cy }));
+        }
+        // IO-CMD center line (default: closed = vertical)
+        if (info.hasCmd && info.cmdRole === 'cmd-bool') {
+            const la = _valveLineAttrs(false);
+            vis.appendChild(svgN('line', {
+                class: 'pid-valve-line',
+                x1: la.x1, y1: la.y1, x2: la.x2, y2: la.y2,
+            }));
+            // IO-FB: dots on line ends
+            if (info.hasFb && !info.fbIsPct) {
+                vis.appendChild(svgN('circle', { class: 'pid-valve-dot', r: 4, cx: 0, cy: -L }));
+                vis.appendChild(svgN('circle', { class: 'pid-valve-dot', r: 4, cx: 0, cy:  L }));
+            }
+        }
+        // POS-CMD: percentage text
+        if (info.hasCmd && info.cmdRole === 'cmd-pct') {
+            const t = svgN('text', { class: 'pid-valve-pct' });
+            t.textContent = '--';
+            vis.appendChild(t);
+        }
+        // Fallback for configured valve with no recognized cmd type
+        if (!info.hasCmd && !info.hasFb) {
+            vis.appendChild(svgN('line', { class: 'pid-valve-line', x1: -L, y1: 0, x2: L, y2: 0 }));
+        }
     }
     g.appendChild(vis);
 
@@ -1141,8 +1273,12 @@ function makeDaqControlGroupEditor(obj) {
     }));
 
     const labelEl = svgN('text', { class: 'pid-daqctrl-label', x: 8, y: 18 });
-    labelEl.textContent = obj.daqRefDes || '(no DAQ)';
+    labelEl.textContent = obj.label || obj.daqRefDes || '(no DAQ)';
     g.appendChild(labelEl);
+
+    const connEl = svgN('text', { class: 'pid-daqctrl-conn', x: W - 8, y: 18 });
+    connEl.textContent = '---';
+    g.appendChild(connEl);
 
     const stateEl = svgN('text', { class: 'pid-daqctrl-state', x: 8, y: H - 12 });
     stateEl.textContent = 'State: ---';
@@ -1752,6 +1888,8 @@ function renderPidRsb(objId) {
                     ? '<select class="pid-daqctrl-sel"><option value="">-- pick --</option>' + daqOpts + '</select>'
                     : '<input class="pid-daqctrl-inp" type="text" value="' + pidEsc(obj.daqRefDes || '') + '" placeholder="e.g. DAQ001">') +
                 '</div>' +
+                '<div class="pid-sb-field"><label>Label</label>' +
+                '<input class="pid-daqctrl-label" type="text" value="' + pidEsc(obj.label || '') + '" placeholder="(optional display name)"></div>' +
                 '<div class="pid-sb-field pid-sb-field--row">' +
                     '<div><label>Width (cells)</label>' +
                     '<input class="pid-daqctrl-w" type="number" min="4" max="100" value="' + (obj.gridW || 10) + '"></div>' +
@@ -1765,6 +1903,7 @@ function renderPidRsb(objId) {
                 const sel = c.querySelector('.pid-daqctrl-sel');
                 const inp = c.querySelector('.pid-daqctrl-inp');
                 obj.daqRefDes = sel ? sel.value : (inp ? inp.value.trim() : '');
+                obj.label     = c.querySelector('.pid-daqctrl-label').value.trim();
                 obj.gridW     = parseInt(c.querySelector('.pid-daqctrl-w').value) || 10;
                 obj.gridH     = parseInt(c.querySelector('.pid-daqctrl-h').value) || 3;
                 const existing = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
@@ -1803,7 +1942,7 @@ function createPidObj(type, gridX, gridY) {
     }
     if (type === 'valve') { obj.controlRefDes = ''; }
     if (type === 'tank')  { obj.gridW = 5; obj.gridH = 8; obj.rotation = 0; obj.label = ''; obj.showLabel = true; }
-    if (type === 'daqControl') { obj.daqRefDes = ''; obj.gridW = 10; obj.gridH = 3; }
+    if (type === 'daqControl') { obj.daqRefDes = ''; obj.label = ''; obj.gridW = 10; obj.gridH = 3; }
     tab.pid.objects.push(obj);
     renderPidObj(obj);
     tab.pid.routingErrors = [];
@@ -1931,6 +2070,7 @@ function startLabelDrag(objId, e) {
 
 function startPidConnect(fromObjId, fromPort, e) {
     tab.pid.connecting = { objId: fromObjId, port: fromPort };
+    tab.pid.svgEl && tab.pid.svgEl.classList.add('pid-connecting');
     tab.pid.previewEl = svgN('line', {
         class: 'pid-preview-line', 'pointer-events': 'none',
         x1: 0, y1: 0, x2: 0, y2: 0,
@@ -1960,6 +2100,7 @@ function completePidConnect(toObjId, toPort) {
 
 function cancelPidConnect() {
     tab.pid.connecting = null;
+    tab.pid.svgEl && tab.pid.svgEl.classList.remove('pid-connecting');
     if (tab.pid.previewEl) { tab.pid.previewEl.remove(); tab.pid.previewEl = null; }
 }
 

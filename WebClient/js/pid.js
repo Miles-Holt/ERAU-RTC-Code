@@ -736,9 +736,9 @@ function makeDaqControlGroup(obj) {
         class: 'pid-daqctrl-bg', x: 0, y: 0, width: W, height: H, rx: 4,
     }));
 
-    // Top row: DAQ refDes label (left) + connection status (right)
+    // Top row: label (or DAQ refDes fallback) + connection status (right)
     const labelEl = svgN('text', { class: 'pid-daqctrl-label', x: 8, y: 18 });
-    labelEl.textContent = daqRef || 'DAQ???';
+    labelEl.textContent = obj.label || daqRef || 'DAQ???';
     g.appendChild(labelEl);
 
     const connEl = svgN('text', { class: 'pid-daqctrl-conn', x: W - 8, y: 18 });
@@ -1200,7 +1200,8 @@ function makeGraphGroup(obj, tab) {
     }
     if (obj.lines?.length) cell.chart.update('none');
 
-    // Attach scroll-zoom and proximity tooltip
+    // Attach drag-pan, scroll-zoom and proximity tooltip
+    attachDragPan(canvas, cell);
     attachScrollZoom(canvas, cell);
     attachProximityTooltip(canvas, cell);
 
