@@ -214,4 +214,3 @@ func buildHealthSensorMap(cfg *config.SystemConfig) map[string]string {
 	}
 	return m
 }
-

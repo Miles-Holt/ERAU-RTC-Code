@@ -60,6 +60,8 @@ type Store struct {
 
 	defsPath   string // path to softChannels.yaml
 	valuesPath string // path to softChannelValues.yaml
+
+	b *broker.Broker // set by Run; used for immediate publish from SetInternal
 }
 
 // New creates a Store and loads definitions + persisted values from disk.
@@ -173,12 +175,17 @@ func (s *Store) Set(refDes string, value float64) error {
 // read-only channels like SYS-STATE.
 func (s *Store) SetInternal(refDes string, value float64) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if _, ok := s.defIndex[refDes]; !ok {
+		s.mu.Unlock()
 		return
 	}
 	s.values[refDes] = value
 	s.persistLocked()
+	b := s.b
+	s.mu.Unlock()
+	if b != nil {
+		b.PublishData(broker.DataEvent{Values: map[string]float64{refDes: value}})
+	}
 }
 
 // persistLocked writes current values to disk.  Caller must hold s.mu.Lock().
@@ -242,6 +249,11 @@ func (s *Store) Run(b *broker.Broker, broadcastRateHz int) {
 		broadcastRateHz = 20
 	}
 
+	// Store broker reference so SetInternal can publish immediately.
+	s.mu.Lock()
+	s.b = b
+	s.mu.Unlock()
+
 	// Register a cmd channel so the broker can route commands to us.
 	cmdCh := make(chan []byte, 64)
 	b.RegisterDaq("_SOFTCHAN", cmdCh)
@@ -253,7 +265,7 @@ func (s *Store) Run(b *broker.Broker, broadcastRateHz int) {
 	for {
 		select {
 
-		// ── Publish current values to the broker ──────────────────────────────
+		// ── Heartbeat: publish all current values so clients never see stale ──
 		case <-ticker.C:
 			s.mu.RLock()
 			vals := make(map[string]float64, len(s.values))
@@ -286,6 +298,9 @@ func (s *Store) Run(b *broker.Broker, broadcastRateHz int) {
 				log.Printf("softchan: set %q = %.4g: %v", msg.RefDes, val, err)
 			} else {
 				log.Printf("softchan: set %q = %.4g", msg.RefDes, val)
+				// Publish immediately so the web client sees the update in the
+				// next broadcast, not after a full ticker cycle.
+				b.PublishData(broker.DataEvent{Values: map[string]float64{msg.RefDes: val}})
 			}
 		}
 	}
