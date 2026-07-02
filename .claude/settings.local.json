@@ -20,7 +20,10 @@
       "Bash(find c:UsersmilesmyrepoERAU-RTC_Code -name *.xml -o -name *.json)",
       "Bash(cat:*)",
       "Bash(grep -E \"\\\\.\\(js|html\\)$\")",
-      "Bash(go vet:*)"
+      "Bash(go vet:*)",
+      "Bash(./controlnode/run.bat)",
+      "Bash(./build.bat)",
+      "Bash(./controlnode/controlnode.exe)"
     ],
     "additionalDirectories": [
       "c:\\Users\\miles\\myrepo\\ERAM-RTC_Code"
