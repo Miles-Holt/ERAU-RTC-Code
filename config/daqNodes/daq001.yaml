@@ -6,7 +6,7 @@
 # Disabled modules are excluded from the config JSON sent to LabVIEW.
 
 refDes: DAQ001
-ip: MHOLT-AA
+ip: MHOLT-LA
 wsPort: 8001
 description: PXIe configuration file
 enabled: true
