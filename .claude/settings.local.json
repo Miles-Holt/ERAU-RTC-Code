@@ -23,7 +23,11 @@
       "Bash(go vet:*)",
       "Bash(./controlnode/run.bat)",
       "Bash(./build.bat)",
-      "Bash(./controlnode/controlnode.exe)"
+      "Bash(./controlnode/controlnode.exe)",
+      "Bash(node --check c:/Users/miles/myrepo/ERAU-RTC-Code/WebClient/js/pid.js)",
+      "Bash(node --check c:/Users/miles/myrepo/ERAU-RTC-Code/WebClient/js/editor.js)",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:8000/js/pidRouter.js\" -UseBasicParsing -TimeoutSec 3; \"Status: \" + $r.StatusCode + \" | Length: \" + $r.Content.Length + \" | Contains pidRoute: \" + \\($r.Content -match \"function pidRoute\"\\) } catch { $_.Exception.Message })",
+      "Bash(./controlnode.exe -config-dir ../config -webroot ../WebClient)"
     ],
     "additionalDirectories": [
       "c:\\Users\\miles\\myrepo\\ERAM-RTC_Code"

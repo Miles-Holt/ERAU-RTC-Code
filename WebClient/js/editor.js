@@ -323,192 +323,6 @@ function _valvePtrPos(pct) {
     return { cx: Math.cos(angle) * R, cy: Math.sin(angle) * R };
 }
 
-// ── Obstacle-aware orthogonal router ─────────────────────────────────────────
-
-function pidObstacleRects(objects, excludeIds) {
-    const M = PID.OBS_MARGIN;
-    return objects
-        .filter(o => !excludeIds.has(o.id) && (o.type === 'sensor' || o.type === 'graph' || o.type === 'valve' || o.type === 'daqControl'))
-        .map(o => {
-            if (o.type === 'graph') {
-                return {
-                    x1: o.gridX * PID.GRID - M,
-                    y1: o.gridY * PID.GRID - M,
-                    x2: o.gridX * PID.GRID + (o.gridW || 20) * PID.GRID + M,
-                    y2: o.gridY * PID.GRID + (o.gridH || 10) * PID.GRID + M,
-                };
-            }
-            if (o.type === 'valve') {
-                const x = o.gridX * PID.GRID, y = o.gridY * PID.GRID, R = PID.VALVE_R;
-                return { x1: x-R-M, y1: y-R-M, x2: x+R+M, y2: y+R+M };
-            }
-            if (o.type === 'daqControl') {
-                return {
-                    x1: o.gridX * PID.GRID - M,
-                    y1: o.gridY * PID.GRID - M,
-                    x2: o.gridX * PID.GRID + (o.gridW || 10) * PID.GRID + M,
-                    y2: o.gridY * PID.GRID + (o.gridH || 3) * PID.GRID + M,
-                };
-            }
-            return {
-                x1: o.gridX * PID.GRID - M,
-                y1: o.gridY * PID.GRID - M,
-                x2: o.gridX * PID.GRID + PID.SENSOR_W + M,
-                y2: o.gridY * PID.GRID + PID.SENSOR_H + M,
-            };
-        });
-}
-
-function pidSegClear(ax, ay, bx, by, rects) {
-    if (ax === bx && ay === by) return true;
-    for (const r of rects) {
-        if (ay === by) {
-            const lo = Math.min(ax, bx), hi = Math.max(ax, bx);
-            if (ay > r.y1 && ay < r.y2 && hi > r.x1 && lo < r.x2) return false;
-        } else if (ax === bx) {
-            const lo = Math.min(ay, by), hi = Math.max(ay, by);
-            if (ax > r.x1 && ax < r.x2 && hi > r.y1 && lo < r.y2) return false;
-        }
-    }
-    return true;
-}
-
-function pidRoundedPath(pts, r) {
-    const s = [pts[0]];
-    for (let i = 1; i < pts.length - 1; i++) {
-        const prev = s[s.length - 1], curr = pts[i], next = pts[i + 1];
-        const dx1 = Math.sign(curr.x - prev.x), dy1 = Math.sign(curr.y - prev.y);
-        const dx2 = Math.sign(next.x - curr.x), dy2 = Math.sign(next.y - curr.y);
-        if (dx1 !== dx2 || dy1 !== dy2) s.push(curr);
-    }
-    s.push(pts[pts.length - 1]);
-    if (s.length < 2) return '';
-
-    let d = 'M ' + s[0].x + ' ' + s[0].y;
-    for (let i = 1; i < s.length; i++) {
-        const prev = s[i - 1], curr = s[i], next = i < s.length - 1 ? s[i + 1] : null;
-        if (next) {
-            const dx1 = Math.sign(curr.x - prev.x), dy1 = Math.sign(curr.y - prev.y);
-            const dx2 = Math.sign(next.x - curr.x), dy2 = Math.sign(next.y - curr.y);
-            if (dx1 !== dx2 || dy1 !== dy2) {
-                const len1 = Math.abs(curr.x - prev.x) + Math.abs(curr.y - prev.y);
-                const len2 = Math.abs(next.x - curr.x) + Math.abs(next.y - curr.y);
-                const rr   = Math.min(r, len1 / 2, len2 / 2);
-                d += ' L ' + (curr.x - dx1 * rr) + ' ' + (curr.y - dy1 * rr);
-                d += ' Q ' + curr.x + ' ' + curr.y + ' ' + (curr.x + dx2 * rr) + ' ' + (curr.y + dy2 * rr);
-                continue;
-            }
-        }
-        d += ' L ' + curr.x + ' ' + curr.y;
-    }
-    return d;
-}
-
-function pidCandidateClear(pts, noFromRects, noToRects, allRects) {
-    const last = pts.length - 2;
-    for (let i = 0; i <= last; i++) {
-        const rects = i === 0 ? noFromRects : i === last ? noToRects : allRects;
-        if (!pidSegClear(pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y, rects)) return false;
-    }
-    return true;
-}
-
-function orthRouteAvoiding(p1, d1, p2, d2, objects, fromId, toId) {
-    function ext(p, d, dist) {
-        if (d === 'top')    return { x: p.x,         y: p.y - dist };
-        if (d === 'bottom') return { x: p.x,         y: p.y + dist };
-        if (d === 'right')  return { x: p.x + dist,  y: p.y };
-        return                      { x: p.x - dist,  y: p.y };
-    }
-    const G = PID.GRID, S = PID.STUB, R = PID.CORNER_R;
-    const s1 = ext(p1, d1, S), s2 = ext(p2, d2, S);
-
-    const allRects    = pidObstacleRects(objects, new Set());
-    const noFromRects = pidObstacleRects(objects, new Set([fromId]));
-    const noToRects   = pidObstacleRects(objects, new Set([toId]));
-
-    function zOk(my) {
-        if (d1 === 'bottom' && my < s1.y) return false;
-        if (d1 === 'top'    && my > s1.y) return false;
-        if (d2 === 'bottom' && my < s2.y) return false;
-        if (d2 === 'top'    && my > s2.y) return false;
-        return true;
-    }
-    function uOk(mx) {
-        if (d1 === 'right' && mx < s1.x) return false;
-        if (d1 === 'left'  && mx > s1.x) return false;
-        if (d2 === 'right' && mx < s2.x) return false;
-        if (d2 === 'left'  && mx > s2.x) return false;
-        return true;
-    }
-
-    const offsets = [0, G, -G, 2*G, -2*G, 3*G, -3*G, 4*G, -4*G, 6*G, -6*G, 8*G, -8*G, 10*G, -10*G];
-
-    if (Math.abs(s1.x - s2.x) < 1 || Math.abs(s1.y - s2.y) < 1) {
-        const pts = [p1, s1, s2, p2];
-        if (pidCandidateClear(pts, noFromRects, noToRects, allRects))
-            return { d: pidRoundedPath(pts, R), error: null };
-    }
-
-    // Try L-shapes: single corner after stubs — simpler than Z/U when unobstructed
-    function lOk1() { // corner at (s2.x, s1.y): s1 goes horizontal, then vertical to s2
-        if (d1 === 'right'  && s2.x < s1.x) return false;
-        if (d1 === 'left'   && s2.x > s1.x) return false;
-        if (d2 === 'bottom' && s1.y > s2.y) return false;
-        if (d2 === 'top'    && s1.y < s2.y) return false;
-        return true;
-    }
-    function lOk2() { // corner at (s1.x, s2.y): s1 goes vertical, then horizontal to s2
-        if (d1 === 'bottom' && s2.y < s1.y) return false;
-        if (d1 === 'top'    && s2.y > s1.y) return false;
-        if (d2 === 'right'  && s1.x < s2.x) return false;
-        if (d2 === 'left'   && s1.x > s2.x) return false;
-        return true;
-    }
-    if (lOk1()) {
-        const lPts = [p1, s1, { x: s2.x, y: s1.y }, s2, p2];
-        if (pidCandidateClear(lPts, noFromRects, noToRects, allRects))
-            return { d: pidRoundedPath(lPts, R), error: null };
-    }
-    if (lOk2()) {
-        const lPts = [p1, s1, { x: s1.x, y: s2.y }, s2, p2];
-        if (pidCandidateClear(lPts, noFromRects, noToRects, allRects))
-            return { d: pidRoundedPath(lPts, R), error: null };
-    }
-
-    for (const off of offsets) {
-        const my = Math.round((s1.y + s2.y) / 2 / G) * G + off;
-        if (zOk(my)) {
-            const zPts = [p1, s1, { x: s1.x, y: my }, { x: s2.x, y: my }, s2, p2];
-            if (pidCandidateClear(zPts, noFromRects, noToRects, allRects))
-                return { d: pidRoundedPath(zPts, R), error: null };
-        }
-
-        const mx = Math.round((s1.x + s2.x) / 2 / G) * G + off;
-        if (uOk(mx)) {
-            const uPts = [p1, s1, { x: mx, y: s1.y }, { x: mx, y: s2.y }, s2, p2];
-            if (pidCandidateClear(uPts, noFromRects, noToRects, allRects))
-                return { d: pidRoundedPath(uPts, R), error: null };
-        }
-    }
-
-    let fallPts = null;
-    for (const off of [0, G, -G, 2*G, -2*G, 4*G, -4*G, 6*G, -6*G]) {
-        const my = Math.round((s1.y + s2.y) / 2 / G) * G + off;
-        if (zOk(my)) {
-            fallPts = [p1, s1, { x: s1.x, y: my }, { x: s2.x, y: my }, s2, p2];
-            break;
-        }
-        const mx = Math.round((s1.x + s2.x) / 2 / G) * G + off;
-        if (uOk(mx)) {
-            fallPts = [p1, s1, { x: mx, y: s1.y }, { x: mx, y: s2.y }, s2, p2];
-            break;
-        }
-    }
-    if (!fallPts) fallPts = [p1, s1, s2, p2];
-    return { d: pidRoundedPath(fallPts, R), error: 'Could not route without crossing an object' };
-}
-
 // =============================================================================
 // Live WebSocket connection (read-only — data only)
 // =============================================================================
@@ -950,7 +764,7 @@ function renderPidAll() {
 
     for (const obj of tab.pid.objects) renderPidObj(obj);
 
-    tab.pid.routingErrors = [];
+    tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
     for (const conn of tab.pid.connections) renderPidConn(conn);
     renderPidWarning();
 }
@@ -1314,12 +1128,16 @@ function renderPidConn(conn) {
     const to   = tab.pid.objects.find(o => o.id === conn.toId);
     if (!from || !to) return;
 
+    if (!tab.pid._routedPaths) tab.pid._routedPaths = new Map();
+
     const p1 = portPos(from, conn.fromPort);
     const p2 = portPos(to,   conn.toPort);
-    const { d, error } = orthRouteAvoiding(
-        p1, conn.fromPort, p2, conn.toPort,
-        tab.pid.objects, conn.fromId, conn.toId
-    );
+    const pipeSegs = pidPipeSegs(tab.pid._routedPaths, conn.id);
+    const { d, error, pts } = pidRoute({
+        p1, d1: conn.fromPort, p2, d2: conn.toPort,
+        objects: tab.pid.objects, pipeSegs,
+    });
+    tab.pid._routedPaths.set(conn.id, pts);
 
     if (error) {
         tab.pid.routingErrors.push({
@@ -1349,7 +1167,7 @@ function renderPidConn(conn) {
 }
 
 function updateConnsTouching() {
-    tab.pid.routingErrors = [];
+    tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
     for (const conn of tab.pid.connections) renderPidConn(conn);
     renderPidWarning();
 }
@@ -1478,7 +1296,7 @@ function deletePidConn(id) {
         return true;
     });
     selectPidConn(null);
-    tab.pid.routingErrors = [];
+    tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
     for (const conn of tab.pid.connections) renderPidConn(conn);
     renderPidWarning();
 }
@@ -1753,7 +1571,7 @@ function renderPidRsb(objId) {
                 renderPidObj(obj);
                 const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
                 if (updated) updated.classList.add('pid-selected');
-                tab.pid.routingErrors = [];
+                tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
                 for (const conn of tab.pid.connections) renderPidConn(conn);
                 renderPidWarning();
             });
@@ -1811,7 +1629,7 @@ function renderPidRsb(objId) {
                 renderPidObj(obj);
                 const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
                 if (updated) updated.classList.add('pid-selected');
-                tab.pid.routingErrors = [];
+                tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
                 for (const conn of tab.pid.connections) renderPidConn(conn);
                 renderPidWarning();
             });
@@ -1865,7 +1683,7 @@ function renderPidRsb(objId) {
                 renderPidObj(obj);
                 const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
                 if (updated) updated.classList.add('pid-selected');
-                tab.pid.routingErrors = [];
+                tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
                 for (const conn of tab.pid.connections) renderPidConn(conn);
                 renderPidWarning();
             });
@@ -1911,7 +1729,7 @@ function renderPidRsb(objId) {
                 renderPidObj(obj);
                 const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
                 if (updated) updated.classList.add('pid-selected');
-                tab.pid.routingErrors = [];
+                tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
                 for (const conn of tab.pid.connections) renderPidConn(conn);
                 renderPidWarning();
             });
@@ -1945,7 +1763,7 @@ function createPidObj(type, gridX, gridY) {
     if (type === 'daqControl') { obj.daqRefDes = ''; obj.label = ''; obj.gridW = 10; obj.gridH = 3; }
     tab.pid.objects.push(obj);
     renderPidObj(obj);
-    tab.pid.routingErrors = [];
+    tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
     for (const conn of tab.pid.connections) renderPidConn(conn);
     renderPidWarning();
     selectPidObject(obj.id);
@@ -1962,7 +1780,7 @@ function deletePidObj(id) {
     tab.pid.objects = tab.pid.objects.filter(o => o.id !== id);
     tab.pid.gObjs.querySelector('[data-pid-id="' + id + '"]')?.remove();
     selectPidObject(null);
-    tab.pid.routingErrors = [];
+    tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
     for (const conn of tab.pid.connections) renderPidConn(conn);
     renderPidWarning();
 }
