@@ -246,9 +246,9 @@ func TestResolveExpr(t *testing.T) {
 		{true, 1, false},
 		{false, 0, false},
 		{"42", 42, false},
-		{"{{BURN_DUR}}", 8000, false},   // resolves via var → softchan
-		{"{{UNKNOWN}}", 0, false},        // unknown var → 0, no error
-		{"not-a-number", 0, true},        // unparseable → error
+		{"{{BURN_DUR}}", 8000, false}, // resolves via var → softchan
+		{"{{UNKNOWN}}", 0, false},     // unknown var → 0, no error
+		{"not-a-number", 0, true},     // unparseable → error
 	}
 	for _, c := range cases {
 		got, err := sm.resolveExpr(c.in)

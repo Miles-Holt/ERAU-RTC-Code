@@ -90,3 +90,25 @@ Deferred deliberately during the usability pass — extracted here so they aren'
 - [x] **Graph resume auto-scroll threshold** — snap back to live triggers when view is within 5% of the right edge rather than a fixed number of seconds
 - [x] **Console tab** — live log of all WS messages; direction toggles (← in / → out), type toggles (data / config / cmd / other), free-text and regex filter, configurable buffer limit, clear button
 - [x] **Dev tab** — WS stats (endpoint, state, uptime, message count, rate, missed cycles) + browser memory (Chrome only); Force reconnect button (available in Dev Mode); all stats verified live in `refreshDevTabs()`
+
+---
+
+# Testing TODO
+
+## Done (Go smoke tests — `cd controlnode && go test ./...`)
+- [x] **config** — parses the real `config/` dir; validates browser/DAQ JSON builders, refDes map, `parseOptFloat`
+- [x] **broker** — data fan-out, cmd routing, unknown-refDes drop, bad-data transition + snapshot, restart-command exit hook (injectable `os.Exit`), slow-subscriber frame-drop
+- [x] **softchan** — load/defaults, bounds/read-only/unknown `Set` guards, disk persistence, config JSON
+- [x] **webclient** — auth matrix, `/ws/data` config handshake, `/ws/ctrl` auth→cmd (and unauthorized reject), static file serving, embedded-FS serving (production path)
+- [x] **daqnode** — `config_req` handshake + data bridging against a fake DAQ WS server; `SYS-TARGET-STATE` interception through `writeLoop`
+- [x] **statemachine** — transitions (operator_request / operator_abort / abort_triggered / sequence_complete), pending vs current, `{{VAR}}` resolution, abort-rule parsing, real-config target validation
+- [x] **Go↔JS protocol contract** — `webclient/protocol_test.go` asserts every message the browser parses (`ws.js`) is emitted by Go with the exact fields the JS reads; fails on field-name drift
+- [x] **Bug found + fixed** — `statemachine.RequestTransition` rejected valid transitions whose `exit_type` was omitted (the documented default). Core operator transitions (`safe→manualControl`, etc.) were affected. Fixed with a `found` flag.
+
+## Open (deferred — needs dedicated dev tooling / build server)
+- [ ] **WebClient JS syntax gate** — run `node --check` on each `WebClient/js/*.js` in CI so a broken JS file fails the build. *Requires Node.js installed (not currently available on the dev machine).*
+- [ ] **WebClient behavioral tests** — Node.js + `jsdom`: load `ws.js`/`cards.js`/`pid.js` against a fake DOM, feed synthetic `data`/`config`/`bad_data` messages, assert the UI state updates. Pairs with the Go-side contract test to cover both ends of the wire. *Requires Node.js + npm.*
+- [ ] **`-race` in CI** — run `CGO_ENABLED=1 go test -race ./...` on the build server. The broker is goroutine-dense; the race detector needs a C compiler (gcc), absent on the current Windows dev box. *Requires a build server with gcc/cgo.*
+- [ ] **Reconnection coverage** — exercise `daqnode.Client.Run()` reconnect loop (RegisterDaq/deregister, `DaqConnected` decrement on drop) and WebClient `scheduleReconnect`, beyond the single-cycle `connect()` smoke test.
+- [ ] **`set_layout` / `ack_alert` paths** — cover the file-writing `set_layout` handler and `ack_alert` in `webclient/server.go` (currently untested).
+- [ ] **health package** — no tests yet for uptime / loopTime / connection-count publishing.

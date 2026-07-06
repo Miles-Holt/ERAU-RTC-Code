@@ -42,7 +42,10 @@
       "Bash(echo \"vet exit: $?\")",
       "Bash(curl -s -i -N -H \"Connection: Upgrade\" -H \"Upgrade: websocket\" -H \"Sec-WebSocket-Version: 13\" -H \"Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\" -H \"Sec-WebSocket-Extensions: permessage-deflate\" http://localhost:8000/ws/data)",
       "Bash(node --check WebClient/js/pidRouter.js)",
-      "Bash(echo \"vet: $?\")"
+      "Bash(echo \"vet: $?\")",
+      "Bash(gofmt -l .)",
+      "Bash(gofmt -w daqnode/statemachine_test.go)",
+      "Bash(gofmt -l daqnode/*_test.go broker/*_test.go webclient/*_test.go embed_test.go softchan/*_test.go config/*_test.go)"
     ],
     "additionalDirectories": [
       "c:\\Users\\miles\\myrepo\\ERAM-RTC_Code"
