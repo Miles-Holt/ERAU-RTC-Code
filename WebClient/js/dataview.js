@@ -74,10 +74,16 @@ function _renderDvSearchDropdown(tab, input) {
     const populateDropdown = debounce(() => {
         dropdown.innerHTML = '';
         const q = input.value.trim();
-        if (!q) { closeDropdown(); return; }
+        if (!q) { input.classList.remove('input-error'); input.title = ''; closeDropdown(); return; }
 
         let re;
-        try { re = new RegExp(q, 'i'); } catch { closeDropdown(); return; }
+        try {
+            re = new RegExp(q, 'i');
+            input.classList.remove('input-error'); input.title = '';
+        } catch {
+            input.classList.add('input-error'); input.title = 'Invalid regex';
+            closeDropdown(); return;
+        }
 
         const matches = [];
         for (const ctrl of configControls) {
@@ -127,12 +133,7 @@ function _renderDvSearchDropdown(tab, input) {
 // ---------------------------------------------------------------------------
 
 function _dvFindChannel(refDes) {
-    for (const ctrl of configControls) {
-        for (const ch of (ctrl.channels ?? [])) {
-            if (ch.refDes === refDes) return { ctrl, ch };
-        }
-    }
-    return null;
+    return lookupChannel(refDes);
 }
 
 function _addDvRow(tab, refDes) {
@@ -218,6 +219,7 @@ function _buildDvRowEl(tab, ctrl, ch) {
         sendBtn.addEventListener('click', doSend);
         inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSend(); });
         inputEl.addEventListener('input',   () => { inputEl.classList.remove('input-error'); inputEl.title = ''; });
+        markCmdWidget(inputEl); markCmdWidget(sendBtn);
 
         right.appendChild(inputEl);
         right.appendChild(sendBtn);

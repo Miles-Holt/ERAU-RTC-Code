@@ -306,6 +306,39 @@ function pidSearch(startGx, startGy, startDir, goalGx, goalGy, goalDir, grid) {
 // Ports and stub tips should already be on grid multiples, but round defensively.
 function pidGridSnap(v) { return Math.round(v / PID.GRID); }
 
+// ── Direct straight-pipe fast path ───────────────────────────────────────────
+// When two ports are colinear and face each other, a single straight segment is
+// the ideal pipe — no standoff, no loop-back. The stub-based search can't
+// produce this once the ports are closer than 2*STUB apart (the projected stub
+// tips overshoot and cross, forcing extra turns), so we detect it up front.
+function pidRectContains(r, p) {
+    return p.x >= r.x1 && p.x <= r.x2 && p.y >= r.y1 && p.y <= r.y2;
+}
+function pidSegBlocked(a, b, rects) {
+    const xlo = Math.min(a.x, b.x), xhi = Math.max(a.x, b.x);
+    const ylo = Math.min(a.y, b.y), yhi = Math.max(a.y, b.y);
+    for (const r of rects) {
+        // Skip each endpoint's own component rect — the port sits on its
+        // boundary (inside the clearance margin), so it always "intersects".
+        if (pidRectContains(r, a) || pidRectContains(r, b)) continue;
+        if (xhi >= r.x1 && xlo <= r.x2 && yhi >= r.y1 && ylo <= r.y2) return true;
+    }
+    return false;
+}
+function pidTryStraight(p1, d1, p2, d2, rects) {
+    const dir1 = PID_PORT_TO_DIR[d1];
+    if (PID_PORT_TO_DIR[d2] !== PID_OPP[dir1]) return null;   // must face each other
+    if (dir1 === PID_DIR_E || dir1 === PID_DIR_W) {
+        if (p1.y !== p2.y) return null;                       // colinear horizontally
+        if (Math.sign(p2.x - p1.x) !== PID_DX[dir1]) return null; // p2 in front of p1
+    } else {
+        if (p1.x !== p2.x) return null;                       // colinear vertically
+        if (Math.sign(p2.y - p1.y) !== PID_DY[dir1]) return null;
+    }
+    if (pidSegBlocked(p1, p2, rects)) return null;
+    return [{ x: p1.x, y: p1.y }, { x: p2.x, y: p2.y }];
+}
+
 // ── Public route entry point ─────────────────────────────────────────────────
 // request = { p1, d1, p2, d2, objects, pipeSegs }
 //   p1, p2: {x, y} pixel coords of the two ports (from portPos)
@@ -323,6 +356,11 @@ function pidRoute(request) {
     const s2 = { x: p2.x + PID_DX[dirIdx2] * S, y: p2.y + PID_DY[dirIdx2] * S };
 
     const rects = pidObstacleRects(objects);
+
+    // Prefer a direct straight pipe when the ports face each other colinearly
+    // with a clear path — avoids the forced double standoff / loop-back.
+    const straightPts = pidTryStraight(p1, d1, p2, d2, rects);
+    if (straightPts) return { d: pidRoundedPath(straightPts, R), pts: straightPts, error: null };
 
     const startGx = pidGridSnap(s1.x), startGy = pidGridSnap(s1.y);
     const goalGx  = pidGridSnap(s2.x), goalGy  = pidGridSnap(s2.y);

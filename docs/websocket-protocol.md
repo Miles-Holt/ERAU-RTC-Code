@@ -2,7 +2,27 @@
 
 All communication between the **Go control node** and browser clients uses **JSON over WebSocket** on port 8000.
 
-**Endpoint:** `ws://<chassis-hostname>:8000`
+## Two endpoints
+
+The browser opens **two** sockets (see `WebClient/js/ws.js`):
+
+| Endpoint | Auth | Direction | Carries |
+|---|---|---|---|
+| `ws://<host>:8000/ws/data` | anonymous | server → browser | `config`, `pid_layout`, `state_config`, `softchan_config`, `data`, `alert`, `alert_acked`, `alert_snapshot`, `bad_data`, `bad_data_snapshot`, `err` |
+| `ws://<host>:8000/ws/ctrl` | PIN required | browser → server (+ `auth_response` back) | `auth_request`, `cmd`, `ack_alert`, `set_layout` |
+
+`permessage-deflate` compression is negotiated automatically when the browser
+supports it (all modern browsers do).
+
+**Auth:** the `/ws/ctrl` socket accepts commands only after an `auth_request`
+(name + PIN) is validated against `config/userAuth.yaml`
+(`controlnode/webclient/auth.go`); the server replies `auth_response { approved, name, reason }`.
+
+> The sections below detail the core `config` / `data` / `pid_layout` / `cmd`
+> messages. The alert (`alert*`, `ack_alert`), bad-data (`bad_data*`), state-machine
+> (`state_config`), and soft-channel (`softchan_config`) messages are additive and
+> follow the same JSON-over-WebSocket convention; see the referenced Go/JS handlers
+> for their current field shapes.
 
 ---
 
@@ -210,9 +230,9 @@ Sent by the browser when a user interacts with a commandable control (button, sl
 | `type` | string | Always `"cmd"` |
 | `refDes` | string | Channel-level refDes of the target channel (must have a `cmd-*` role) |
 | `value` | number or bool | Command value — `1`/`0` for `cmd-bool`, `0`–`100` for `cmd-pct`, float for `cmd-float` |
-| `user` | string | Operator name entered in the browser; forwarded to the DAQ node for logging — no server-side auth |
+| `user` | string | Authenticated operator name; forwarded to the DAQ node for logging |
 
-The control node routes each `cmd` message to the appropriate DAQ node based on the channel's `refDesDaq` mapping from the XML config. Command widgets in the browser are disabled until the operator enters a name.
+The `cmd` message is sent on the **`/ws/ctrl`** socket, which requires a prior successful `auth_request` (name + PIN validated against `config/userAuth.yaml`). The control node routes each `cmd` to the appropriate DAQ node based on the channel's refDes mapping from the YAML config. Command widgets in the browser (class `cmd-widget`) are disabled until login succeeds.
 
 ---
 

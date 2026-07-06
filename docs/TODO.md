@@ -10,7 +10,7 @@
 - [ ] **Future proof** make the re-try for connect a list of nodes that the control node is attempting to connect to. Provides future proof against lots of nodes congesting the console log.
 
 ### dataHealth
-- [ ] **Bad data detection** — define "bad data" criteria (out-of-range, sensor fault flag) based on the channel definition in the config file. Send message to websocket when data becomes "bad" (e.g. a 4-20mA sensor reading 1mA). May require new fields in the config file.
+- [x] **Bad data detection** — server-side range checks (`broker.checkBounds`) emit `bad_data` / `bad_data_snapshot` when a value leaves `[validMin, validMax]`; the browser shows a red LED and an alert-bar alarm. Bounds come from the YAML config.
 
 ### configFile
 - [ ] **quality of life** - remove the unused sections from the configuration file
@@ -32,7 +32,7 @@ See `CONTEXT.md` for full project/architecture context.
 - [x] **stale data detection** - context: when any data is recieved from a node, ALL data from that node is maked as NOT stale. SCOPE: instead, the stale flag should be per channel depenedent incase data is only being recieved from a new channel rather than the whole daqNode.
 
 ### Auth
-- [ ] **Auth rejects incorrect logins** — login is not currently validated against the auth YAML; incorrect credentials are accepted without rejection
+- [x] **Auth rejects incorrect logins** — server-side PIN auth now validates against `config/userAuth.yaml` on the `/ws/ctrl` socket (`webclient/auth.go`); `auth_request` → `auth_response{approved}`. Command widgets are gated on a successful login.
 
 ### Front Panel Tab
 - [X] **P&ID background** — load a P&ID image or SVG as the canvas background; support multiple P&ID views selectable per tab (e.g. LOX panel, fuel panel, engine)
@@ -44,7 +44,7 @@ See `CONTEXT.md` for full project/architecture context.
 ---
 
 ### Channel List Tab
-- [ ] **Bad data detection** — define "bad data" criteria (out-of-range, sensor fault flag, etc.) and wire up `.dv-led-bad` (red LED) state on channel rows
+- [x] **Bad data detection** — `.dv-led-bad` (red LED) + red value text now driven by `validMin`/`validMax`; server `bad_data` messages also raise an alert-bar alarm.
 
 ---
 
@@ -58,6 +58,20 @@ See `CONTEXT.md` for full project/architecture context.
 
 ### Dev Tab
 - [ ] **Browser memory accuracy** — JS heap via `performance.memory` always reads ~10 MB; investigate whether Chrome is clamping the value or whether the read timing is wrong
+- [x] **Comms instrumentation** — Dev tab now shows data throughput (bytes/s) and average frame size; useful for gauging broadcast volume before/after tuning. (Measures decoded payload, so it reflects channel-count/state-volume, not on-the-wire compression.)
+
+---
+
+## Cleanup / tech debt (from usability + efficiency pass)
+
+Deferred deliberately during the usability pass — extracted here so they aren't lost:
+
+- [~] **Unify P&ID renderer (partial)** — the byte-identical pure helpers (`svgN`, `pidSvgPt`, `portPos`, `pidFromYaml`, and the valve-symbol geometry helpers) are now shared in `js/pidRender.js`, loaded by both `index.html` and `editor.html`. `PID` (differs: `VALVE_PORT_OFF` 0 vs 40) and `pidToYaml` (editor-only; viewer copy was dead, removed) stay per-file. **Still deferred:** the group builders / `renderPidObj` genuinely diverge (edit mode adds ports + drag), and the editor keeps its own WS/auth stack + separate `editor.html` page (kept intentionally — a standalone editor window is desired). Verify the viewer + editor in a browser after this change.
+- [ ] **Extract shared channel-search dropdown** — the regex-search-dropdown is copy-pasted ~4× (graph cell, object sidebar, channel list, in-panel graph). Consolidate into one helper.
+- [ ] **Extract stale-timer helper** — `clearTimeout; setTimeout(add 'stale', channelStaleMs)` is repeated across card/pid/dataview builders.
+- [ ] **Dead code: `cards.js`** — `buildCard` and all `build*Card` helpers are unreachable (the Data View card tab was replaced). Delete the file, or revive it for a future dashboard/card tab. (`isCmd` already moved to `utils.js`.)
+- [ ] **Alert bar sources** — still TODO in spirit: sensor-bounds alerts sourced from an `alertRules.yaml`, and explicit DAQ connect/disconnect alerts. (DAQ `err` messages now surface as alerts; bad-data range alerts are done.)
+- [ ] **State machine safe-state sequence** — `config/control/daq001_control.yaml` `safe` state entry sequence is incomplete (`# TODO: add all the other valves`).
 
 ---
 

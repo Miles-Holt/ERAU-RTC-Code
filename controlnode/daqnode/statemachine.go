@@ -92,23 +92,29 @@ func (sm *stateMachine) RequestTransition(trigger, target string) ([]byte, error
 		return nil, fmt.Errorf("current state %q not found in config", sm.current)
 	}
 
-	exitType := ""
+	// Locate a matching transition.  exitType may legitimately be "" (defaults to
+	// hard_exit below), so a separate `found` flag — not exitType — signals a
+	// match.  Otherwise valid transitions that omit exit_type would be rejected.
+	var exitType string
+	var found bool
 	for _, t := range st.Transitions {
 		if t.On == trigger && t.Target == target {
 			exitType = t.ExitType
+			found = true
 			break
 		}
 	}
-	if exitType == "" {
+	if !found {
 		// Also try matching by target only (for operator_request which covers multiple targets)
 		for _, t := range st.Transitions {
 			if t.Target == target {
 				exitType = t.ExitType
+				found = true
 				break
 			}
 		}
 	}
-	if exitType == "" {
+	if !found {
 		return nil, fmt.Errorf("no transition from %q to %q with trigger %q", sm.current, target, trigger)
 	}
 

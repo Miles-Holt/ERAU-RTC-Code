@@ -58,206 +58,11 @@ const PID = {
     DAQCTRL_H:   60,    // daqControl widget default height px (3 cells)
 };
 
-// ── YAML serialiser ──────────────────────────────────────────────────────────
-
-function pidToYaml(layout) {
-    function q(s) {
-        s = String(s);
-        return /[:#{}[\],&*?|<>=!%@`'"\\]/.test(s) ? '"' + s.replace(/"/g, '\\"') + '"' : s;
-    }
-    let y = 'name: ' + q(layout.name || 'Untitled') + '\nversion: 1\nobjects:\n';
-    for (const o of layout.objects) {
-        y += '  - id: '   + q(o.id)  + '\n';
-        y += '    type: ' + o.type   + '\n';
-        if (o.type === 'graph') {
-            if (o.name)             y += '    name: '           + q(o.name)        + '\n';
-            y +=                        '    gridX: '           + o.gridX           + '\n';
-            y +=                        '    gridY: '           + o.gridY           + '\n';
-            y +=                        '    gridW: '           + (o.gridW || 20)   + '\n';
-            y +=                        '    gridH: '           + (o.gridH || 10)   + '\n';
-            if (o.showName === false)                          y += '    showName: false\n';
-            if (o.showLeftSidebar)                             y += '    showLeftSidebar: true\n';
-            if (o.legendPosition && o.legendPosition !== 'none') y += '    legendPosition: ' + o.legendPosition + '\n';
-            if (o.lines && o.lines.length) {
-                y += '    lines:\n';
-                for (const l of o.lines) {
-                    y += '      - refDes: ' + q(l.refDes) + '\n';
-                    if (l.color)           y += '        color: '  + q(l.color)  + '\n';
-                    if (l.yAxis && l.yAxis !== 1) y += '        yAxis: ' + l.yAxis + '\n';
-                    if (l.hidden)          y += '        hidden: true\n';
-                }
-            }
-        } else if (o.type === 'tank') {
-            y +=                              '    gridX: '  + o.gridX           + '\n';
-            y +=                              '    gridY: '  + o.gridY           + '\n';
-            y +=                              '    gridW: '  + (o.gridW  || 5)   + '\n';
-            y +=                              '    gridH: '  + (o.gridH  || 8)   + '\n';
-            if (o.rotation)              y += '    rotation: ' + o.rotation      + '\n';
-            if (o.cornerR !== undefined) y += '    cornerR: '  + o.cornerR       + '\n';
-            if (o.label)                 y += '    label: '    + q(o.label)      + '\n';
-            if (o.showLabel === false)   y += '    showLabel: false\n';
-            if (o.labelOffsetX)          y += '    labelOffsetX: ' + o.labelOffsetX + '\n';
-            if (o.labelOffsetY)          y += '    labelOffsetY: ' + o.labelOffsetY + '\n';
-        } else if (o.type === 'valve') {
-            if (o.controlRefDes)        y += '    controlRefDes: ' + q(o.controlRefDes) + '\n';
-            if (o.showRefDes === false)  y += '    showRefDes: false\n';
-            if (o.rotation)             y += '    rotation: ' + o.rotation + '\n';
-            y +=                             '    gridX: ' + o.gridX + '\n';
-            y +=                             '    gridY: ' + o.gridY + '\n';
-            if (o.labelOffsetX)         y += '    labelOffsetX: ' + o.labelOffsetX + '\n';
-            if (o.labelOffsetY)         y += '    labelOffsetY: ' + o.labelOffsetY + '\n';
-        } else if (o.type === 'daqControl') {
-            if (o.daqRefDes)           y += '    daqRefDes: ' + q(o.daqRefDes) + '\n';
-            y +=                           '    gridX: ' + o.gridX + '\n';
-            y +=                           '    gridY: ' + o.gridY + '\n';
-            if (o.gridW && o.gridW !== 10) y += '    gridW: ' + o.gridW + '\n';
-            if (o.gridH && o.gridH !== 3)  y += '    gridH: ' + o.gridH + '\n';
-        } else {
-            if (o.refDes)              y += '    refDes: ' + q(o.refDes) + '\n';
-            if (o.units)               y += '    units: '  + q(o.units)  + '\n';
-            if (o.showRefDes === false) y += '    showRefDes: false\n';
-            if (o.showUnits  === false) y += '    showUnits: false\n';
-            if (o.showName   === true)  y += '    showName: true\n';
-            if (o.rotation)            y += '    rotation: '    + o.rotation      + '\n';
-            y +=                           '    gridX: '   + o.gridX    + '\n';
-            y +=                           '    gridY: '   + o.gridY    + '\n';
-            if (o.labelOffsetX)        y += '    labelOffsetX: ' + o.labelOffsetX + '\n';
-            if (o.labelOffsetY)        y += '    labelOffsetY: ' + o.labelOffsetY + '\n';
-        }
-    }
-    y += 'connections:\n';
-    for (const c of layout.connections) {
-        y += '  - id: '       + q(c.id)       + '\n';
-        y += '    fromId: '   + q(c.fromId)   + '\n';
-        y += '    fromPort: ' + c.fromPort     + '\n';
-        y += '    toId: '     + q(c.toId)     + '\n';
-        y += '    toPort: '   + c.toPort       + '\n';
-        if (c.fluid)          y += '    fluid: '    + c.fluid        + '\n';
-    }
-    return y;
-}
-
-// ── YAML parser (handles our exact schema only) ──────────────────────────────
-
-function pidFromYaml(text) {
-    const out = { name: 'Untitled', version: 1, objects: [], connections: [] };
-    let section = null, cur = null, subSection = null, subCur = null;
-    function uq(s) { return s.trim().replace(/^["']|["']$/g, ''); }
-    function coerce(v) {
-        const u = uq(v);
-        if (u === 'true')  return true;
-        if (u === 'false') return false;
-        return (u !== '' && !isNaN(u)) ? Number(u) : u;
-    }
-    function kv(obj, str) {
-        const m = str.match(/^([\w]+):\s*(.*)/);
-        if (m) obj[m[1]] = coerce(m[2]);
-    }
-    for (const raw of text.split(/\r?\n/)) {
-        const t = raw.trim();
-        if (!t || t.startsWith('#')) continue;
-        const ind = raw.search(/\S/);
-        if (ind === 0) {
-            subSection = null; subCur = null;
-            const m = t.match(/^(\w+):\s*(.*)/);
-            if (!m) continue;
-            if      (m[1] === 'name')        out.name    = uq(m[2]);
-            else if (m[1] === 'version')     out.version = parseInt(m[2]) || 1;
-            else if (m[1] === 'objects')     { section = 'objects';     cur = null; }
-            else if (m[1] === 'connections') { section = 'connections'; cur = null; }
-        } else if (ind <= 3) {
-            // Section item: "  - id: ..."
-            subSection = null; subCur = null;
-            if (t.startsWith('- ')) {
-                cur = {};
-                if (section === 'objects')     out.objects.push(cur);
-                if (section === 'connections') out.connections.push(cur);
-                kv(cur, t.slice(2));
-            } else if (cur) {
-                kv(cur, t);
-            }
-        } else if (ind <= 5) {
-            // Object property at indent 4: "    key: value" or "    lines:"
-            if (cur) {
-                const m = t.match(/^([\w]+):\s*(.*)/);
-                if (m) {
-                    if (m[2] === '' || m[2].trim() === '') {
-                        // Subsection header (e.g. "    lines:")
-                        subSection = m[1];
-                        if (!cur[subSection]) cur[subSection] = [];
-                        subCur = null;
-                    } else {
-                        subSection = null; subCur = null;
-                        cur[m[1]] = coerce(m[2]);
-                    }
-                }
-            }
-        } else {
-            // Subsection item or property at indent 6+
-            if (t.startsWith('- ') && subSection && cur) {
-                subCur = {};
-                cur[subSection].push(subCur);
-                kv(subCur, t.slice(2));
-            } else if (subCur) {
-                kv(subCur, t);
-            }
-        }
-    }
-    return out;
-}
-
-// ── SVG namespace helper ─────────────────────────────────────────────────────
-
-function svgN(tag, attrs) {
-    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
-    if (attrs) for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
-    return el;
-}
-
-// ── Port positions ───────────────────────────────────────────────────────────
-
-function portPos(obj, port) {
-    const x = obj.gridX * PID.GRID;
-    const y = obj.gridY * PID.GRID;
-    if (obj.type === 'sensor') {
-        if (port === 'bottom') return { x: x + PID.SENSOR_W / 2, y: y + PID.SENSOR_H };
-    }
-    if (obj.type === 'node') {
-        return { x, y };
-    }
-    if (obj.type === 'valve') {
-        const off = PID.VALVE_PORT_OFF;
-        if (port === 'top')    return { x,        y: y - off };
-        if (port === 'right')  return { x: x+off, y };
-        if (port === 'bottom') return { x,        y: y + off };
-        if (port === 'left')   return { x: x-off, y };
-    }
-    if (obj.type === 'daqControl') {
-        const w = (obj.gridW || 10) * PID.GRID;
-        const h = (obj.gridH || 3)  * PID.GRID;
-        if (port === 'top')    return { x: x + w / 2, y };
-        if (port === 'right')  return { x: x + w,     y: y + h / 2 };
-        if (port === 'bottom') return { x: x + w / 2, y: y + h };
-        if (port === 'left')   return { x,             y: y + h / 2 };
-    }
-    if (obj.type === 'tank') {
-        const w = (obj.gridW || 5) * PID.GRID;
-        const h = (obj.gridH || 8) * PID.GRID;
-        if (port === 'top')    return { x: x + w / 2, y };
-        if (port === 'right')  return { x: x + w,     y: y + h / 2 };
-        if (port === 'bottom') return { x: x + w / 2, y: y + h };
-        if (port === 'left')   return { x,             y: y + h / 2 };
-    }
-    return { x, y };
-}
-
-// ── SVG coordinate from pointer event ───────────────────────────────────────
-
-function pidSvgPt(svgEl, e) {
-    const pt = svgEl.createSVGPoint();
-    pt.x = e.clientX; pt.y = e.clientY;
-    return pt.matrixTransform(svgEl.getScreenCTM().inverse());
-}
+// ── Shared render/serialisation helpers moved to pidRender.js ────────────────
+// svgN, pidSvgPt, portPos, pidFromYaml (and the valve-symbol geometry helpers
+// below) now live in pidRender.js, shared with the standalone editor.
+// pidToYaml also lived here but was unused by the viewer, so it was removed.
+// PID (above) stays per-file: VALVE_PORT_OFF differs between viewer and editor.
 
 // =============================================================================
 // buildFrontPanelContent  — called by tabs.js when creating a front-panel tab
@@ -570,6 +375,7 @@ function makeDaqControlGroup(obj) {
         sel.className = 'pid-daqctrl-select';
         sel.setAttribute('data-daqctrl-select', '');
         sel.style.width = '100%';
+        markCmdWidget(sel);
 
         // Populate with initial placeholder
         const placeholder = document.createElement('option');
@@ -648,42 +454,8 @@ function makeTankGroup(obj) {
 
 // Returns SVG line attributes for the IO-CMD center line.
 // open (truthy) = horizontal (0°), closed (falsy) = vertical (90°).
-function _valveLineAttrs(isOpen) {
-    const L = PID.VALVE_R - 3;
-    return isOpen
-        ? { x1: -L, y1: 0,  x2: L, y2: 0  }
-        : { x1: 0,  y1: -L, x2: 0, y2: L  };
-}
-
-// Returns SVG arc path for POS-FB feedback.
-// pct 100 = open (pointer at 180°), pct 0 = closed (pointer at 90°).
-function _valveArcPath(pct) {
-    const R = PID.VALVE_R + 7;
-    const endAngle = Math.PI - (Math.max(0, Math.min(100, pct)) / 100) * (Math.PI / 2);
-    const startAngle = Math.PI;
-    if (Math.abs(startAngle - endAngle) < 0.01) return '';
-    const x1 = Math.cos(startAngle) * R, y1 = Math.sin(startAngle) * R;
-    const x2 = Math.cos(endAngle)   * R, y2 = Math.sin(endAngle)   * R;
-    return 'M ' + x1 + ' ' + y1 + ' A ' + R + ' ' + R + ' 0 0 1 ' + x2 + ' ' + y2;
-}
-
-// Returns {cx, cy} for the POS-FB pointer dot.
-function _valvePtrPos(pct) {
-    const R = PID.VALVE_R + 7;
-    const angle = Math.PI - (Math.max(0, Math.min(100, pct)) / 100) * (Math.PI / 2);
-    return { cx: Math.cos(angle) * R, cy: Math.sin(angle) * R };
-}
-
-// Determines command/feedback type from ctrl.subType string.
-function _valveSubtypeInfo(ctrl) {
-    if (!ctrl) return { hasCmd: false, cmdRole: null, hasFb: false, fbIsPct: false };
-    const st = (ctrl.subType || '').toUpperCase();
-    const hasCmd  = st.includes('IO-CMD') || st.includes('POS-CMD');
-    const cmdRole = st.includes('POS-CMD') ? 'cmd-pct' : (hasCmd ? 'cmd-bool' : null);
-    const hasFb   = st.includes('IO-FB') || st.includes('POS-FB');
-    const fbIsPct = st.includes('POS-FB');
-    return { hasCmd, cmdRole, hasFb, fbIsPct };
-}
+// Valve symbol geometry helpers (_valveLineAttrs, _valveArcPath, _valvePtrPos,
+// _valveSubtypeInfo) moved to pidRender.js — shared with the editor.
 
 function makeValveGroup(obj) {
     const ctrl  = configControls.find(c => c.refDes === obj.controlRefDes);

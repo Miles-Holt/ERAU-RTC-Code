@@ -1,40 +1,10 @@
 // =============================================================================
-// RTC WebSocket Client
-// =============================================================================
+// App bootstrap — theme, tab init, intervals, WebSocket connect
 //
-// PROTOCOL (all messages are JSON strings):
-//
-//   LabVIEW -> Browser:
-//     Config  { "type": "config", "controls": [ <control>, ... ] }
-//     Data    { "type": "data",   "t": <unix_epoch_s>, "d": { "<refDes>": <value>, ... } }
-//
-//   Browser -> LabVIEW:
-//     Command { "type": "cmd", "refDes": "<refDes>", "value": <number|bool> }
-//
-//   Config control object:
-//     {
-//       "refDes":      "NV-03",
-//       "description": "LOX Press",
-//       "type":        "valve",
-//       "subType":     "IO-CMD_IO-FB",
-//       "details":     { "senseRefDes": "OPT-02" },
-//       "channels": [
-//         { "refDes": "NV-03-CMD", "role": "cmd-bool", "units": "" },
-//         { "refDes": "NV-03-FB",  "role": "sensor",   "units": "" }
-//       ]
-//     }
-//
-//   Channel roles: "sensor" | "cmd-bool" | "cmd-pct" | "cmd-float"
-//
-//   TIMESTAMP NOTE:
-//     LabVIEW epoch starts 1904-01-01. Unix epoch starts 1970-01-01.
-//     Convert in LabVIEW before sending: unix_t = lv_t - 2082844800
-//
-// =============================================================================
-
-
-// =============================================================================
-// Init
+// The WebSocket protocol lives in ws.js; the message schema is documented in
+// docs/websocket-protocol.md.  (This file used to carry a protocol comment that
+// described a single LabVIEW→Browser socket; that is obsolete — see ws.js for the
+// current /ws/data + /ws/ctrl design.)
 // =============================================================================
 
 // =============================================================================
@@ -70,7 +40,10 @@
     });
 })();
 
-document.getElementById('tab-add').addEventListener('click', () => addTab('frontPanel'));
+document.getElementById('tab-add').addEventListener('click', (e) => {
+    e.stopPropagation();
+    showAddTabMenu(e.currentTarget);
+});
 
 addTab('frontPanel');
 
@@ -99,7 +72,7 @@ connectCtrl();
     overlay.className = 'boot-overlay';
     overlay.innerHTML = `
         <div class="boot-hint">
-            <div>Right-click any tab to change its type, or click a shortcut below</div>
+            <div>Click <b>+</b> to add a tab of any type, or right-click a tab to change it — or click a shortcut below</div>
             <div style="margin-top:6px">
                 <span class="boot-hint-type-btn" data-type="frontPanel">Front Panel</span>
                 &nbsp;·&nbsp;

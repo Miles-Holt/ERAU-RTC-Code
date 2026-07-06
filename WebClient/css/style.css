@@ -346,6 +346,10 @@ header h1 {
 .btn:active:not(:disabled) { transform: scale(0.97); }
 .btn:disabled              { opacity: 0.3; cursor: not-allowed; }
 
+/* Universal disabled styling for any auth-gated command widget (markCmdWidget).
+   Covers non-.btn controls too: valve-panel buttons, number inputs, selects. */
+.cmd-widget:disabled { opacity: 0.4; cursor: not-allowed; }
+
 .btn-open  { border-color: var(--led-open);   color: var(--led-open); }
 .btn-close { border-color: var(--led-closed); color: var(--led-closed); }
 
@@ -950,7 +954,8 @@ header h1 {
 }
 
 .dv-row-input:focus { outline: none; border-color: var(--accent); }
-.dv-row-input.input-error { border-color: var(--color-ignition); }
+/* Invalid-input hint — command inputs and regex search boxes (invalid pattern). */
+.input-error { border-color: var(--color-ignition); }
 
 .dv-row .tab-close { color: transparent; }
 .dv-row:hover .tab-close { color: var(--muted); }

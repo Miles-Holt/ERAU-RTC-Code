@@ -18,6 +18,35 @@ the WebSocket protocol.
 
 ---
 
+## ⚠️ Currency note (read first)
+
+Parts of the detailed sections below predate several architecture changes. The
+authoritative current state:
+
+- **Two WebSockets**, not one: `/ws/data` (anonymous, server→browser stream) and
+  `/ws/ctrl` (PIN-authenticated, browser→server commands + auth). See `js/ws.js`.
+- **Server-side auth**: login is validated against `config/userAuth.yaml`
+  (`controlnode/webclient/auth.go`) via `auth_request` → `auth_response`. It is
+  **not** client-side-only. Command widgets carry the `cmd-widget` class and are
+  disabled until a successful login (`js/utils.js` `markCmdWidget`, `js/auth.js`).
+- **Config is YAML** under `config/` (parsed by `controlnode/config/yaml.go`), not a
+  single root `nodeConfigs_0.0.2.xml` (that file is gone; `config/xml.go` → `yaml.go`).
+- **Extra message types** beyond config/data/pid_layout/cmd: `alert`, `alert_acked`,
+  `alert_snapshot`, `bad_data`, `bad_data_snapshot`, `state_config`, `softchan_config`,
+  `err` (server→browser); `auth_request`, `ack_alert`, `set_layout` (browser→server).
+- **Undocumented-below subsystems**: bottom **alert bar** (`js/alerts.js`), DAQ
+  **state machine** / autosequence / abort (`controlnode/daqnode/statemachine.go`,
+  `config/control/*.yaml`), **soft channels** (`controlnode/softchan/store.go`).
+- **Separate editor page**: `editor.html` + `js/editor.js` is a full P&ID editor that
+  duplicates the `js/pid.js` renderer and its own WS/auth (flagged for unification).
+- **Tab persistence exists** via `sessionStorage` (`js/tabPersist.js`) — it restores
+  tabs across reload (used by the alert bar's Reload button). The "persistence
+  removed" statements below are obsolete.
+- Additional JS modules not listed below: `pidRouter.js`, `objectSidebar.js`,
+  `valveDropdown.js`, `tabPersist.js`, `alerts.js`, `editor.js`.
+
+---
+
 ## Repository Layout
 
 ```
@@ -237,9 +266,9 @@ Tabs do **not** persist across page refresh — every load opens a single fresh 
 - **Go control node** — `controlnode/` is a Go binary that serves the WebClient and bridges DAQ nodes
 - **Per-tab channelUpdaters** — each tab owns `{ refDes: fn }` so multiple tabs update independently from the same data stream
 - **Graph buffers only for active channels** — `channelBuffers` is allocated when a channel is added to any graph cell and freed when removed from all cells
-- **Auth is client-side only** — no server validation; `user` field on `cmd` messages is for DAQ node logging only; command widgets are disabled until a name is entered
+- **Auth is server-validated** — the `/ws/ctrl` socket requires a successful `auth_request` (name + PIN checked against `config/userAuth.yaml`) before it accepts commands; command widgets (`.cmd-widget`) are disabled in the browser until login succeeds. *(An earlier revision was client-side-only; that is no longer true.)*
 - **`enabled` filter is server-side** — the control node strips disabled controls before sending `config`; the browser renders everything it receives
-- **Tab persistence removed** — `localStorage` tab save/restore was deleted; every page load starts with a single Front Panel tab to avoid stale layout bugs
+- **Tab persistence via `sessionStorage`** — `js/tabPersist.js` saves/restores open tabs across a reload (not across a fresh browser session); used by the alert bar's Reload button after a layout update. *(An earlier revision removed persistence entirely; it was re-added.)*
 - **Bad-data detection is client-side** — `validMin`/`validMax` come from the control node in the `config` message; the browser computes the bad state on each value update
 
 ---

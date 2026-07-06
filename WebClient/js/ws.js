@@ -30,6 +30,9 @@ function onDataOpen() {
 
 function onDataMessage(event) {
     devStats.msgCount++;
+    // Decoded payload size (post-decompression, so this reflects logical bytes on
+    // the data socket — useful for gauging state-broadcast volume, not wire bytes).
+    if (typeof event.data === 'string') devStats.byteCount += event.data.length;
     let msg;
     try { msg = JSON.parse(event.data); }
     catch { console.warn('Non-JSON message received:', event.data); return; }
@@ -120,6 +123,17 @@ function scheduleReconnectCtrl() {
 function sendWsCtrl(msg) {
     if (!wsCtrl || wsCtrl.readyState !== WebSocket.OPEN) {
         console.warn('Cannot send: ctrl WS not connected');
+        if (typeof ingestAlert === 'function') {
+            ingestAlert({
+                id:        'cmd-not-sent',   // stable id → replaces, not stacks
+                category:  'warning',
+                message:   operatorName
+                    ? 'Control link down — command not sent'
+                    : 'Not logged in — command not sent',
+                timestamp: Date.now(),
+                acked:     false,
+            });
+        }
         return;
     }
     wsCtrl.send(JSON.stringify(msg));
@@ -143,6 +157,7 @@ function sendCommand(refDes, value) {
 function applyConfig(msg) {
     configControls = msg.controls ?? [];
     configApplied  = true;
+    rebuildConfigIndex();
     if (msg.broadcastRateHz) setLiveUpdateRate(msg.broadcastRateHz);
     if (msg.channelStaleMs)  CONFIG.channelStaleMs = msg.channelStaleMs;
     restoreTabState();
@@ -189,6 +204,15 @@ function markStale() {
 function handleDaqError(msg) {
     const ts = msg.t ? new Date(msg.t * 1000).toISOString() : '?';
     console.error(`[${ts}] DAQ error from ${msg.daqNode}: ${msg.err}`);
+    if (typeof ingestAlert === 'function') {
+        ingestAlert({
+            id:        'daqerr:' + (msg.daqNode || '?'),  // per-node id → replaces, not stacks
+            category:  'warning',
+            message:   `DAQ ${msg.daqNode || '?'}: ${msg.err || 'error'}`,
+            timestamp: msg.t ? Math.round(msg.t * 1000) : Date.now(),
+            acked:     false,
+        });
+    }
 }
 
 function applyPidLayout(msg) {

@@ -20,6 +20,15 @@ const (
 	readTimeout    = 3 * time.Second // used only for config_req handshake
 )
 
+// daqDialer is DefaultDialer with permessage-deflate enabled.  If a DAQ node's
+// WS server does not advertise compression, negotiation is skipped and the
+// connection proceeds uncompressed — safe either way.
+var daqDialer = func() *websocket.Dialer {
+	d := *websocket.DefaultDialer
+	d.EnableCompression = true
+	return &d
+}()
+
 // Client connects to a single DAQ node and bridges its data/commands to the broker.
 type Client struct {
 	refDes     string
@@ -74,7 +83,7 @@ func (c *Client) connect() (connected bool, err error) {
 	u := url.URL{Scheme: "ws", Host: c.addr, Path: "/"}
 	log.Printf("daqnode %s: connecting to %s", c.refDes, u.String())
 
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	conn, _, err := daqDialer.Dial(u.String(), nil)
 	if err != nil {
 		return false, fmt.Errorf("dial: %w", err)
 	}

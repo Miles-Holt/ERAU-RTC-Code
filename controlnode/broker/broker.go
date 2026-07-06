@@ -86,6 +86,11 @@ type Broker struct {
 	// channelBounds is the set of channels to range-check (immutable after construction).
 	channelBounds map[string]ChannelBounds
 
+	// exit is called when a restart command is received.  Defaults to os.Exit;
+	// overridable in tests so the restart path can be exercised without killing
+	// the test process.
+	exit func(int)
+
 	// badMu protects badSnapshot; written by Run, read by BadDataSnapshot.
 	badMu       sync.RWMutex
 	badSnapshot []byte // nil when no channels are currently bad
@@ -118,6 +123,7 @@ func New(refDesMap map[string]string, restartRefDes []string, channelBounds map[
 		refDesMap:     refDesMap,
 		restartRefDes: rr,
 		channelBounds: channelBounds,
+		exit:          os.Exit,
 	}
 }
 
@@ -214,7 +220,8 @@ func (b *Broker) Run(broadcastRateHz int) {
 		case cmd := <-b.cmdIn:
 			if b.restartRefDes[cmd.RefDes] {
 				log.Printf("broker: restart command received from user %q — exiting", cmd.User)
-				os.Exit(1)
+				b.exit(1)
+				continue
 			}
 			daqRefDes, ok := b.refDesMap[cmd.RefDes]
 			if !ok {

@@ -28,6 +28,9 @@ let operatorName = '';
 // --- Config ---
 let configControls = [];
 let configApplied  = false;
+// Lookup indexes rebuilt from configControls on every config message (rebuildConfigIndex).
+const channelIndex = {};   // channel refDes -> { ctrl, ch }
+const controlIndex = {};   // control refDes -> ctrl
 
 // --- Tabs ---
 let tabs        = [];
@@ -49,12 +52,14 @@ const CHART_COLORS = [
 
 // --- Dev ---
 const devStats = {
-    connectedAt:     null,
-    msgCount:        0,
-    lastWindowCount: 0,
-    missedCycles:    0,
-    lastDataT:       null,
-    avgInterval:     null
+    connectedAt:   null,
+    msgCount:      0,
+    lastMsgCount:  0,     // message count at previous Dev-tab refresh (rate calc)
+    byteCount:     0,     // cumulative bytes of decoded WS payloads received
+    lastByteCount: 0,     // byte count at previous Dev-tab refresh (throughput calc)
+    missedCycles:  0,
+    lastDataT:     null,
+    avgInterval:   null
 };
 let devTabs = [];
 

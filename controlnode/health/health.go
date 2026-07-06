@@ -43,6 +43,15 @@ func (p *Publisher) Run(broadcastRateHz int) {
 	ticker := time.NewTicker(time.Second / time.Duration(broadcastRateHz))
 	defer ticker.Stop()
 
+	// The CTR command channels are always 0 here and never change; re-sending them
+	// on every frame is pure overhead.  Emit them only once per keepalive interval
+	// (~1 s) so new clients still get their baseline for time-history graphs.
+	keepaliveEvery := broadcastRateHz
+	if keepaliveEvery < 1 {
+		keepaliveEvery = 1
+	}
+	tick := 0
+
 	for range ticker.C {
 		values := make(map[string]float64, 4)
 
@@ -59,9 +68,12 @@ func (p *Publisher) Run(broadcastRateHz int) {
 			values[rd] = float64(p.b.WcConnected.Load())
 		}
 
-		for _, rd := range p.cmdRefDes {
-			values[rd] = 0
+		if tick%keepaliveEvery == 0 {
+			for _, rd := range p.cmdRefDes {
+				values[rd] = 0
+			}
 		}
+		tick++
 
 		if len(values) > 0 {
 			p.b.PublishData(broker.DataEvent{Values: values})

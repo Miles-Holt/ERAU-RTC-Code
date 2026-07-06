@@ -242,13 +242,11 @@ func (s *Store) ConfigJSON() []byte {
 }
 
 // Run starts the publish/command loop for the software channel store.
-// It publishes all current values to the broker at broadcastRateHz and
-// handles set commands routed from the broker. Blocks until the process exits.
+// It publishes the full current value set to the broker at a low keepalive rate
+// (so new clients aren't stale) and publishes each set immediately as it happens.
+// broadcastRateHz is accepted for signature stability but no longer paces the loop.
+// Blocks until the process exits.
 func (s *Store) Run(b *broker.Broker, broadcastRateHz int) {
-	if broadcastRateHz <= 0 {
-		broadcastRateHz = 20
-	}
-
 	// Store broker reference so SetInternal can publish immediately.
 	s.mu.Lock()
 	s.b = b
@@ -259,13 +257,19 @@ func (s *Store) Run(b *broker.Broker, broadcastRateHz int) {
 	b.RegisterDaq("_SOFTCHAN", cmdCh)
 	defer b.RegisterDaq("_SOFTCHAN", nil) // deregister on exit
 
-	ticker := time.NewTicker(time.Second / time.Duration(broadcastRateHz))
+	// Keepalive: re-publish the full soft-channel state at a low rate so newly
+	// connected clients receive current values (the broker broadcasts deltas and
+	// keeps no per-client snapshot).  Live changes are published immediately in
+	// the Set path below, so this heartbeat only needs to be slow — no reason to
+	// re-send unchanged setpoints at the full broadcast rate.
+	const keepalive = time.Second
+	ticker := time.NewTicker(keepalive)
 	defer ticker.Stop()
 
 	for {
 		select {
 
-		// ── Heartbeat: publish all current values so clients never see stale ──
+		// ── Keepalive: publish all current values so new clients aren't stale ──
 		case <-ticker.C:
 			s.mu.RLock()
 			vals := make(map[string]float64, len(s.values))

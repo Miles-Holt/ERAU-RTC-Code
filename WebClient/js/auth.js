@@ -115,6 +115,6 @@ function updateOperatorButton() {
 }
 
 function updateCommandWidgets() {
-    document.querySelectorAll('.cmd-btn, .cmd-slider, .cmd-input')
+    document.querySelectorAll('.cmd-widget')
         .forEach(el => el.disabled = !operatorName);
 }

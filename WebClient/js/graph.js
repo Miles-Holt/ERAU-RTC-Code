@@ -15,21 +15,11 @@ Chart.Tooltip.positioners.datapoint = (elements, eventPosition) => {
 };
 
 function graphGetDesc(refDes) {
-    for (const ctrl of configControls) {
-        for (const ch of (ctrl.channels ?? [])) {
-            if (ch.refDes === refDes) return ctrl.description || '';
-        }
-    }
-    return '';
+    return lookupChannel(refDes)?.ctrl.description || '';
 }
 
 function graphGetUnits(refDes) {
-    for (const ctrl of configControls) {
-        for (const ch of (ctrl.channels ?? [])) {
-            if (ch.refDes === refDes) return ch.units || '';
-        }
-    }
-    return '';
+    return lookupChannel(refDes)?.ch.units || '';
 }
 
 // =============================================================================
@@ -331,9 +321,15 @@ function buildGraphCell(tabId, cellIdx) {
 
     const handleSearch = debounce(() => {
         const q = searchInput.value.trim();
-        if (!q) { dropdown.style.display = 'none'; return; }
+        if (!q) { searchInput.classList.remove('input-error'); searchInput.title = ''; dropdown.style.display = 'none'; return; }
         let re;
-        try { re = new RegExp(q, 'i'); } catch { dropdown.style.display = 'none'; return; }
+        try {
+            re = new RegExp(q, 'i');
+            searchInput.classList.remove('input-error'); searchInput.title = '';
+        } catch {
+            searchInput.classList.add('input-error'); searchInput.title = 'Invalid regex';
+            dropdown.style.display = 'none'; return;
+        }
         const selected = new Set((graphState[tabId]?.cells[cellIdx]?.channels ?? []).map(c => c.refDes));
         const matches = [];
         for (const ctrl of configControls) {

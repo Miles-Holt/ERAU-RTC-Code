@@ -28,7 +28,7 @@ function openValveDropdown(valveObj, clientX, clientY) {
     if (_valvePanel && !_valvePanel.pinned) closeValveDropdown(true);
     if (_valvePanel && _valvePanel.pinned)  return; // pinned panel blocks another
 
-    const ctrl = configControls.find(c => c.refDes === valveObj.controlRefDes);
+    const ctrl = controlIndex[valveObj.controlRefDes] || null;
 
     const el = document.createElement('div');
     el.className = 'valve-panel';
@@ -103,6 +103,7 @@ function openValveDropdown(valveObj, clientX, clientY) {
                 closeB.textContent   = 'Close';
                 openBtn.addEventListener('click', () => sendCommand(ch.refDes, 1));
                 closeB.addEventListener('click',  () => sendCommand(ch.refDes, 0));
+                markCmdWidget(openBtn); markCmdWidget(closeB);
                 cmds.append(openBtn, closeB);
                 row.appendChild(cmds);
             } else if (ch.role === 'cmd-pct' || ch.role === 'cmd-float') {
@@ -121,6 +122,7 @@ function openValveDropdown(valveObj, clientX, clientY) {
                     if (!isNaN(v)) sendCommand(ch.refDes, v);
                 });
                 inp.addEventListener('keydown', e => { if (e.key === 'Enter') setBtn.click(); });
+                markCmdWidget(inp); markCmdWidget(setBtn);
                 cmds.append(inp, setBtn);
                 row.appendChild(cmds);
             }

@@ -36,6 +36,8 @@ function buildDevContent(tab) {
                     <tr><td>Uptime</td>             <td class="dev-uptime">--</td></tr>
                     <tr><td>Messages received</td>  <td class="dev-msg-count">0</td></tr>
                     <tr><td>Message rate</td>       <td class="dev-msg-rate">--</td></tr>
+                    <tr><td>Data throughput</td>    <td class="dev-throughput">--</td></tr>
+                    <tr><td>Avg frame size</td>     <td class="dev-frame-size">--</td></tr>
                     <tr><td>Missed data cycles</td> <td class="dev-missed">0</td></tr>
                 </table>
             </div>
@@ -80,9 +82,11 @@ function buildDevContent(tab) {
     tab._devEls = {
         state:     tab.contentEl.querySelector('.dev-state'),
         uptime:    tab.contentEl.querySelector('.dev-uptime'),
-        msgCount:  tab.contentEl.querySelector('.dev-msg-count'),
-        msgRate:   tab.contentEl.querySelector('.dev-msg-rate'),
-        missed:    tab.contentEl.querySelector('.dev-missed'),
+        msgCount:   tab.contentEl.querySelector('.dev-msg-count'),
+        msgRate:    tab.contentEl.querySelector('.dev-msg-rate'),
+        throughput: tab.contentEl.querySelector('.dev-throughput'),
+        frameSize:  tab.contentEl.querySelector('.dev-frame-size'),
+        missed:     tab.contentEl.querySelector('.dev-missed'),
         heapUsed:  tab.contentEl.querySelector('.dev-heap-used'),
         heapTotal: tab.contentEl.querySelector('.dev-heap-total'),
     };
@@ -100,17 +104,24 @@ function refreshDevTabs() {
     const stateStr  = ws ? (['CONNECTING','OPEN','CLOSING','CLOSED'][ws.readyState] ?? '--') : 'CLOSED';
     const uptime    = devStats.connectedAt ? Math.floor((Date.now() - devStats.connectedAt) / 1000) : null;
     const uptimeStr = uptime !== null ? fmtUptime(uptime) : '--';
-    const rate      = ((devStats.msgCount - devStats.lastMsgCount) / 2).toFixed(1);
-    devStats.lastMsgCount = devStats.msgCount;
+    const dMsgs     = devStats.msgCount - devStats.lastMsgCount;
+    const dBytes    = devStats.byteCount - devStats.lastByteCount;
+    const rate      = (dMsgs / 2).toFixed(1);       // refreshDevTabs runs every 2 s
+    const bytesPerS = dBytes / 2;
+    const avgFrame  = dMsgs > 0 ? dBytes / dMsgs : 0;
+    devStats.lastMsgCount  = devStats.msgCount;
+    devStats.lastByteCount = devStats.byteCount;
 
     for (const tab of devTabs) {
         const e = tab._devEls;
         if (!e) continue;
-        if (e.state)    e.state.textContent    = stateStr;
-        if (e.uptime)   e.uptime.textContent   = uptimeStr;
-        if (e.msgCount) e.msgCount.textContent = devStats.msgCount;
-        if (e.msgRate)  e.msgRate.textContent  = `${rate} msg/s`;
-        if (e.missed)   e.missed.textContent   = devStats.missedCycles;
+        if (e.state)      e.state.textContent      = stateStr;
+        if (e.uptime)     e.uptime.textContent     = uptimeStr;
+        if (e.msgCount)   e.msgCount.textContent   = devStats.msgCount;
+        if (e.msgRate)    e.msgRate.textContent    = `${rate} msg/s`;
+        if (e.throughput) e.throughput.textContent = `${fmtBytes(bytesPerS)}/s`;
+        if (e.frameSize)  e.frameSize.textContent  = fmtBytes(avgFrame);
+        if (e.missed)     e.missed.textContent     = devStats.missedCycles;
         if (e.heapUsed && performance.memory) {
             e.heapUsed.textContent  = fmtBytes(performance.memory.usedJSHeapSize);
             e.heapTotal.textContent = fmtBytes(performance.memory.totalJSHeapSize);

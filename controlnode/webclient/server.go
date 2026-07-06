@@ -18,6 +18,9 @@ import (
 var upgrader = websocket.Upgrader{
 	// Allow all origins — this runs on a private LAN with no cross-origin concerns.
 	CheckOrigin: func(r *http.Request) bool { return true },
+	// permessage-deflate: telemetry frames are highly repetitive JSON (refDes keys
+	// repeated every tick), so compression is a large byte-savings on the browser link.
+	EnableCompression: true,
 }
 
 // alertRecord holds one alert entry in the server's in-memory alert list.
@@ -73,13 +76,19 @@ func New(port int, configJSON string, softchanConfigJSON []byte, stateConfigJSON
 	}
 }
 
-// ListenAndServe starts the HTTP/WebSocket server.  Blocks until the process exits.
-func (s *Server) ListenAndServe() error {
+// Handler builds the HTTP mux (WebSocket endpoints + static file serving).
+// It is used by ListenAndServe and is exported so tests can drive the exact
+// production routing via httptest without binding a port.
+func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws/data", s.ServeWsData)
 	mux.HandleFunc("/ws/ctrl", s.ServeWsCtrl)
 	mux.HandleFunc("/", s.handleStatic)
+	return mux
+}
 
+// ListenAndServe starts the HTTP/WebSocket server.  Blocks until the process exits.
+func (s *Server) ListenAndServe() error {
 	// Broadcast active alert list to all data subscribers at 1 Hz so clients
 	// that dismissed an alert locally will see it re-appear if it is still active.
 	go func() {
@@ -94,7 +103,7 @@ func (s *Server) ListenAndServe() error {
 
 	addr := fmt.Sprintf(":%d", s.port)
 	log.Printf("webclient: listening on http://0.0.0.0%s", addr)
-	return http.ListenAndServe(addr, mux)
+	return http.ListenAndServe(addr, s.Handler())
 }
 
 // handleStatic serves embedded/directory static files for non-WS requests.

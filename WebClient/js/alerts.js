@@ -10,9 +10,8 @@
 // Alerts flash until acknowledged. Acking on one client acks for all operators
 // via the server broadcasting alert_acked to all /ws/data subscribers.
 //
-// TODO: sensor bounds alerts from alertRules.yaml (server-side)
-// TODO: DAQ connect/disconnect alerts (hook into daqnode client)
-// TODO: bad-data detection alerts (server-side range checking)
+// Sources wired up: server-sent bad_data / bad_data_snapshot (range checking) via
+// handleBadData below, and DAQ err messages via handleDaqError in ws.js.
 // =============================================================================
 
 let _alerts    = [];    // [{ id, category, message, timestamp, acked }]
