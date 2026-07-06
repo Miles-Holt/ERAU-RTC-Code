@@ -40,29 +40,11 @@
 //
 // =============================================================================
 
-const PID = {
-    GRID:        20,    // px per grid cell
-    SENSOR_W:    120,   // sensor box width  (6 cells)
-    SENSOR_H:    50,    // sensor box height (2.5 cells)
-    NODE_R:      5,     // junction dot radius
-    PORT_R:      6,     // port hit-circle radius
-    PORT_OFF:    20,    // port offset from node centre
-    STUB:        40,    // orthogonal routing stub length
-    CANVAS_W:    2400,
-    CANVAS_H:    1800,
-    CORNER_R:    8,     // rounded corner radius px
-    OBS_MARGIN:  6,     // obstacle clearance margin px
-    VALVE_R:     18,    // valve circle radius px
-    VALVE_PORT_OFF: 0,  // valve port offset from centre px
-    DAQCTRL_W:   200,   // daqControl widget default width px (10 cells)
-    DAQCTRL_H:   60,    // daqControl widget default height px (3 cells)
-};
-
 // ── Shared render/serialisation helpers moved to pidRender.js ────────────────
-// svgN, pidSvgPt, portPos, pidFromYaml (and the valve-symbol geometry helpers
-// below) now live in pidRender.js, shared with the standalone editor.
-// pidToYaml also lived here but was unused by the viewer, so it was removed.
-// PID (above) stays per-file: VALVE_PORT_OFF differs between viewer and editor.
+// PID (constants), svgN, pidSvgPt, portPos, pidFromYaml and the valve-symbol
+// geometry helpers now live in pidRender.js, shared with the standalone editor
+// so the same YAML renders identically on both pages. pidToYaml also lived here
+// but was unused by the viewer, so it was removed.
 
 // =============================================================================
 // buildFrontPanelContent  — called by tabs.js when creating a front-panel tab
@@ -251,8 +233,34 @@ function renderPidAll(tab) {
     tab.pid.gObjs.innerHTML  = '';
     tab.pid.gConns.innerHTML = '';
     tab.pid._routedPaths     = new Map();   // connId -> Array<{x,y}>; feeds pipe-overlap avoidance
-    for (const obj of tab.pid.objects) renderPidObj(tab, obj);
-    for (const conn of tab.pid.connections) renderPidConn(tab, conn);
+    // Render each object/connection in isolation — one malformed object (e.g. an
+    // embedded graph that fails to initialise) must not blank the whole panel.
+    // Objects render before connections, so without this a single throwing object
+    // would drop every pipe.
+    for (const obj of tab.pid.objects) {
+        try { renderPidObj(tab, obj); }
+        catch (e) {
+            console.error('pid: object', obj.id, '(' + obj.type + ') failed to render:', e);
+            if (typeof ingestAlert === 'function') ingestAlert({
+                id:        'piderr:' + obj.id,   // stable id → replaces, doesn't stack
+                category:  'warning',
+                message:   'Panel: "' + obj.type + '" object failed to render (' + obj.id + ')',
+                timestamp: Date.now(), acked: false,
+            });
+        }
+    }
+    for (const conn of tab.pid.connections) {
+        try { renderPidConn(tab, conn); }
+        catch (e) {
+            console.error('pid: connection', conn.id, 'failed to render:', e);
+            if (typeof ingestAlert === 'function') ingestAlert({
+                id:        'piderr:' + conn.id,
+                category:  'warning',
+                message:   'Panel: pipe failed to render (' + conn.id + ')',
+                timestamp: Date.now(), acked: false,
+            });
+        }
+    }
     rebindPidLiveData(tab);
 }
 

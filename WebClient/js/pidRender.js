@@ -5,20 +5,43 @@
 //
 // Loaded on BOTH index.html and editor.html, before pid.js / editor.js.
 //
-// Only functions that are byte-identical between the viewer and editor live here.
-// These read the page-local `PID` constant at call time, so the intentional
-// per-page differences in PID (notably VALVE_PORT_OFF: 0 in the viewer vs 40 in
-// the editor, which offsets valve ports so they are clickable in edit mode) are
-// preserved — `PID` itself is deliberately NOT shared and stays defined in each
-// of pid.js / editor.js.
+// Only functions that render/serialise a P&ID identically in both views live here.
+//
+// PID (the geometry/tuning constants) is shared here too. It MUST be identical
+// between viewer and editor: it drives portPos() and the router, so if the two
+// pages disagree the same YAML draws different pipe routes on each. (This used to
+// diverge — VALVE_PORT_OFF was 0 in the viewer but 40 in the editor — which made
+// valve pipes render differently on the main page than in the editor.)
+//
+// Tuning knobs to adjust pipe appearance:
+//   STUB           — length of the forced straight segment leaving each port
+//   VALVE_PORT_OFF — how far a valve's pipe attach point sits from its centre
+//   OBS_MARGIN     — clearance padding around objects for routing/collision
 //
 // NOT shared (they genuinely diverge between viewer and editor):
-//   - PID              — VALVE_PORT_OFF differs (0 vs 40)
 //   - pidToYaml        — editor emits daqControl `label` and serialises valves in
 //                        the generic branch; pid.js's copy was dead and removed
 //   - the group builders / renderPidObj / renderPidConn — edit mode adds ports,
 //     drag handles and other interactivity, so those stay per-file by design
 // =============================================================================
+
+const PID = {
+    GRID:        20,    // px per grid cell
+    SENSOR_W:    120,   // sensor box width  (6 cells)
+    SENSOR_H:    50,    // sensor box height (2.5 cells)
+    NODE_R:      5,     // junction dot radius
+    PORT_R:      6,     // port hit-circle radius
+    PORT_OFF:    20,    // port offset from node centre
+    STUB:        20,    // orthogonal routing stub length (forced straight exit)
+    CANVAS_W:    2400,
+    CANVAS_H:    1800,
+    CORNER_R:    8,     // rounded corner radius px
+    OBS_MARGIN:  4,     // obstacle clearance margin px
+    VALVE_R:     18,    // valve circle radius px
+    VALVE_PORT_OFF: 20, // valve pipe attach offset from centre (unified viewer/editor)
+    DAQCTRL_W:   200,   // daqControl widget default width px (10 cells)
+    DAQCTRL_H:   60,    // daqControl widget default height px (3 cells)
+};
 
 // ── SVG namespace helper ─────────────────────────────────────────────────────
 
@@ -36,7 +59,7 @@ function pidSvgPt(svgEl, e) {
     return pt.matrixTransform(svgEl.getScreenCTM().inverse());
 }
 
-// ── Port positions (reads page-local PID, incl. PID.VALVE_PORT_OFF) ──────────
+// ── Port positions (reads shared PID, incl. PID.VALVE_PORT_OFF) ──────────────
 
 function portPos(obj, port) {
     const x = obj.gridX * PID.GRID;
@@ -142,7 +165,7 @@ function pidFromYaml(text) {
     return out;
 }
 
-// ── Valve symbol geometry (reads page-local PID.VALVE_R) ─────────────────────
+// ── Valve symbol geometry (reads shared PID.VALVE_R) ─────────────────────────
 
 function _valveLineAttrs(isOpen) {
     const L = PID.VALVE_R - 3;

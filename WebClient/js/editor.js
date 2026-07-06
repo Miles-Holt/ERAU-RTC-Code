@@ -17,25 +17,9 @@
         document.documentElement.setAttribute('data-theme', 'light');
 })();
 
-// ── Constants (same as pid.js) ───────────────────────────────────────────────
-
-const PID = {
-    GRID:        20,
-    SENSOR_W:    120,
-    SENSOR_H:    50,
-    NODE_R:      5,
-    PORT_R:      6,
-    PORT_OFF:    20,
-    STUB:        40,
-    CANVAS_W:    2400,
-    CANVAS_H:    1800,
-    CORNER_R:    8,
-    OBS_MARGIN:  6,
-    VALVE_R:     18,
-    VALVE_PORT_OFF: 40,
-    DAQCTRL_W:   200,
-    DAQCTRL_H:   60,
-};
+// ── Constants ────────────────────────────────────────────────────────────────
+// PID now lives in pidRender.js (shared with the viewer) so both pages route and
+// attach pipes identically. It is loaded before this file via editor.html.
 
 // ── Editor state ─────────────────────────────────────────────────────────────
 
