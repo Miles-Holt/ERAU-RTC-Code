@@ -428,3 +428,30 @@ func TestLexer_DurationSuffixes(t *testing.T) {
 		t.Errorf("tokenize \"5 min\": got %v %v, want INT then min", toks[0].Type, toks[1].Type)
 	}
 }
+
+// TestLexer_CRLF guards the Windows path: git's autocrlf hands the lexer CRLF
+// (and the editors on the test stand produce it too), so a config file must
+// tokenise identically either way, with line numbers intact.
+func TestLexer_CRLF(t *testing.T) {
+	lf := "channel PT-01\n    type float\n    default 3\n"
+	crlf := strings.ReplaceAll(lf, "\n", "\r\n")
+
+	want, err := NewLexer(lf).Tokenize()
+	if err != nil {
+		t.Fatalf("tokenize LF: %v", err)
+	}
+	got, err := NewLexer(crlf).Tokenize()
+	if err != nil {
+		t.Fatalf("tokenize CRLF: %v", err)
+	}
+	if len(got) != len(want) {
+		t.Fatalf("CRLF token count = %d, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if got[i].Type != want[i].Type || got[i].Value != want[i].Value || got[i].Line != want[i].Line {
+			t.Errorf("token %d: got %v %q line %d, want %v %q line %d",
+				i, got[i].Type, got[i].Value, got[i].Line,
+				want[i].Type, want[i].Value, want[i].Line)
+		}
+	}
+}

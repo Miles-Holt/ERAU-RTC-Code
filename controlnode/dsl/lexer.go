@@ -105,7 +105,15 @@ type Lexer struct {
 }
 
 // NewLexer creates a new lexer from input source code.
+//
+// Line endings are normalised to "\n" first: config files are edited on Windows
+// and git's autocrlf hands us CRLF, which the indentation and newline handling
+// below would otherwise reject as a stray character.
 func NewLexer(input string) *Lexer {
+	if strings.ContainsRune(input, '\r') {
+		input = strings.ReplaceAll(input, "\r\n", "\n")
+		input = strings.ReplaceAll(input, "\r", "\n")
+	}
 	return &Lexer{
 		input:       input,
 		pos:         0,
