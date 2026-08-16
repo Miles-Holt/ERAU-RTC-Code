@@ -1,9 +1,39 @@
 # controlNode TODO
 
+## Restructure follow-ups
+
+Left over after the DSL restructure (Phases 1–5). None of these block operation;
+all of them are things a future run should close.
+
+- [ ] **LabVIEW: echo `runId` on `sequence_complete`** — the control node stamps a
+  monotonic `runId` into every `state_update` and the correlation logic already
+  prefers it (`NotifySequenceCompleteRun`). Until LabVIEW echoes it, completions
+  fall back to state+epoch matching, which cannot tell two runs of the same state
+  apart. This is the last correlation gap in the protocol.
+- [ ] **LabVIEW: new `state_update` lifecycle** — `state_update` now means
+  "enter this state now", not "here is your cached config". It arrives on state
+  entry (not at connect), `exit_sequence` must be run locally the moment an
+  `abort_rule` trips, and `state_req` is answered only while a machine is
+  actually in a `daq_local` state on that node. The node side needs to be
+  reviewed against `docs/websocket-protocol.md` Part 2.
+- [ ] **`operator from X,Y` transition gating** — today the `operator` flag makes
+  a state commandable from *any* current state. Some transitions should only be
+  legal from specific states (e.g. `autoSequence` only from `safe`). Proposed
+  syntax: `operator from safe, manualControl`.
+- [ ] **Rename `SEQ-BURN-DUR`** — it is an **absolute cutoff time** measured from
+  sequence start, not a burn duration (the burn is `SEQ-BURN-DUR - 2000` ms long).
+  `SEQ-CUTOFF-T` or `SEQ-MAINS-CLOSE-T` would stop the next person misreading it.
+  Touches `config/channels/softchannels.chan`, `config/machines/daq001.sm`, and
+  any persisted value in `softChannelValues.yaml`.
+- [ ] **daq_local re-entry semantics on reconnect** — a reconnect mid-`daq_local`
+  currently fires the abort destination with an alarm (state-uncertain). If the
+  node ever gains a "report your current schedule position" message, this could
+  become a real resync instead.
+
 ## Open
 
 ### documentation
-- [ ] **controlNode -> daqNode JSON messages** - no documentation currently exists for what the controlNode sends to the daqNode
+- [x] **controlNode -> daqNode JSON messages** — `docs/websocket-protocol.md` Part 2 documents the whole DAQ link (`config_req`/`config`, `data`, `err`, `cmd`, `state_update` with `runId` + `entry_sequence`/`exit_sequence`/`abort_rules`, `state_req`, `abort_triggered`, `sequence_complete`, reconnect-uncertain behaviour). `docs/dsl-guide.md` is the config-authoring guide, and the running config is served live at `http://<controlnode>:8000/docs`.
 
 ### console
 - [ ] **Clean up** remove "retrying in 2s" from the console log while waiting for a connection
@@ -13,10 +43,10 @@
 - [x] **Bad data detection** — server-side range checks (`broker.checkBounds`) emit `bad_data` / `bad_data_snapshot` when a value leaves `[validMin, validMax]`; the browser shows a red LED and an alert-bar alarm. Bounds come from the YAML config.
 
 ### configFile
-- [ ] **quality of life** - remove the unused sections from the configuration file
+- [x] **quality of life** — unused config removed: `loggingRateHz` (never parsed) is gone from `system.yaml`, and the dead `config.BuildStateConfigJSON` stub + unused `CtrNodeDef.WSPort` field are gone from `config/yaml.go`. Everything else in `system.yaml` / `controlNode.yaml` / `daqNodes/*.yaml` is read by the parser; the module `slotId` / `ioMode` / `description` fields are parsed but not forwarded to LabVIEW and are kept deliberately as chassis documentation (noted in the `Module` doc comment).
 
 ### commandability
-- [ ] **Autosequence and Aborts** - add a websocket message that sends the array required for auto sequence or aborts. Make a method to edit, upload, and send the config through the webclient. Configs should be YAML based but convert to JSON when going through the webClient, controlNode, and arriving at the daqNode.
+- [x] **Autosequence and Aborts** — superseded by the DSL restructure. Autosequences and aborts are now written in `config/machines/*.sm`; a `daq_local` state compiles to the `state_update` payload (`entry_sequence` / `exit_sequence` / `abort_rules`) and is sent on state entry. Thresholds and timings reference operator-settable `.chan` channels and are resolved at send time, which is what the "edit and upload a config" idea was really after. The compiled result is visible at `/docs/machines`.
 
 # WebClient TODO
 
@@ -53,6 +83,7 @@ See `CONTEXT.md` for full project/architecture context.
 - [ ] **data lines snap at chart boundary** — rather than smoothly entering/exiting the viewable x-range, line segments snap in/out at the chart edges; likely a Chart.js clipping issue with explicit `x.min`/`x.max` bounds
 - [x] **Data tooltip position** — tooltip is not rendering next to the user mouse correctly
 - [ ] **Y-axis lock** — add feature to lock y-axis min or max and input custom min or max by clicking the min or max value on a specific y-axis
+- **data tool top line** add a vertical line and data point on the channel data points that are getting displayed on the tooltip
 
 ---
 
@@ -70,8 +101,8 @@ Deferred deliberately during the usability pass — extracted here so they aren'
 - [ ] **Extract shared channel-search dropdown** — the regex-search-dropdown is copy-pasted ~4× (graph cell, object sidebar, channel list, in-panel graph). Consolidate into one helper.
 - [ ] **Extract stale-timer helper** — `clearTimeout; setTimeout(add 'stale', channelStaleMs)` is repeated across card/pid/dataview builders.
 - [ ] **Dead code: `cards.js`** — `buildCard` and all `build*Card` helpers are unreachable (the Data View card tab was replaced). Delete the file, or revive it for a future dashboard/card tab. (`isCmd` already moved to `utils.js`.)
-- [ ] **Alert bar sources** — still TODO in spirit: sensor-bounds alerts sourced from an `alertRules.yaml`, and explicit DAQ connect/disconnect alerts. (DAQ `err` messages now surface as alerts; bad-data range alerts are done.)
-- [ ] **State machine safe-state sequence** — `config/control/daq001_control.yaml` `safe` state entry sequence is incomplete (`# TODO: add all the other valves`).
+- [x] **Alert bar sources** — done by Phase 4. The control node is the single alert source: rules live in `config/alerts/*.alert` (DSL, not `alertRules.yaml`), and the `every_daqnode` template raises disconnect / reconnect / bad_data / stale per node. The browser only renders `alert` / `alert_snapshot` / `alert_acked`. Rendered at `/docs/alerts`.
+- [x] **State machine safe-state sequence** — the machine moved to `config/machines/daq001.sm`; `state safe` closes both press valves (`NV-01`, `NV-02` POS/NEG), waits 1 s, then opens the vents. Verify against the current P&ID when the valve list changes — `/docs/machines` shows the compiled sequence.
 
 ---
 

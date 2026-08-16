@@ -1,0 +1,67 @@
+# daq001 state machine — ported from config/control/daq001_control.yaml (git history).
+#
+# TIMING NOTE: the old YAML used ABSOLUTE t_ms from state entry. The DSL uses
+# sequential sleeps, so absolute times are reconstructed with send-time arithmetic:
+#   igniter at t = SEQ-IGN-LEAD        (default 500 ms — leads the mains)
+#   mains   at t = 2000 ms
+#   cutoff  at t = SEQ-BURN-DUR        (default 3000 ms, absolute — NOT burn length)
+# Constraint (checked at payload send, refused if violated):
+#   0 <= SEQ-IGN-LEAD <= 2000 <= SEQ-BURN-DUR
+#
+# abort_sequence runs LOCALLY on DAQ001 (<1 ms) when an abort_rule trips; its
+# trailing transition is the controlnode-side abort destination.
+
+machine fuelSeq
+
+state safe
+    operator
+    sequence
+        NV-01-POS = 0
+        NV-01-NEG = 0
+        NV-02-POS = 0
+        NV-02-NEG = 0
+        sleep 1000ms                    # close presses before venting tanks
+        OV-01-CMD = 0
+        FV-01-CMD = 0
+
+state manualControl
+    operator
+    # Operator has full command authority over all commandable channels.
+
+state autoSequence
+    operator
+    daq_local DAQ001
+    abort_rule CPT-01 > LIM-CPT01-HIGH from 0ms to 20000ms
+    abort_rule CPT-01 < LIM-CPT01-LOW from SEQ-IGN-LEAD to SEQ-BURN-DUR
+    sequence
+        OV-01-CMD = 0                   # LOX vent close        (t = 0)
+        FV-01-CMD = 0                   # Fuel vent close       (t = 0)
+        NV-03-CMD = 1                   # LOX press open        (t = 0)
+        NV-04-CMD = 1                   # Fuel press open       (t = 0)
+        sleep SEQ-IGN-LEAD
+        IG-01-CMD = 1                   # Igniter fire          (t = IGN_LEAD)
+        sleep 2000 - SEQ-IGN-LEAD
+        OV-05-CMD = 1                   # LOX main open         (t = 2000)
+        FV-03-CMD = 1                   # Fuel main open        (t = 2000)
+        sleep SEQ-BURN-DUR - 2000
+        OV-05-CMD = 0                   # LOX main close        (t = BURN_DUR)
+        FV-03-CMD = 0                   # Fuel main close       (t = BURN_DUR)
+        IG-01-CMD = 0                   # Igniter off           (t = BURN_DUR)
+        transition safe                 # completion transition (on sequence_complete)
+    abort_sequence                      # runs locally on the DAQ when a rule trips
+        OV-05-CMD = 0                   # LOX main close
+        FV-03-CMD = 0                   # Fuel main close
+        IG-01-CMD = 0                   # Igniter off
+        NV-03-CMD = 0                   # LOX press close
+        NV-04-CMD = 0                   # Fuel press close
+        transition abort                # abort destination (on abort_triggered)
+
+state abort
+    operator
+    sequence
+        NV-05-CMD = 1                   # LOX purge open        (t = 0)
+        NV-06-CMD = 1                   # Fuel purge open       (t = 0)
+        sleep 5000ms
+        OV-01-CMD = 1                   # LOX vent open         (t = 5000)
+        FV-01-CMD = 1                   # Fuel vent open        (t = 5000)
+        # No auto-return: stays in abort until the operator commands safe.

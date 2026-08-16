@@ -2,6 +2,7 @@ package broker
 
 import (
 	"encoding/json"
+	"sync"
 	"testing"
 	"time"
 )
@@ -259,4 +260,95 @@ func TestBrokerBadData(t *testing.T) {
 	if !cleared {
 		t.Error("BadDataSnapshot did not clear after value returned to range")
 	}
+}
+
+// ── DAQ event sink ────────────────────────────────────────────────────────────
+
+// sinkSpy records the DaqEventSink callbacks the alert engine relies on.
+type sinkSpy struct {
+	mu   sync.Mutex
+	up   []string
+	down []string
+	data []string
+	bad  []string // "refDes|node|status"
+}
+
+func (s *sinkSpy) NodeConnected(node string) {
+	s.mu.Lock()
+	s.up = append(s.up, node)
+	s.mu.Unlock()
+}
+func (s *sinkSpy) NodeDisconnected(node string) {
+	s.mu.Lock()
+	s.down = append(s.down, node)
+	s.mu.Unlock()
+}
+func (s *sinkSpy) NodeData(node string) {
+	s.mu.Lock()
+	s.data = append(s.data, node)
+	s.mu.Unlock()
+}
+func (s *sinkSpy) BadData(refDes, node, status string, value float64) {
+	s.mu.Lock()
+	s.bad = append(s.bad, refDes+"|"+node+"|"+status)
+	s.mu.Unlock()
+}
+func (s *sinkSpy) badEvents() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.bad...)
+}
+
+// The broker is the single server-side source of the daqNode lifecycle events
+// the alert engine turns into template alerts.  Bad-data events must fire only
+// on a TRANSITION (that is what makes the alert edge-triggered) and must carry
+// the owning node so "{node}" interpolates.
+func TestBrokerEventSink(t *testing.T) {
+	max := 100.0
+	b := New(map[string]string{"PT-01": "DAQ001"}, nil, map[string]ChannelBounds{"PT-01": {Max: &max}})
+	spy := &sinkSpy{}
+	b.SetEventSink(spy)
+	go b.Run(50)
+
+	b.NoteDaqConnected("DAQ001")
+	b.NoteDaqData("DAQ001")
+	b.NoteDaqDisconnected("DAQ001")
+
+	spy.mu.Lock()
+	up, down, data := len(spy.up), len(spy.down), len(spy.data)
+	spy.mu.Unlock()
+	if up != 1 || down != 1 || data != 1 {
+		t.Errorf("lifecycle events = up:%d down:%d data:%d, want 1 each", up, down, data)
+	}
+
+	b.PublishData(DataEvent{Values: map[string]float64{"PT-01": 150}})
+	b.PublishData(DataEvent{Values: map[string]float64{"PT-01": 160}}) // still high — no transition
+	b.PublishData(DataEvent{Values: map[string]float64{"PT-01": 10}})  // back in range
+
+	var got []string
+	for i := 0; i < 100; i++ {
+		got = spy.badEvents()
+		if len(got) >= 2 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if len(got) != 2 {
+		t.Fatalf("bad-data events = %v, want exactly the two transitions", got)
+	}
+	if got[0] != "PT-01|DAQ001|high" {
+		t.Errorf("first bad-data event = %q, want PT-01|DAQ001|high", got[0])
+	}
+	if got[1] != "PT-01|DAQ001|ok" {
+		t.Errorf("second bad-data event = %q, want PT-01|DAQ001|ok", got[1])
+	}
+}
+
+// Without a sink the broker behaves exactly as before.
+func TestBrokerNoEventSink(t *testing.T) {
+	b := New(nil, nil, nil)
+	go b.Run(50)
+	b.NoteDaqConnected("DAQ001")
+	b.NoteDaqData("DAQ001")
+	b.NoteDaqDisconnected("DAQ001")
 }

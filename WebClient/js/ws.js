@@ -48,6 +48,7 @@ function onDataMessage(event) {
         case 'alert_acked':     ackAlertLocally(msg.id);      break;
         case 'alert_snapshot':  msg.alerts.forEach(ingestAlert); break;
         case 'state_config':    applyStateConfig(msg);          break;
+        case 'state_change':    applyStateChange(msg);          break;
         case 'softchan_config': applySoftchanConfig(msg);       break;
         case 'bad_data':          handleBadData(msg);                      break;
         case 'bad_data_snapshot': msg.channels.forEach(handleBadData);     break;
@@ -123,6 +124,9 @@ function scheduleReconnectCtrl() {
 function sendWsCtrl(msg) {
     if (!wsCtrl || wsCtrl.readyState !== WebSocket.OPEN) {
         console.warn('Cannot send: ctrl WS not connected');
+        // Client-side-only alert: this is LOCAL link state (our control socket
+        // is down, or nobody is logged in on this browser). The server cannot
+        // see it, so this is the one alert the browser still constructs.
         if (typeof ingestAlert === 'function') {
             ingestAlert({
                 id:        'cmd-not-sent',   // stable id → replaces, not stacks
@@ -201,18 +205,13 @@ function markStale() {
     setStatus('stale', 'Data stale');
 }
 
+// handleDaqError logs a DAQ error message. Render-only: the control node
+// raises the operator alert for node faults itself (config/alerts/*.alert), so
+// building one here would duplicate it and could not be acked consistently
+// across browsers.
 function handleDaqError(msg) {
     const ts = msg.t ? new Date(msg.t * 1000).toISOString() : '?';
     console.error(`[${ts}] DAQ error from ${msg.daqNode}: ${msg.err}`);
-    if (typeof ingestAlert === 'function') {
-        ingestAlert({
-            id:        'daqerr:' + (msg.daqNode || '?'),  // per-node id → replaces, not stacks
-            category:  'warning',
-            message:   `DAQ ${msg.daqNode || '?'}: ${msg.err || 'error'}`,
-            timestamp: msg.t ? Math.round(msg.t * 1000) : Date.now(),
-            acked:     false,
-        });
-    }
 }
 
 function applyPidLayout(msg) {
@@ -234,14 +233,55 @@ function applyPidLayout(msg) {
 }
 
 function applyStateConfig(msg) {
-    if (!msg.daqNodes) return;
-    for (const dn of msg.daqNodes) {
-        daqControlConfig[dn.daqNode] = dn;
+    // msg.machines is an array of { name, targetRefDes, states: [{name, index, operator}] }
+    if (!msg.machines) return;
+    // machineStateConfig is a const object (state.js) — clear in place, don't reassign.
+    for (const k of Object.keys(machineStateConfig)) delete machineStateConfig[k];
+    for (const machine of msg.machines) {
+        machineStateConfig[machine.name] = machine;
     }
-    // Re-render any front panel tabs that have daqControl widgets
+    // Drop remembered current states for machines that no longer exist.
+    for (const k of Object.keys(machineCurrentState)) {
+        if (!machineStateConfig[k]) delete machineCurrentState[k];
+    }
+    // Re-render any front panel tabs that have daqControl widgets.  renderPidAll
+    // → rebindPidLiveData repaints each widget with its last known state, so a
+    // late state_config does not leave the widget stuck on "State: ---".
     for (const tab of tabs) {
         if (tab.type === 'frontPanel' && tab.pid && tab.pid.objects.length) {
             renderPidAll(tab);
+        }
+    }
+}
+
+// applyStateChange handles the authoritative state_change message
+// (controlnode/webclient StateChangeJSON: { type, machine, state }).  msg.state
+// is the state NAME.  The same machine also streams SM-<MACHINE>-STATE as a
+// numeric index on the data path; both funnel into _updateDaqControlState.
+function applyStateChange(msg) {
+    if (!msg.machine || typeof msg.state !== 'string') {
+        console.warn('state_change: missing machine/state:', msg);
+        return;
+    }
+    machineCurrentState[msg.machine] = msg.state;
+    if (!machineStateConfig[msg.machine]) {
+        // state_config has not arrived (or the machine is unknown): remember the
+        // state so the widget picks it up when the config lands.
+        console.warn('state_change: no state_config for machine', msg.machine);
+        return;
+    }
+    refreshDaqControlWidgets(msg.machine, msg.state);
+}
+
+// refreshDaqControlWidgets pushes a state name into every rendered daqControl
+// widget bound to the given machine, across all front-panel tabs.
+function refreshDaqControlWidgets(machineName, stateName) {
+    for (const tab of tabs) {
+        if (tab.type !== 'frontPanel' || !tab.pid || !tab.pid.svgEl) continue;
+        for (const obj of tab.pid.objects) {
+            if (obj.type === 'daqControl' && obj.daqRefDes === machineName) {
+                _updateDaqControlState(tab.pid.svgEl, obj.id, machineName, stateName);
+            }
         }
     }
 }

@@ -1,4 +1,5 @@
 controlnode/static/
+.claude/
 .$node data flow.drawio.bkp
 .$node data flow.drawio.dtmp
 ~$nodeConfig_0.xlsx

@@ -73,10 +73,6 @@ const tab = {
     },
 };
 
-// In the editor there is no WebSocket, so daqControlConfig is always empty.
-// The sidebar falls back to a free-text input for daqRefDes.
-const daqControlConfig = {};
-
 // ── YAML serialiser ──────────────────────────────────────────────────────────
 
 function pidToYaml(layout) {
@@ -933,7 +929,7 @@ function makeDaqControlGroupEditor(obj) {
     }));
 
     const labelEl = svgN('text', { class: 'pid-daqctrl-label', x: 8, y: 18 });
-    labelEl.textContent = obj.label || obj.daqRefDes || '(no DAQ)';
+    labelEl.textContent = obj.label || obj.daqRefDes || 'unbound';
     g.appendChild(labelEl);
 
     const connEl = svgN('text', { class: 'pid-daqctrl-conn', x: W - 8, y: 18 });
@@ -1535,22 +1531,14 @@ function renderPidRsb(objId) {
             });
 
         } else if (obj.type === 'daqControl') {
-            // Build DAQ node options from daqControlConfig or provide text input
-            const daqNodes = Object.keys(daqControlConfig);
-            const daqOpts = daqNodes.length > 0
-                ? daqNodes.map(dn =>
-                    '<option value="' + pidEsc(dn) + '"' +
-                    (dn === obj.daqRefDes ? ' selected' : '') + '>' +
-                    pidEsc(dn) + '</option>'
-                  ).join('')
-                : null;
-
+            // daqRefDes holds the state MACHINE name (config/machines/<x>.sm,
+            // "machine <name>") — the widget binds to SM-<name>-STATE/-TARGET.
+            // The editor has no WebSocket, so the machine list is unknown here:
+            // it is always a free-text field.
             c.innerHTML =
-                '<div class="pid-sb-heading">DAQ Control</div>' +
-                '<div class="pid-sb-field"><label>DAQ Node</label>' +
-                (daqOpts
-                    ? '<select class="pid-daqctrl-sel"><option value="">-- pick --</option>' + daqOpts + '</select>'
-                    : '<input class="pid-daqctrl-inp" type="text" value="' + pidEsc(obj.daqRefDes || '') + '" placeholder="e.g. DAQ001">') +
+                '<div class="pid-sb-heading">State Machine Control</div>' +
+                '<div class="pid-sb-field"><label>Machine</label>' +
+                '<input class="pid-daqctrl-inp" type="text" value="' + pidEsc(obj.daqRefDes || '') + '" placeholder="e.g. fuelSeq">' +
                 '</div>' +
                 '<div class="pid-sb-field"><label>Label</label>' +
                 '<input class="pid-daqctrl-label" type="text" value="' + pidEsc(obj.label || '') + '" placeholder="(optional display name)"></div>' +
@@ -1564,9 +1552,8 @@ function renderPidRsb(objId) {
                 '<button class="pid-delete-btn">Remove</button>';
 
             c.querySelector('.pid-apply-btn').addEventListener('click', () => {
-                const sel = c.querySelector('.pid-daqctrl-sel');
                 const inp = c.querySelector('.pid-daqctrl-inp');
-                obj.daqRefDes = sel ? sel.value : (inp ? inp.value.trim() : '');
+                obj.daqRefDes = inp ? inp.value.trim() : '';
                 obj.label     = c.querySelector('.pid-daqctrl-label').value.trim();
                 obj.gridW     = parseInt(c.querySelector('.pid-daqctrl-w').value) || 10;
                 obj.gridH     = parseInt(c.querySelector('.pid-daqctrl-h').value) || 3;

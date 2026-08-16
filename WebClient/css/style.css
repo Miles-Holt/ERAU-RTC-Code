@@ -159,6 +159,19 @@ header h1 {
     font-family: inherit;
 }
 #sim-btn:hover    { border-color: var(--text); color: var(--text); }
+
+/* Docs link — same pill shape as the Sim button; opens the control node's
+   generated configuration reference at /docs in a new tab. */
+#docs-link {
+    padding: 3px 10px;
+    font-size: 12px;
+    border: 1px solid var(--muted);
+    border-radius: 4px;
+    color: var(--muted);
+    text-decoration: none;
+    line-height: 1.4;
+}
+#docs-link:hover { border-color: var(--text); color: var(--text); }
 #sim-btn.sim-active { border-color: var(--status-connected); color: var(--status-connected); }
 
 .status-connected    { background: var(--status-connected); }

@@ -4,7 +4,7 @@ package daqnode
 
 import (
 	"controlnode/broker"
-	"controlnode/config"
+	"controlnode/statemachine"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -29,6 +29,28 @@ var daqDialer = func() *websocket.Dialer {
 	return &d
 }()
 
+// EngineController is what the daqnode client needs from the state machine
+// engine.  Every method is safe to call from the client's goroutines.
+type EngineController interface {
+	// MachinesForNode lists machines with at least one daq_local state on node.
+	MachinesForNode(node string) []string
+	// IsRunningOnNode reports whether the machine is currently in a daq_local
+	// state on node.
+	IsRunningOnNode(machine, node string) bool
+	// CurrentDaqPayload returns a fresh payload when the machine is currently in
+	// a daq_local state on node.  ok==false means "send nothing"; a non-nil err
+	// means the state IS local here but could not be resolved.
+	CurrentDaqPayload(machine, node string) (*statemachine.DaqStateUpdate, bool, error)
+	// NotifyAbortTriggered moves the machine to the declared abort destination.
+	NotifyAbortTriggered(machine string) error
+	// NotifySequenceCompleteRun applies a sequence_complete report; runID is the
+	// echoed payload runId, or 0 when the node does not echo it.
+	NotifySequenceCompleteRun(machine string, runID int64) error
+	// NotifyDaqReconnect handles a reconnect while the machine is mid-flight in
+	// a daq_local state on node (state-uncertain → abort destination + alarm).
+	NotifyDaqReconnect(machine, node string) error
+}
+
 // Client connects to a single DAQ node and bridges its data/commands to the broker.
 type Client struct {
 	refDes     string
@@ -36,17 +58,14 @@ type Client struct {
 	configJSON []byte // pre-marshalled config to send after config_req
 	b          *broker.Broker
 	cmdCh      chan []byte // broker writes cmd JSON here; we forward to DAQ node
-	stateCh    chan []byte // readLoop enqueues state messages; writeLoop sends them to DAQ
-	sm         *stateMachine
+	outCh      chan []byte // state_update payloads bound for the DAQ node
+	engine     EngineController
 }
 
-// New creates a Client.  configJSON is the config payload to send after the
-// DAQ node requests it.  control may be nil if this DAQ node has no state
-// machine config; vars is the soft channel store used for variable resolution
-// and may be nil if control is nil.
-func New(refDes, ip string, port int, configJSON string, b *broker.Broker,
-	control *config.DaqControl, vars varGetter) *Client {
-
+// New creates a Client.  configJSON is the config payload to send after the DAQ
+// node requests it.  engine may be nil when no state machine engine is running,
+// in which case the client is a pure data/command bridge.
+func New(refDes, ip string, port int, configJSON string, b *broker.Broker, engine EngineController) *Client {
 	addr := fmt.Sprintf("%s:%d", ip, port)
 	return &Client{
 		refDes:     refDes,
@@ -54,8 +73,43 @@ func New(refDes, ip string, port int, configJSON string, b *broker.Broker,
 		configJSON: []byte(configJSON),
 		b:          b,
 		cmdCh:      make(chan []byte, 64),
-		stateCh:    make(chan []byte, 16),
-		sm:         newStateMachine(control, vars),
+		outCh:      make(chan []byte, 64),
+		engine:     engine,
+	}
+}
+
+// RefDes returns the node's refDes.
+func (c *Client) RefDes() string { return c.refDes }
+
+// SendStateUpdate queues a resolved `state_update` payload for the node.  It is
+// called from the engine loop (OnDaqStateEnter) and must never block; if the
+// queue is somehow full the payload is dropped with a loud error rather than
+// stalling the engine.
+func (c *Client) SendStateUpdate(payload *statemachine.DaqStateUpdate) {
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		c.reportErr(fmt.Errorf("marshal state_update for %q: %w", payload.State, err))
+		return
+	}
+	select {
+	case c.outCh <- raw:
+		log.Printf("daqnode %s: queued state_update state=%q machine=%q runId=%d",
+			c.refDes, payload.State, payload.Machine, payload.RunID)
+	default:
+		c.reportErr(fmt.Errorf("outbound queue full, DROPPED state_update for state %q", payload.State))
+	}
+}
+
+// reportErr surfaces a control-node-side fault to the operator through the
+// broker error path (the web client turns these into alarms) as well as the log.
+func (c *Client) reportErr(err error) {
+	log.Printf("daqnode %s: %v", c.refDes, err)
+	if c.b != nil {
+		c.b.PublishErr(broker.ErrEvent{
+			DaqRefDes: c.refDes,
+			T:         float64(time.Now().UnixMilli()) / 1000.0,
+			Err:       err.Error(),
+		})
 	}
 }
 
@@ -68,6 +122,9 @@ func (c *Client) Run() {
 		c.b.RegisterDaq(c.refDes, nil) // deregister while disconnected
 		if connected {
 			c.b.DaqConnected.Add(-1)
+			// Server-side alert source: the alert engine raises the template's
+			// `disconnect` alert from here, so no browser has to infer it.
+			c.b.NoteDaqDisconnected(c.refDes)
 		}
 		if err != nil {
 			log.Printf("daqnode %s: disconnected: %v — retrying in %s", c.refDes, err, reconnectDelay)
@@ -112,31 +169,43 @@ func (c *Client) connect() (connected bool, err error) {
 	}
 	conn.SetWriteDeadline(time.Time{})
 
-	// ── State machine: push current state to DAQ immediately after config ─
-	// The DAQ may also send state_req after this, which is handled in readLoop.
-	if c.sm.control != nil {
-		payload, err := c.sm.HandleStateReq()
-		if err != nil {
-			log.Printf("daqnode %s: initial state_update error: %v", c.refDes, err)
-		} else {
-			conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-			if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
-				return false, fmt.Errorf("send initial state_update: %w", err)
-			}
-			conn.SetWriteDeadline(time.Time{})
-			c.b.Publish(stateChangeBroadcast(c.refDes, c.sm.Current()))
-			log.Printf("daqnode %s: sent initial state_update for state %q", c.refDes, c.sm.Current())
-		}
-	}
-
 	log.Printf("daqnode %s: connected", c.refDes)
 	c.b.DaqConnected.Add(1)
+	// The link is up (handshake complete): the alert engine resolves the
+	// disconnect alert and raises `reconnect` for every connect after the first.
+	c.b.NoteDaqConnected(c.refDes)
+
+	// ── Post-connect state handling ───────────────────────────────────────
+	// We deliberately do NOT push a state_update here.  `state_update` means
+	// "enter this state now", so re-sending a running daq_local state would
+	// re-fire its sequence from t=0 (re-commanding valves and igniters).  If a
+	// machine is mid-flight on this node the node's timeline is unknowable
+	// after a reconnect, so that is treated as state-uncertain: the engine
+	// fires the state's declared abort destination and raises an alarm.  If no
+	// machine is in a daq_local state here, nothing is sent at all.
+	c.handleReconnectState()
 
 	// ── Run read and write concurrently ───────────────────────────────────
 	errCh := make(chan error, 2)
 	go c.readLoop(conn, errCh)
 	go c.writeLoop(conn, errCh)
 	return true, <-errCh
+}
+
+// handleReconnectState applies the state-uncertain rule to every machine that
+// has daq_local states on this node.
+func (c *Client) handleReconnectState() {
+	if c.engine == nil {
+		return
+	}
+	for _, machine := range c.engine.MachinesForNode(c.refDes) {
+		if !c.engine.IsRunningOnNode(machine, c.refDes) {
+			continue // not in a daq_local state here — send nothing
+		}
+		if err := c.engine.NotifyDaqReconnect(machine, c.refDes); err != nil {
+			c.reportErr(fmt.Errorf("machine %s: reconnected with uncertain state: %v", machine, err))
+		}
+	}
 }
 
 // readLoop reads messages from the DAQ node and handles them.
@@ -148,10 +217,11 @@ func (c *Client) readLoop(conn *websocket.Conn, errCh chan<- error) {
 			return
 		}
 		var msg struct {
-			Type string             `json:"type"`
-			T    float64            `json:"t"`
-			D    map[string]float64 `json:"d"`
-			Err  string             `json:"err"`
+			Type  string             `json:"type"`
+			T     float64            `json:"t"`
+			D     map[string]float64 `json:"d"`
+			Err   string             `json:"err"`
+			RunID int64              `json:"runId"`
 		}
 		if err := json.Unmarshal(raw, &msg); err != nil {
 			log.Printf("daqnode %s: bad JSON: %v", c.refDes, err)
@@ -160,50 +230,24 @@ func (c *Client) readLoop(conn *websocket.Conn, errCh chan<- error) {
 		switch msg.Type {
 		case "data":
 			c.b.PublishData(broker.DataEvent{Values: msg.D})
+			// Heartbeat for stale detection: the alert engine measures the gap
+			// between these against the template's `stale` timeout.
+			c.b.NoteDaqData(c.refDes)
 
 		case "err":
 			log.Printf("daqnode %s: error: %s", c.refDes, msg.Err)
 			c.b.PublishErr(broker.ErrEvent{DaqRefDes: c.refDes, T: msg.T, Err: msg.Err})
 
 		case "state_req":
-			// DAQ is ready to receive the current state definition.
-			if c.sm.control != nil {
-				payload, err := c.sm.HandleStateReq()
-				if err != nil {
-					log.Printf("daqnode %s: state_req error: %v", c.refDes, err)
-				} else {
-					c.stateCh <- payload
-					c.b.Publish(stateChangeBroadcast(c.refDes, c.sm.Current()))
-					log.Printf("daqnode %s: state_req → sending state_update for %q", c.refDes, c.sm.Current())
-				}
-			}
+			c.handleStateReq()
 
 		case "abort_triggered":
-			// DAQ already ran its exit sequence locally; find the abort_triggered
-			// transition and send hard_exit so DAQ can request the abort state.
-			if c.sm.control != nil {
-				exitMsg, err := c.sm.HandleAbortTriggered()
-				if err != nil {
-					log.Printf("daqnode %s: abort_triggered error: %v", c.refDes, err)
-				} else {
-					c.stateCh <- exitMsg
-					c.b.Publish(stateChangeBroadcast(c.refDes, c.sm.Pending()))
-					log.Printf("daqnode %s: abort_triggered → pending state %q", c.refDes, c.sm.Pending())
-				}
-			}
+			// The node already ran its cached exit_sequence locally.  The engine
+			// moves the machine to the destination that sequence declared.
+			c.handleAbortTriggered()
 
 		case "sequence_complete":
-			// Entry sequence finished; check for an auto-transition.
-			if c.sm.control != nil {
-				exitMsg, err := c.sm.HandleSequenceComplete()
-				if err != nil {
-					log.Printf("daqnode %s: sequence_complete error: %v", c.refDes, err)
-				} else if exitMsg != nil {
-					c.stateCh <- exitMsg
-					c.b.Publish(stateChangeBroadcast(c.refDes, c.sm.Pending()))
-					log.Printf("daqnode %s: sequence_complete → transitioning to %q", c.refDes, c.sm.Pending())
-				}
-			}
+			c.handleSequenceComplete(msg.RunID)
 
 		default:
 			log.Printf("daqnode %s: unexpected message type %q", c.refDes, msg.Type)
@@ -211,7 +255,69 @@ func (c *Client) readLoop(conn *websocket.Conn, errCh chan<- error) {
 	}
 }
 
-// writeLoop forwards commands from the broker and state messages to the DAQ node.
+// handleStateReq answers a node's state_req with a freshly-resolved payload,
+// but only when a machine is currently in a daq_local state on this node.
+// Otherwise the request is logged and ignored — there is no state to give.
+func (c *Client) handleStateReq() {
+	if c.engine == nil {
+		log.Printf("daqnode %s: state_req ignored (no engine)", c.refDes)
+		return
+	}
+	sent := 0
+	for _, machine := range c.engine.MachinesForNode(c.refDes) {
+		payload, running, err := c.engine.CurrentDaqPayload(machine, c.refDes)
+		if err != nil {
+			// F-A15: resolution failed at send time.  Refuse to send a payload
+			// and raise it as an operator-visible fault; never silently log.
+			c.reportErr(fmt.Errorf("state_req: machine %s: %v — payload refused", machine, err))
+			continue
+		}
+		if !running {
+			continue
+		}
+		c.SendStateUpdate(payload)
+		sent++
+	}
+	if sent == 0 {
+		log.Printf("daqnode %s: state_req ignored (no machine is in a daq_local state on this node)", c.refDes)
+	}
+}
+
+func (c *Client) handleAbortTriggered() {
+	if c.engine == nil {
+		c.reportErr(fmt.Errorf("abort_triggered received but no engine is running"))
+		return
+	}
+	machines := c.engine.MachinesForNode(c.refDes)
+	if len(machines) == 0 {
+		c.reportErr(fmt.Errorf("abort_triggered received but no machine has daq_local states on this node"))
+		return
+	}
+	for _, machine := range machines {
+		if err := c.engine.NotifyAbortTriggered(machine); err != nil {
+			c.reportErr(fmt.Errorf("abort_triggered for %s: %v", machine, err))
+			continue
+		}
+		log.Printf("daqnode %s: abort_triggered → %s moving to its declared abort destination", c.refDes, machine)
+	}
+}
+
+func (c *Client) handleSequenceComplete(runID int64) {
+	if c.engine == nil {
+		log.Printf("daqnode %s: received sequence_complete but no engine available", c.refDes)
+		return
+	}
+	for _, machine := range c.engine.MachinesForNode(c.refDes) {
+		if err := c.engine.NotifySequenceCompleteRun(machine, runID); err != nil {
+			// Stale/uncorrelated completions are expected and are not faults.
+			log.Printf("daqnode %s: sequence_complete for %s: %v", c.refDes, machine, err)
+			continue
+		}
+		log.Printf("daqnode %s: sequence_complete (runId %d) applied to %s", c.refDes, runID, machine)
+	}
+}
+
+// writeLoop forwards commands from the broker and state payloads to the DAQ node.
 // It is the only goroutine that writes to conn.
 func (c *Client) writeLoop(conn *websocket.Conn, errCh chan<- error) {
 	for {
@@ -220,67 +326,24 @@ func (c *Client) writeLoop(conn *websocket.Conn, errCh chan<- error) {
 			if !ok {
 				return
 			}
-
-			// Intercept SYS-TARGET-STATE-<daqNode> commands — these drive state
-			// transitions rather than being forwarded directly to the DAQ node.
-			if c.sm.control != nil {
-				var cmd struct {
-					RefDes string      `json:"refDes"`
-					Value  interface{} `json:"value"`
-				}
-				if json.Unmarshal(payload, &cmd) == nil && cmd.RefDes == "SYS-TARGET-STATE-"+c.refDes {
-					target, _ := cmd.Value.(string)
-					if target == "" {
-						log.Printf("daqnode %s: SYS-TARGET-STATE-%s with non-string value, ignoring", c.refDes, c.refDes)
-						continue
-					}
-					exitMsg, err := c.sm.RequestTransition("operator_request", target)
-					if err != nil {
-						// Try operator_abort as the trigger in case no operator_request exists
-						exitMsg, err = c.sm.RequestTransition("operator_abort", target)
-					}
-					if err != nil {
-						log.Printf("daqnode %s: invalid transition to %q: %v", c.refDes, target, err)
-						continue
-					}
-					conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-					if err := conn.WriteMessage(websocket.TextMessage, exitMsg); err != nil {
-						errCh <- fmt.Errorf("write exit msg: %w", err)
-						return
-					}
-					conn.SetWriteDeadline(time.Time{})
-					c.b.Publish(stateChangeBroadcast(c.refDes, c.sm.Pending()))
-					log.Printf("daqnode %s: operator transition → %q, sent exit msg", c.refDes, c.sm.Pending())
-					continue
-				}
-			}
-
-			// Normal command — forward to DAQ node.
-			conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-			if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
+			if err := c.write(conn, payload); err != nil {
 				errCh <- fmt.Errorf("write cmd: %w", err)
 				return
 			}
-			conn.SetWriteDeadline(time.Time{})
 
-		case payload := <-c.stateCh:
-			// State machine response (state_update, hard_exit, etc.) queued by readLoop.
-			conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-			if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
-				errCh <- fmt.Errorf("write state msg: %w", err)
+		case payload := <-c.outCh:
+			// state_update queued by the engine (state entry) or by state_req.
+			if err := c.write(conn, payload); err != nil {
+				errCh <- fmt.Errorf("write state_update: %w", err)
 				return
 			}
-			conn.SetWriteDeadline(time.Time{})
 		}
 	}
 }
 
-// stateChangeBroadcast builds a state_change JSON broadcast for web clients.
-func stateChangeBroadcast(daqNode, state string) []byte {
-	b, _ := json.Marshal(map[string]interface{}{
-		"type":    "state_change",
-		"daqNode": daqNode,
-		"state":   state,
-	})
-	return b
+func (c *Client) write(conn *websocket.Conn, payload []byte) error {
+	conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+	err := conn.WriteMessage(websocket.TextMessage, payload)
+	conn.SetWriteDeadline(time.Time{})
+	return err
 }

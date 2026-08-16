@@ -44,6 +44,27 @@ type ErrEvent struct {
 	Err       string
 }
 
+// DaqEventSink receives the daqNode lifecycle and range-check transitions the
+// alert engine turns into per-node template alerts.  The broker already sees all
+// four events (it tracks connected nodes and does the bound checking), so this
+// is the single server-side hook for them — nothing else has to duplicate the
+// bookkeeping, and the browser never has to infer an alert from raw data.
+//
+// Every method is called from a broker or DAQ client goroutine and must not
+// block or call back into the broker synchronously.
+type DaqEventSink interface {
+	// NodeConnected / NodeDisconnected fire when a DAQ client's link comes up
+	// (handshake complete) or goes down.
+	NodeConnected(node string)
+	NodeDisconnected(node string)
+	// NodeData fires for every data message received from a node; it is the
+	// heartbeat stale detection measures against.
+	NodeData(node string)
+	// BadData fires only on a range-check TRANSITION.  status is "high", "low"
+	// or "ok" (back in range); node is the owning DAQ node, or "" if unknown.
+	BadData(refDes, node, status string, value float64)
+}
+
 // CmdMsg is a command received from a web client, already parsed from JSON.
 type CmdMsg struct {
 	Type   string      `json:"type"`
@@ -95,6 +116,15 @@ type Broker struct {
 	badMu       sync.RWMutex
 	badSnapshot []byte // nil when no channels are currently bad
 
+	// sinkMu protects eventSink, which is normally installed once at wiring
+	// time but is read from the Run goroutine and every DAQ client goroutine.
+	sinkMu    sync.RWMutex
+	eventSink DaqEventSink
+
+	// valuesMu protects currentValues; written by Run, read by CurrentValues.
+	valuesMu      sync.RWMutex
+	currentValues map[string]float64 // last-known values (read-only access from outside Run)
+
 	// Atomic health counters — readable from outside the Run goroutine.
 	DaqConnected atomic.Int32
 	WcConnected  atomic.Int32
@@ -124,6 +154,7 @@ func New(refDesMap map[string]string, restartRefDes []string, channelBounds map[
 		restartRefDes: rr,
 		channelBounds: channelBounds,
 		exit:          os.Exit,
+		currentValues: make(map[string]float64),
 	}
 }
 
@@ -168,6 +199,12 @@ func (b *Broker) Run(broadcastRateHz int) {
 				currentValues[k] = v
 				b.checkBounds(k, v, time.Now(), badState, subscribers)
 			}
+			// Sync to the protected copy for external access
+			b.valuesMu.Lock()
+			for k, v := range ev.Values {
+				b.currentValues[k] = v
+			}
+			b.valuesMu.Unlock()
 
 		// ── Broadcast tick ────────────────────────────────────────────────
 		case t := <-ticker.C:
@@ -253,6 +290,42 @@ func (b *Broker) Run(broadcastRateHz int) {
 
 // ── Public API (goroutine-safe) ───────────────────────────────────────────────
 
+// SetEventSink installs the DAQ event sink (the alert engine).  Passing nil
+// removes it.  Safe to call at any time.
+func (b *Broker) SetEventSink(s DaqEventSink) {
+	b.sinkMu.Lock()
+	b.eventSink = s
+	b.sinkMu.Unlock()
+}
+
+func (b *Broker) sink() DaqEventSink {
+	b.sinkMu.RLock()
+	defer b.sinkMu.RUnlock()
+	return b.eventSink
+}
+
+// NoteDaqConnected reports that a DAQ node's link is up (handshake complete).
+// Called by the daqnode client alongside the DaqConnected counter.
+func (b *Broker) NoteDaqConnected(node string) {
+	if s := b.sink(); s != nil {
+		s.NodeConnected(node)
+	}
+}
+
+// NoteDaqDisconnected reports that a DAQ node's link went down.
+func (b *Broker) NoteDaqDisconnected(node string) {
+	if s := b.sink(); s != nil {
+		s.NodeDisconnected(node)
+	}
+}
+
+// NoteDaqData reports a data message from a node (the stale-detection heartbeat).
+func (b *Broker) NoteDaqData(node string) {
+	if s := b.sink(); s != nil {
+		s.NodeData(node)
+	}
+}
+
 // PublishErr enqueues an error event from a DAQ node.  Non-blocking; drops if buffer is full.
 func (b *Broker) PublishErr(ev ErrEvent) {
 	select {
@@ -315,6 +388,49 @@ func (b *Broker) BadDataSnapshot() []byte {
 	return b.badSnapshot
 }
 
+// CurrentValues returns a copy of all known channel values.
+// Safe to call from any goroutine, but values may be slightly stale.
+//
+// Prefer CurrentValue (single lookup) or EachValue / FillValues (bulk) on hot
+// paths: this allocates and copies the whole map on every call.
+func (b *Broker) CurrentValues() map[string]float64 {
+	b.valuesMu.RLock()
+	defer b.valuesMu.RUnlock()
+	result := make(map[string]float64, len(b.currentValues))
+	for k, v := range b.currentValues {
+		result[k] = v
+	}
+	return result
+}
+
+// CurrentValue looks up one channel without copying the whole map.
+func (b *Broker) CurrentValue(refDes string) (float64, bool) {
+	b.valuesMu.RLock()
+	defer b.valuesMu.RUnlock()
+	v, ok := b.currentValues[refDes]
+	return v, ok
+}
+
+// EachValue calls fn for every known channel value under a single read lock.
+// fn must not call back into the broker.  This is the allocation-free way for
+// the engine to take one snapshot per tick.
+func (b *Broker) EachValue(fn func(refDes string, value float64)) {
+	b.valuesMu.RLock()
+	defer b.valuesMu.RUnlock()
+	for k, v := range b.currentValues {
+		fn(k, v)
+	}
+}
+
+// FillValues copies every known channel value into dst (which is NOT cleared).
+func (b *Broker) FillValues(dst map[string]float64) {
+	b.valuesMu.RLock()
+	defer b.valuesMu.RUnlock()
+	for k, v := range b.currentValues {
+		dst[k] = v
+	}
+}
+
 // checkBounds evaluates one channel value against its configured bounds.
 // Must only be called from the Run goroutine (badState is not mutex-protected).
 // On a bad↔ok state transition it fans a bad_data message out to all subscribers
@@ -363,6 +479,13 @@ func (b *Broker) checkBounds(refDes string, value float64, t time.Time,
 
 	// Rebuild the shared snapshot from the updated badState.
 	b.updateBadSnapshot(badState)
+
+	// Tell the alert engine about the transition.  The server owns bad-data
+	// alerts now: the browser only renders what comes back through the alert
+	// messages (it still gets bad_data for the value display itself).
+	if s := b.sink(); s != nil {
+		s.BadData(refDes, b.refDesMap[refDes], newStatus, value)
+	}
 
 	// Build and fan-out the transition message immediately.
 	ts := float64(t.UnixMilli()) / 1000.0

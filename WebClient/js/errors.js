@@ -9,6 +9,11 @@
 //   - routes any error through reportClientError(), which logs it and raises a
 //     throttled, de-duplicated WARNING in the alert bar (via ingestAlert).
 //
+// These are BROWSER-LOCAL faults: the control node cannot observe a JavaScript
+// exception in one operator's tab, so (like 'cmd-not-sent' in ws.js) this is one
+// of the few alerts still constructed client-side. Every alert about the SYSTEM
+// comes from the server.
+//
 // Load this early (before the feature scripts) so it is registered in time to
 // catch load-time errors. ingestAlert (alerts.js) may not exist yet at load
 // time, but errors are reported at runtime, so the lazy `typeof` guard is enough.

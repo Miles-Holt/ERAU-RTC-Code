@@ -237,6 +237,8 @@ function renderPidAll(tab) {
     // embedded graph that fails to initialise) must not blank the whole panel.
     // Objects render before connections, so without this a single throwing object
     // would drop every pipe.
+    // Browser-local render failures only — the server cannot see them, so these
+    // stay client-side (every SYSTEM alert comes from the control node).
     for (const obj of tab.pid.objects) {
         try { renderPidObj(tab, obj); }
         catch (e) {
@@ -347,8 +349,13 @@ function makeSensorGroup(obj) {
 function makeDaqControlGroup(obj) {
     const W = (obj.gridW || 10) * PID.GRID;
     const H = (obj.gridH || 3)  * PID.GRID;
-    const daqRef = obj.daqRefDes || '';
-    const cfg = daqControlConfig[daqRef];
+    // daqRefDes holds the state MACHINE name (e.g. "fuelSeq"), matching
+    // state_config machines[].name.  Layouts that predate machines have none.
+    const machineName = obj.daqRefDes || '';
+    if (!machineName) {
+        console.warn('pid: daqControl object "' + obj.id +
+            '" has no daqRefDes (state machine name) — widget is unbound and cannot command transitions');
+    }
 
     const g = svgN('g', {
         class: 'pid-obj pid-daqctrl',
@@ -361,9 +368,9 @@ function makeDaqControlGroup(obj) {
         class: 'pid-daqctrl-bg', x: 0, y: 0, width: W, height: H, rx: 4,
     }));
 
-    // Top row: label (or DAQ refDes fallback) + connection status (right)
+    // Top row: label (or machine name fallback) + connection status (right)
     const labelEl = svgN('text', { class: 'pid-daqctrl-label', x: 8, y: 18 });
-    labelEl.textContent = obj.label || daqRef || 'DAQ???';
+    labelEl.textContent = obj.label || machineName || 'unbound';
     g.appendChild(labelEl);
 
     const connEl = svgN('text', { class: 'pid-daqctrl-conn', x: W - 8, y: 18 });
@@ -372,7 +379,7 @@ function makeDaqControlGroup(obj) {
 
     // Bottom row: state label (left) + dropdown (right via foreignObject)
     const stateEl = svgN('text', { class: 'pid-daqctrl-state', x: 8, y: H - 12 });
-    stateEl.textContent = 'State: ---';
+    stateEl.textContent = machineName ? 'State: ---' : 'State: unbound';
     g.appendChild(stateEl);
 
     // Dropdown in foreignObject
@@ -383,24 +390,22 @@ function makeDaqControlGroup(obj) {
         sel.className = 'pid-daqctrl-select';
         sel.setAttribute('data-daqctrl-select', '');
         sel.style.width = '100%';
-        markCmdWidget(sel);
+        // Only a bound widget is a command widget; an unbound one must stay
+        // disabled even after the operator logs in (updateCommandWidgets()
+        // re-enables everything tagged .cmd-widget).
+        if (machineName) markCmdWidget(sel);
+        else sel.disabled = true;
 
         // Populate with initial placeholder
         const placeholder = document.createElement('option');
         placeholder.value = '';
-        placeholder.textContent = '-- transition --';
+        placeholder.textContent = machineName ? '-- transition --' : '(unbound)';
         placeholder.disabled = true;
         placeholder.selected = true;
         sel.appendChild(placeholder);
 
-        sel.addEventListener('change', () => {
-            const target = sel.value;
-            if (!target) return;
-            // Send command to request state transition
-            // Use SYS-TARGET-STATE or a per-DAQ channel
-            sendCommand('SYS-TARGET-STATE', target);
-            sel.selectedIndex = 0;
-        });
+        // The change handler is installed by _updateDaqControlState once
+        // state_config arrives (it needs the machine's targetRefDes).
 
         fo.appendChild(sel);
         g.appendChild(fo);
@@ -841,43 +846,64 @@ function renderPidConn(tab, conn) {
 // DAQ Control helpers
 // =============================================================================
 
-function _updateDaqControlState(svgEl, id, daqRef, stateValue) {
-    const cfg = daqControlConfig[daqRef];
-    if (!cfg) return;
-    const stateNames = Object.keys(cfg.states);
-    const stateIdx = typeof stateValue === 'number' ? Math.round(stateValue) : parseInt(stateValue, 10);
-    const stateName = stateNames[stateIdx] || ('state_' + stateValue);
+// _updateDaqControlState renders the machine's current state into one widget.
+// stateValue accepts BOTH shapes the server produces:
+//   • a string  — the state NAME, from the authoritative state_change message
+//   • a number  — the state INDEX, from the SM-<MACHINE>-STATE data channel,
+//                 resolved through machineStateConfig[].states[].index
+function _updateDaqControlState(svgEl, id, machineName, stateValue) {
+    const machineConfig = machineStateConfig[machineName];
+    if (!machineConfig) return;
+
+    // Resolve state name
+    let stateName;
+    if (typeof stateValue === 'number') {
+        const stIdx = Math.round(stateValue);
+        const states = machineConfig.states || [];
+        stateName = (states.find(s => s.index === stIdx) || states[stIdx])?.name
+            || ('state_' + stateValue);
+    } else {
+        stateName = String(stateValue);
+    }
+    machineCurrentState[machineName] = stateName;
 
     // Update state text
     const stateEl = svgEl.querySelector('[data-pid-id="' + id + '"] .pid-daqctrl-state');
     if (stateEl) stateEl.textContent = 'State: ' + stateName;
 
-    // Update dropdown with valid operator transitions from current state
+    // Update dropdown with operator-accessible states
     const sel = svgEl.querySelector('[data-pid-id="' + id + '"] [data-daqctrl-select]');
     if (!sel) return;
 
-    const stDef = cfg.states[stateName];
-    const opTransitions = stDef
-        ? stDef.transitions.filter(t => t.on === 'operator_request' || t.on === 'operator_abort')
-        : [];
+    const operatorStates = (machineConfig.states || []).filter(s => s.operator);
+    const targetRefDes = machineConfig.targetRefDes;
 
     // Rebuild dropdown options
     sel.innerHTML = '';
     const placeholder = document.createElement('option');
     placeholder.value = '';
-    placeholder.textContent = opTransitions.length ? '-- transition --' : '(no transitions)';
+    placeholder.textContent = operatorStates.length ? '-- transition --' : '(no transitions)';
     placeholder.disabled = true;
     placeholder.selected = true;
     sel.appendChild(placeholder);
 
-    for (const t of opTransitions) {
+    for (const st of operatorStates) {
         const opt = document.createElement('option');
-        const targetIdx = stateNames.indexOf(t.target);
-        opt.value = targetIdx >= 0 ? String(targetIdx) : t.target;
-        opt.textContent = t.target;
+        opt.value = st.name;  // Send state NAME as string
+        opt.textContent = st.name;
         sel.appendChild(opt);
     }
-    sel.disabled = opTransitions.length === 0;
+    // Respect auth gating: rebuilding the dropdown must not hand an
+    // unauthenticated browser a live command control.
+    sel.disabled = operatorStates.length === 0 || !operatorName;
+
+    // Update the change handler to use the new targetRefDes and send as string
+    sel.onchange = () => {
+        const target = sel.value;
+        if (!target) return;
+        sendCommand(targetRefDes, target);  // Send as STRING, not number
+        sel.selectedIndex = 0;
+    };
 }
 
 // =============================================================================
@@ -936,18 +962,25 @@ function rebindPidLiveData(tab) {
             }
         }
 
-        // ── daqControl: bind SYS-STATE + connection staleness ──────────────
+        // ── daqControl: bind SM-<MACHINE>-STATE + connection staleness ──────────────
         if (obj.type === 'daqControl' && obj.daqRefDes) {
             const id = obj.id;
-            const daqRef = obj.daqRefDes;
-            const cfg = daqControlConfig[daqRef];
-            const stateNames = cfg ? Object.keys(cfg.states) : [];
+            const machineName = obj.daqRefDes;  // daqRefDes now holds the machine name
+            const smStateRefDes = 'SM-' + machineName + '-STATE';
             let connStaleTimer = null;
 
-            // Listen for SYS-STATE to update current state + dropdown
-            tab.channelUpdaters['SYS-STATE'] = value => {
-                _updateDaqControlState(tab.pid.svgEl, id, daqRef, value);
+            // Listen for SM-<MACHINE>-STATE (numeric index) to update current
+            // state + dropdown.  state_change (state NAME) drives the same
+            // function from ws.js — whichever arrives first wins.
+            tab.channelUpdaters[smStateRefDes] = value => {
+                _updateDaqControlState(tab.pid.svgEl, id, machineName, value);
             };
+
+            // A re-render (new layout, new state_config) must not blank the
+            // widget: repaint the last known state immediately.
+            if (machineCurrentState[machineName] !== undefined) {
+                _updateDaqControlState(tab.pid.svgEl, id, machineName, machineCurrentState[machineName]);
+            }
 
             // Track connection via CTR001-daqConnected
             tab.channelUpdaters['CTR001-daqConnected'] = value => {

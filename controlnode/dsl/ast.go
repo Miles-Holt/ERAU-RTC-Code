@@ -1,0 +1,229 @@
+package dsl
+
+// ── Expressions ───────────────────────────────────────────────────────────
+
+// Expr is the interface for all expression nodes.
+type Expr interface {
+	expr()
+	Line() int
+}
+
+// BinaryExpr represents a binary operation: left op right.
+type BinaryExpr struct {
+	Left   Expr
+	Op     string // "+", "-", "*", "/", "%", "==", "!=", "<", "<=", ">", ">=", "and", "or"
+	Right  Expr
+	LineNo int
+}
+
+func (e *BinaryExpr) expr()  {}
+func (e *BinaryExpr) Line() int { return e.LineNo }
+
+// UnaryExpr represents a unary operation: op operand.
+type UnaryExpr struct {
+	Op       string // "-", "not"
+	Operand  Expr
+	LineNo   int
+}
+
+func (e *UnaryExpr) expr()  {}
+func (e *UnaryExpr) Line() int { return e.LineNo }
+
+// LiteralExpr represents a literal value.
+type LiteralExpr struct {
+	Value  interface{} // int64, float64, bool, or string
+	LineNo int
+}
+
+func (e *LiteralExpr) expr()  {}
+func (e *LiteralExpr) Line() int { return e.LineNo }
+
+// IdentExpr represents a simple identifier or member access (e.g., "x" or "machine.fuelSeq.state").
+type IdentExpr struct {
+	Name   string // full dotted name
+	LineNo int
+}
+
+func (e *IdentExpr) expr()  {}
+func (e *IdentExpr) Line() int { return e.LineNo }
+
+// ── Statements ────────────────────────────────────────────────────────────
+
+// Stmt is the interface for all statement nodes.
+type Stmt interface {
+	stmt()
+	Line() int
+}
+
+// AssignStmt represents an assignment: target = expr.
+type AssignStmt struct {
+	Target string // identifier
+	Value  Expr
+	LineNo int
+}
+
+func (s *AssignStmt) stmt()  {}
+func (s *AssignStmt) Line() int { return s.LineNo }
+
+// IncrementStmt represents an increment: target++.
+type IncrementStmt struct {
+	Target string
+	LineNo int
+}
+
+func (s *IncrementStmt) stmt()  {}
+func (s *IncrementStmt) Line() int { return s.LineNo }
+
+// DecrementStmt represents a decrement: target--.
+type DecrementStmt struct {
+	Target string
+	LineNo int
+}
+
+func (s *DecrementStmt) stmt()  {}
+func (s *DecrementStmt) Line() int { return s.LineNo }
+
+// IfStmt represents an if/elif/else statement.
+type IfStmt struct {
+	Condition Expr
+	Body      []Stmt
+	Elif      []*IfStmt // nil condition means else
+	LineNo    int
+}
+
+func (s *IfStmt) stmt()  {}
+func (s *IfStmt) Line() int { return s.LineNo }
+
+// TransitionStmt represents a transition to another state.
+type TransitionStmt struct {
+	Target string // state name
+	LineNo int
+}
+
+func (s *TransitionStmt) stmt()  {}
+func (s *TransitionStmt) Line() int { return s.LineNo }
+
+// SleepStmt represents a sleep: sleep <duration or expr>.
+type SleepStmt struct {
+	Duration Expr // evaluates to int (milliseconds)
+	LineNo   int
+}
+
+func (s *SleepStmt) stmt()  {}
+func (s *SleepStmt) Line() int { return s.LineNo }
+
+// WaitUntilStmt represents a wait_until with optional timeout.
+type WaitUntilStmt struct {
+	Condition      Expr
+	Timeout        Expr    // optional; evaluates to int (milliseconds)
+	TimeoutState   string  // optional; state to transition to on timeout
+	LineNo         int
+}
+
+func (s *WaitUntilStmt) stmt()  {}
+func (s *WaitUntilStmt) Line() int { return s.LineNo }
+
+// ── Top-level declarations ────────────────────────────────────────────────
+
+// Decl is the interface for all top-level declarations.
+type Decl interface {
+	decl()
+	Line() int
+}
+
+// MachineDef defines a state machine.
+type MachineDef struct {
+	Name   string
+	States []*StateDef
+	LineNo int
+}
+
+func (d *MachineDef) decl()  {}
+func (d *MachineDef) Line() int { return d.LineNo }
+
+// StateDef defines a state within a machine.
+type StateDef struct {
+	Name       string
+	Operator   bool
+	DaqLocal   string // optional daqNode name
+	Controller []Stmt
+	Sequence   []Stmt
+	AbortRules []*AbortRule
+	LineNo     int
+
+	// AbortSequence is the `abort_sequence` block of a daq_local state: timed
+	// set-steps the DAQ runs locally when an abort_rule trips, plus a trailing
+	// `transition X` naming the abort destination.  HasAbortSequence
+	// distinguishes "declared but empty" from "not declared".
+	AbortSequence    []Stmt
+	HasAbortSequence bool
+	AbortSeqLine     int
+}
+
+func (d *StateDef) decl()  {}
+func (d *StateDef) Line() int { return d.LineNo }
+
+// AbortRule represents an abort_rule declaration.
+type AbortRule struct {
+	Channel  string // channel name
+	Op       string // ">", "<", ">=", "<=", "==", "!="
+	Value    Expr   // evaluates to float64
+	FromMs   Expr   // evaluates to int
+	ToMs     Expr   // evaluates to int
+	LineNo   int
+}
+
+func (d *AbortRule) decl()  {}
+func (d *AbortRule) Line() int { return d.LineNo }
+
+// ChannelDef defines a software channel.
+type ChannelDef struct {
+	Name        string
+	Type        string      // "float", "bool", or omitted for compute
+	Default     *LiteralExpr
+	Min         *LiteralExpr
+	Max         *LiteralExpr
+	Units       string
+	Description string
+	Compute     Expr // optional; read-only if present
+	LineNo      int
+}
+
+func (d *ChannelDef) decl()  {}
+func (d *ChannelDef) Line() int { return d.LineNo }
+
+// TemplateDef defines an alert template.
+type TemplateDef struct {
+	Name  string
+	Rules []*TemplateRule
+	LineNo int
+}
+
+func (d *TemplateDef) decl()  {}
+func (d *TemplateDef) Line() int { return d.LineNo }
+
+// TemplateRule represents an "on <event> [<duration>] -> <severity> <message>" rule.
+//
+// The optional duration qualifies the event.  Only `stale` uses it today, where
+// it overrides the default data-receive timeout (`on stale 5s -> …`).
+// DurationMs is 0 when no duration was given.
+type TemplateRule struct {
+	Event      string // "disconnect", "reconnect", "bad_data", "stale"
+	Severity   string // "alarm", "warning", "info"
+	Message    string
+	DurationMs int64 // 0 = not specified
+	LineNo     int
+}
+
+// AlertDef defines an alert rule.
+type AlertDef struct {
+	Name     string
+	Condition Expr
+	Severity string
+	Message  string
+	Latch    bool
+	LineNo   int
+}
+
+func (d *AlertDef) decl()  {}
+func (d *AlertDef) Line() int { return d.LineNo }

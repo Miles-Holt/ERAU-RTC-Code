@@ -66,8 +66,8 @@ objects:
   - id: valve_1775290749444_2992
     type: valve
     controlRefDes: NV-03
-    gridX: 57
-    gridY: 24
+    gridX: 51
+    gridY: 20
   - id: node_1775290775568_4129
     type: node
     gridX: 65
@@ -122,6 +122,7 @@ objects:
     gridW: 4
     gridH: 8
     cornerR: 8
+    label: test
   - id: tank_1775295774403_593
     type: tank
     gridX: 63
@@ -129,25 +130,31 @@ objects:
     gridW: 4
     gridH: 8
     cornerR: 8
-  - id: tank_1775295829094_3137
-    type: tank
-    gridX: 39
-    gridY: 5
-    gridW: 4
-    gridH: 8
-    cornerR: 8
   - id: node_1775295890235_4182
     type: node
-    gridX: 57
-    gridY: 16
+    gridX: 58
+    gridY: 22
   - id: node_1775295903345_2517
     type: node
     gridX: 63
     gridY: 16
   - id: daqControl_1775676987239_5195
     type: daqControl
+    daqRefDes: fuelSeq
     gridX: 24
     gridY: 17
+  - id: valve_1785101083871_7686
+    type: valve
+    gridX: 65
+    gridY: 12
+  - id: valve_1785702358498_99
+    type: valve
+    gridX: 58
+    gridY: 10
+  - id: valve_1785702373472_8479
+    type: valve
+    gridX: 49
+    gridY: 14
 connections:
   - id: conn_1775290523610_4251
     fromId: valve_1775290497269_639
@@ -251,16 +258,6 @@ connections:
     toId: valve_1775290497269_639
     toPort: top
     fluid: fuel
-  - id: conn_1782962680978_8387
-    fromId: tank_1775295829094_3137
-    fromPort: top
-    toId: node_1775295890235_4182
-    toPort: left
-  - id: conn_1782963355191_7287
-    fromId: tank_1775295829094_3137
-    fromPort: right
-    toId: node_1775295890235_4182
-    toPort: left
   - id: conn_1782963370129_6773
     fromId: tank_1775295763288_3873
     fromPort: bottom
@@ -270,4 +267,20 @@ connections:
     fromId: tank_1775295763288_3873
     fromPort: bottom
     toId: valve_1775199095151_4256
+    toPort: top
+  - id: conn_1785101092079_8397
+    fromId: valve_1785101083871_7686
+    fromPort: bottom
+    toId: node_1775295903345_2517
+    toPort: right
+    fluid: hydrogen
+  - id: conn_1785702366825_7047
+    fromId: valve_1785702358498_99
+    fromPort: bottom
+    toId: node_1775295890235_4182
+    toPort: top
+  - id: conn_1785702399952_5373
+    fromId: valve_1785702373472_8479
+    fromPort: right
+    toId: valve_1785702358498_99
     toPort: top

@@ -10,8 +10,9 @@ broadcastRateHz: 50
 # Rate at which DAQ node clients send heartbeat/keepalive messages.
 connectionManagementRateHz: 1
 
-# Rate at which data is written to the log file (if logging is implemented).
-loggingRateHz: 10
-
 # Milliseconds without a new value before a channel is marked stale in the browser.
 channelStaleMs: 2000
+
+# State machine engine tick rate (Hz). Determines timing resolution for sleep/wait_until.
+# Engine time advances by 1000/engineTickRateHz ms per tick (default 100 Hz = 10 ms/tick).
+engineTickRateHz: 100

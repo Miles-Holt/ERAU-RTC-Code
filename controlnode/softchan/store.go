@@ -4,32 +4,21 @@
 package softchan
 
 import (
+	"context"
 	"controlnode/broker"
+	"controlnode/dsl"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
-// ── YAML file shapes ──────────────────────────────────────────────────────────
-
-type yamlDefsFile struct {
-	Channels []yamlDef `yaml:"channels"`
-}
-
-type yamlDef struct {
-	RefDes      string   `yaml:"refDes"`
-	Description string   `yaml:"description"`
-	Units       string   `yaml:"units"`
-	Role        string   `yaml:"role"`
-	Default     float64  `yaml:"default"`
-	Min         *float64 `yaml:"min"`
-	Max         *float64 `yaml:"max"`
-}
+// ── YAML file shapes (values only; definitions now come from .chan DSL files) ──
 
 type yamlValuesFile struct {
 	Values map[string]float64 `yaml:"values"`
@@ -48,82 +37,132 @@ type chanDef struct {
 	Max         *float64
 }
 
+// computeMeta carries the documentation-only fields of a computed channel
+// (units, description).  They play no part in evaluation, but the /docs pages
+// render them, and the compiled expression is the only place the units of a
+// computed channel are recorded.
+type computeMeta struct {
+	Units       string
+	Description string
+}
+
+// storeChannelSpace implements dsl.ChannelSpace for evaluating computed channels
+// against the current values in the store plus hardware channels from the broker.
+type storeChannelSpace struct {
+	store  *Store
+	broker *broker.Broker
+}
+
+// Get implements dsl.ChannelSpace
+func (cs *storeChannelSpace) Get(name string) (dsl.Value, bool) {
+	// Check soft channels first
+	cs.store.mu.RLock()
+	v, ok := cs.store.values[name]
+	cs.store.mu.RUnlock()
+	if ok {
+		return dsl.NewFloat(v), true
+	}
+
+	// Check hardware channels from broker if available.  Single-key lookup:
+	// copying the whole broker map per identifier made every compute expression
+	// O(channels) and could tear across identifiers within one expression.
+	if cs.broker != nil {
+		if hval, ok := cs.broker.CurrentValue(name); ok {
+			return dsl.NewFloat(hval), true
+		}
+	}
+
+	return dsl.Value{}, false
+}
+
+// staticChannelSpace is a lock-free implementation of dsl.ChannelSpace that uses
+// pre-captured values. Used during Recompute to avoid deadlock.
+type staticChannelSpace struct {
+	values map[string]float64
+	broker *broker.Broker
+}
+
+// Get implements dsl.ChannelSpace
+func (cs *staticChannelSpace) Get(name string) (dsl.Value, bool) {
+	// Check soft channels first (no lock needed - values are pre-captured)
+	if v, ok := cs.values[name]; ok {
+		return dsl.NewFloat(v), true
+	}
+
+	// Check hardware channels from broker if available.  Single-key lookup:
+	// copying the whole broker map per identifier made every compute expression
+	// O(channels) and could tear across identifiers within one expression.
+	if cs.broker != nil {
+		if hval, ok := cs.broker.CurrentValue(name); ok {
+			return dsl.NewFloat(hval), true
+		}
+	}
+
+	return dsl.Value{}, false
+}
+
 // ── Store ─────────────────────────────────────────────────────────────────────
 
 // Store holds all software channel definitions and their current values.
 // It publishes values to the broker and handles set commands.
 type Store struct {
 	mu       sync.RWMutex
-	defs     []chanDef          // ordered list of definitions
+	defs     []chanDef          // ordered list of definitions (settable channels only)
 	defIndex map[string]int     // refDes → index into defs
-	values   map[string]float64 // refDes → current value
+	values   map[string]float64 // refDes → current value (both settable and computed)
 
-	defsPath   string // path to softChannels.yaml
-	valuesPath string // path to softChannelValues.yaml
+	defsPath   string // path to channels directory (config/channels/)
+	valuesPath string // path to softChannelValues.yaml (for value persistence)
 
 	b *broker.Broker // set by Run; used for immediate publish from SetInternal
+
+	// Computed channel support
+	computeExprs map[string]dsl.Expr     // channel name → compute expression
+	computeOrder []string                // topological sort order for recomputation
+	computeMeta  map[string]computeMeta  // channel name → doc-only metadata
+
+	// dirty is set by Set/SetInternal and cleared by Flush.  Persistence never
+	// happens on the caller's goroutine or under the store lock.
+	dirty atomic.Bool
 }
 
-// New creates a Store and loads definitions + persisted values from disk.
-// Call Run(b, ...) after the broker is started to begin publishing.
-func New(defsPath, valuesPath string) (*Store, error) {
-	s := &Store{
-		defsPath:   defsPath,
-		valuesPath: valuesPath,
-		defIndex:   make(map[string]int),
-		values:     make(map[string]float64),
-	}
-	if err := s.load(); err != nil {
-		return nil, err
-	}
-	return s, nil
-}
 
-// load reads definitions from softChannels.yaml and values from softChannelValues.yaml.
-// Values file is optional — missing file is treated as empty.
-func (s *Store) load() error {
-	// Definitions
-	data, err := os.ReadFile(s.defsPath)
-	if err != nil {
-		return fmt.Errorf("softchan: read %s: %w", s.defsPath, err)
-	}
-	var defs yamlDefsFile
-	if err := yaml.Unmarshal(data, &defs); err != nil {
-		return fmt.Errorf("softchan: parse %s: %w", s.defsPath, err)
-	}
-
-	// Persisted values (optional)
-	persisted := make(map[string]float64)
-	valData, err := os.ReadFile(s.valuesPath)
-	if err == nil {
-		var vf yamlValuesFile
-		if err := yaml.Unmarshal(valData, &vf); err == nil && vf.Values != nil {
-			persisted = vf.Values
-		}
-	}
-
-	// Merge: definition order preserved; use persisted value if available, else default.
-	s.defs = s.defs[:0]
-	s.defIndex = make(map[string]int)
-	s.values = make(map[string]float64)
-	for i, d := range defs.Channels {
-		s.defs = append(s.defs, chanDef{
-			RefDes:      d.RefDes,
-			Description: d.Description,
-			Units:       d.Units,
-			Role:        d.Role,
-			Default:     d.Default,
-			Min:         d.Min,
-			Max:         d.Max,
+// RegisterStateMachineChannels adds auto-generated SM-<NAME>-STATE and
+// SM-<NAME>-TARGET channels for each compiled machine.  They are created as
+// REAL definitions (defs + defIndex entries), not bare value-map entries: the
+// index is what SetInternal, Set and ConfigJSON key off, so without it the
+// engine's state publishes would be silently dropped.
+//
+// STATE is read-only (role "", updated by the engine via SetInternal);
+// TARGET is operator-writable (the HMI and other machines command it).
+func (s *Store) RegisterStateMachineChannels(machineNames []string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, name := range machineNames {
+		s.addDefLocked(chanDef{
+			RefDes:      "SM-" + name + "-STATE",
+			Description: "Current state of machine " + name,
+			Role:        "", // read-only
 		})
-		s.defIndex[d.RefDes] = i
-		if v, ok := persisted[d.RefDes]; ok {
-			s.values[d.RefDes] = v
-		} else {
-			s.values[d.RefDes] = d.Default
-		}
+		s.addDefLocked(chanDef{
+			RefDes:      "SM-" + name + "-TARGET",
+			Description: "Requested state for machine " + name,
+			Role:        "cmd-float",
+		})
 	}
-	return nil
+}
+
+// addDefLocked registers one definition if it is not already known.
+// Caller must hold s.mu.
+func (s *Store) addDefLocked(d chanDef) {
+	if _, ok := s.defIndex[d.RefDes]; ok {
+		return
+	}
+	s.defs = append(s.defs, d)
+	s.defIndex[d.RefDes] = len(s.defs) - 1
+	if _, ok := s.values[d.RefDes]; !ok {
+		s.values[d.RefDes] = d.Default
+	}
 }
 
 // RefDesMap returns a map of every software channel refDes → "_SOFTCHAN".
@@ -131,9 +170,12 @@ func (s *Store) load() error {
 func (s *Store) RefDesMap() map[string]string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	m := make(map[string]string, len(s.defs))
+	m := make(map[string]string, len(s.defs)+len(s.computeExprs))
 	for _, d := range s.defs {
 		m[d.RefDes] = "_SOFTCHAN"
+	}
+	for name := range s.computeExprs {
+		m[name] = "_SOFTCHAN"
 	}
 	return m
 }
@@ -146,61 +188,190 @@ func (s *Store) Get(refDes string) (float64, bool) {
 	return v, ok
 }
 
+// EachValue calls fn for every software channel value under a single read lock.
+// fn must not call back into the store.
+func (s *Store) EachValue(fn func(refDes string, value float64)) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for k, v := range s.values {
+		fn(k, v)
+	}
+}
+
 // Set validates and stores a new value.  Returns an error if the channel is
 // unknown, read-only, or out of bounds.
 func (s *Store) Set(refDes string, value float64) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+
+	// Reject computed channels (they are always read-only)
+	if _, isComputed := s.computeExprs[refDes]; isComputed {
+		s.mu.Unlock()
+		return fmt.Errorf("softchan: channel %q is computed (read-only)", refDes)
+	}
 
 	idx, ok := s.defIndex[refDes]
 	if !ok {
+		s.mu.Unlock()
 		return fmt.Errorf("softchan: unknown channel %q", refDes)
 	}
 	d := s.defs[idx]
-	if d.Role == "" {
+	switch {
+	case d.Role == "":
+		s.mu.Unlock()
 		return fmt.Errorf("softchan: channel %q is read-only", refDes)
-	}
-	if d.Min != nil && value < *d.Min {
+	case d.Min != nil && value < *d.Min:
+		s.mu.Unlock()
 		return fmt.Errorf("softchan: %q value %.4g below min %.4g", refDes, value, *d.Min)
-	}
-	if d.Max != nil && value > *d.Max {
+	case d.Max != nil && value > *d.Max:
+		s.mu.Unlock()
 		return fmt.Errorf("softchan: %q value %.4g above max %.4g", refDes, value, *d.Max)
 	}
 	s.values[refDes] = value
-	s.persistLocked()
+	s.mu.Unlock()
+
+	s.markDirty()
 	return nil
 }
 
-// SetInternal bypasses role/bounds guards.  Used by the state machine to update
-// read-only channels like SYS-STATE.
+// SetInternal bypasses role/bounds guards.  Used by the engine to update
+// read-only channels such as SM-<NAME>-STATE.
 func (s *Store) SetInternal(refDes string, value float64) {
 	s.mu.Lock()
 	if _, ok := s.defIndex[refDes]; !ok {
 		s.mu.Unlock()
+		log.Printf("softchan: SetInternal on unknown channel %q — ignored", refDes)
 		return
 	}
 	s.values[refDes] = value
-	s.persistLocked()
 	b := s.b
 	s.mu.Unlock()
+
+	s.markDirty()
 	if b != nil {
 		b.PublishData(broker.DataEvent{Values: map[string]float64{refDes: value}})
 	}
 }
 
-// persistLocked writes current values to disk.  Caller must hold s.mu.Lock().
-func (s *Store) persistLocked() {
-	out := map[string]interface{}{
-		"values": s.values,
+// ── Persistence (off the hot path) ────────────────────────────────────────────
+//
+// Writing softChannelValues.yaml used to happen inline, under the store lock,
+// on every single Set — a disk write in front of every reader.  Now a Set only
+// raises a dirty flag; a background flusher serialises a snapshot taken under a
+// short read lock and writes it outside the lock entirely.
+
+// markDirty records that values changed and need persisting.
+func (s *Store) markDirty() { s.dirty.Store(true) }
+
+// snapshotPersistable copies the values that belong in the values file.
+// Computed channels are excluded: they are derived every tick, so persisting
+// them is both pointless and misleading on restart.
+func (s *Store) snapshotPersistable() map[string]float64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make(map[string]float64, len(s.values))
+	for k, v := range s.values {
+		if _, computed := s.computeExprs[k]; computed {
+			continue
+		}
+		out[k] = v
 	}
-	data, err := yaml.Marshal(out)
+	return out
+}
+
+// Flush writes pending value changes to disk immediately.  Called by the
+// background flusher and once more on shutdown so nothing is lost.
+func (s *Store) Flush() {
+	if !s.dirty.Swap(false) {
+		return
+	}
+	if s.valuesPath == "" {
+		return
+	}
+	data, err := yaml.Marshal(map[string]interface{}{"values": s.snapshotPersistable()})
 	if err != nil {
 		log.Printf("softchan: marshal values: %v", err)
 		return
 	}
-	if err := os.WriteFile(s.valuesPath, data, 0644); err != nil {
-		log.Printf("softchan: write %s: %v", s.valuesPath, err)
+	// Write via a temp file so a crash mid-write cannot truncate the real one.
+	tmp := s.valuesPath + ".tmp"
+	if err := os.WriteFile(tmp, data, 0644); err != nil {
+		log.Printf("softchan: write %s: %v", tmp, err)
+		return
 	}
+	if err := os.Rename(tmp, s.valuesPath); err != nil {
+		log.Printf("softchan: rename %s: %v", tmp, err)
+	}
+}
+
+// RunPersister flushes dirty values at a fixed interval until ctx is done, then
+// performs a final flush.  Safe to run in its own goroutine.
+func (s *Store) RunPersister(ctx context.Context, interval time.Duration) {
+	if interval <= 0 {
+		interval = 500 * time.Millisecond
+	}
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			s.Flush()
+			return
+		case <-t.C:
+			s.Flush()
+		}
+	}
+}
+
+// ── Documentation ─────────────────────────────────────────────────────────────
+
+// ChannelDoc describes one software channel for the /docs pages.  It is built
+// from the SAME compiled definitions the engine runs against, so the page can
+// never drift from the loaded config.
+type ChannelDoc struct {
+	RefDes      string
+	Description string
+	Units       string
+	Role        string // "cmd-float" for settable, "" for read-only
+	Default     float64
+	Min         *float64
+	Max         *float64
+	Computed    bool
+	Compute     string // compute expression source text (computed channels only)
+}
+
+// Docs returns every software channel: the settable definitions in file order,
+// then the computed channels in dependency (recompute) order.
+func (s *Store) Docs() []ChannelDoc {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	out := make([]ChannelDoc, 0, len(s.defs)+len(s.computeExprs))
+	for _, d := range s.defs {
+		out = append(out, ChannelDoc{
+			RefDes:      d.RefDes,
+			Description: d.Description,
+			Units:       d.Units,
+			Role:        d.Role,
+			Default:     d.Default,
+			Min:         d.Min,
+			Max:         d.Max,
+		})
+	}
+	for _, name := range s.computeOrder {
+		expr, ok := s.computeExprs[name]
+		if !ok {
+			continue
+		}
+		meta := s.computeMeta[name]
+		out = append(out, ChannelDoc{
+			RefDes:      name,
+			Description: meta.Description,
+			Units:       meta.Units,
+			Computed:    true,
+			Compute:     dsl.ExprString(expr),
+		})
+	}
+	return out
 }
 
 // ConfigJSON returns the softchan_config JSON bytes to send to browsers on connect.
@@ -216,8 +387,11 @@ func (s *Store) ConfigJSON() []byte {
 		Default     float64  `json:"default"`
 		Min         *float64 `json:"min"`
 		Max         *float64 `json:"max"`
+		Computed    bool     `json:"computed,omitempty"`
 	}
-	channels := make([]chJSON, 0, len(s.defs))
+	channels := make([]chJSON, 0, len(s.defs)+len(s.computeExprs))
+
+	// Add regular channels
 	for _, d := range s.defs {
 		channels = append(channels, chJSON{
 			RefDes:      d.RefDes,
@@ -229,6 +403,15 @@ func (s *Store) ConfigJSON() []byte {
 			Max:         d.Max,
 		})
 	}
+
+	// Add computed channels (read-only, no role/default/min/max)
+	for name := range s.computeExprs {
+		channels = append(channels, chJSON{
+			RefDes:   name,
+			Computed: true,
+		})
+	}
+
 	msg := map[string]interface{}{
 		"type":     "softchan_config",
 		"channels": channels,
@@ -322,4 +505,84 @@ func toFloat64(v interface{}) (float64, bool) {
 		return 0, true
 	}
 	return 0, false
+}
+
+// Recompute evaluates all computed channels in dependency order against a ChannelSpace.
+// It updates the store's values and publishes changes to the broker if provided.
+// Returns an error if any computation fails.
+func (s *Store) Recompute(b *broker.Broker) error {
+	s.mu.Lock()
+
+	// Make a copy of current values to avoid holding lock during eval
+	valuesCopy := make(map[string]float64)
+	for k, v := range s.values {
+		valuesCopy[k] = v
+	}
+
+	computeOrder := make([]string, len(s.computeOrder))
+	copy(computeOrder, s.computeOrder)
+
+	computeExprs := make(map[string]dsl.Expr)
+	for k, v := range s.computeExprs {
+		computeExprs[k] = v
+	}
+
+	s.mu.Unlock()
+
+	// Create a channel space that uses our value copies
+	cs := &staticChannelSpace{
+		values: valuesCopy,
+		broker: b,
+	}
+
+	published := make(map[string]float64)
+
+	// Evaluate expressions without holding the lock
+	updatedValues := make(map[string]float64)
+	for _, name := range computeOrder {
+		expr, ok := computeExprs[name]
+		if !ok {
+			continue
+		}
+
+		val, err := dsl.Eval(expr, cs)
+		if err != nil {
+			return fmt.Errorf("softchan: compute %q: %w", name, err)
+		}
+
+		// Value.Float() only carries the numeric payload: on a bool-typed value
+		// it returns 0 regardless of true/false, which silently pinned every
+		// boolean compute channel to 0.  Coerce explicitly by type instead.
+		var newVal float64
+		switch val.Type() {
+		case "float":
+			newVal = val.Float()
+		case "bool":
+			if val.Bool() {
+				newVal = 1
+			}
+		default:
+			return fmt.Errorf("softchan: compute %q: expression yielded %s, want float or bool", name, val.Type())
+		}
+		updatedValues[name] = newVal
+		cs.values[name] = newVal // Update for next iterations
+
+		if oldVal, ok := valuesCopy[name]; !ok || oldVal != newVal {
+			published[name] = newVal
+		}
+	}
+
+	// Update store with new values
+	s.mu.Lock()
+	for name, val := range updatedValues {
+		s.values[name] = val
+	}
+	s.mu.Unlock()
+
+	// Publish any changes outside the lock
+	if len(published) > 0 && b != nil {
+		b.PublishData(broker.DataEvent{Values: published})
+	}
+
+	return nil
 }

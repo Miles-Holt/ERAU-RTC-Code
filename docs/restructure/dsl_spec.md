@@ -1,0 +1,182 @@
+# RTC DSL Specification (v1)
+
+One language family, three file types, all parsed by a shared compiler front-end in the
+controlnode and compiled to Go structures at startup. Parse/compile errors abort startup
+with `file:line: message`.
+
+| Extension | Location            | Defines                          |
+|-----------|---------------------|----------------------------------|
+| `.sm`     | `config/machines/`  | one named state machine per file |
+| `.chan`   | `config/channels/`  | software channels                |
+| `.alert`  | `config/alerts/`    | alert templates and rules        |
+
+## Lexical rules (shared)
+
+- Python-like: indentation defines blocks (4 spaces preferred; tabs accepted; mixed
+  indentation within one file is a compile error). Blank lines ignored. `#` starts a comment.
+- **Identifiers** match `[A-Za-z_][A-Za-z0-9_.-]*`. Hyphens are part of the identifier
+  (refDes like `PT-01`, `OV-05-CMD`). Consequence: **binary minus requires spaces**
+  (`a - b`); `PT-01` is always an identifier. Dots access members (`OV-05.inPosition`,
+  `machine.fuelSeq.state`).
+- Literals: ints, floats, `true`/`false`, double-quoted strings, durations (`100ms`, `5s`,
+  `2m` — compile to ms).
+- Operators: `+ - * / %`, comparisons `== != < <= > >=`, boolean `and or not`,
+  assignment `=`, increment/decrement `++ --` (numeric channels only).
+
+## Expressions
+
+Evaluated against the live channel space: hardware channels, software channels, and
+machine state. `machine.<name>.state` yields the machine's current state name (string,
+comparable with `==` to a quoted state name). Referencing an unknown channel is a
+**compile error** (checked against the full config at load), not a silent 0.
+
+## `.sm` — state machines
+
+```
+machine fuelSequence
+
+state safe                     # first state in file = initial state
+    operator                   # flag: operator may command entry to this state
+    controller                 # runs every engine tick
+        if PT-FUEL-AVG > LIM-CPT01-HIGH
+            transition abort
+        HEARTBEAT-CTR++
+    sequence                   # runs once on entry, in its own goroutine
+        OV-05-CMD = 0
+        wait_until OV-05.closed timeout 5s -> abort
+        sleep 250ms
+        transition ready
+
+state abort
+    daq_local DAQ001           # this state is also compiled + cached on DAQ001
+    sequence
+        OV-05-CMD = 0
+        sleep 100ms
+        FV-02-CMD = 0
+```
+
+- A file defines exactly one `machine <name>`. Machines are **global**: they may read and
+  write any channel on any daqNode or any software channel. Machines interact by reading
+  `machine.<other>.state` or shared software channels.
+- Each machine auto-publishes a read-only software channel `SM-<NAME>-STATE` (current
+  state name) and accepts operator target requests on `SM-<NAME>-TARGET` (only states
+  flagged `operator` are accepted).
+- **controller**: straight-line statements + `if/elif/else`; no loops, no sleeps. Runs
+  every engine tick while the state is active. `transition X` ends the tick and switches
+  state (kills the running sequence).
+- **sequence**: statements run sequentially; supports `sleep <duration|expr>`,
+  `wait_until <expr> [timeout <duration> -> <state>]`, assignments, `transition X`.
+  A state may have controller, sequence, both, or neither (a bare state — e.g. a
+  manual-control mode — rests until an operator or another transition moves it). Sequence completion without a
+  `transition` leaves the state active (controller keeps ticking).
+- **`daq_local <NODE>`**: the state's sequence must be reducible to timed set-steps
+  (assignments, `sleep`); the compiler serializes it into the existing DAQ
+  `state_update` payload (`entry_sequence` with `t_ms`) and it is cached on the daqNode
+  for local (<1 ms) execution. Assignment values, sleep durations, and `abort_rule`
+  thresholds/windows may be **literals or soft-channel identifiers**; identifiers are
+  resolved to numbers when the payload is sent to the node (connect, reconnect,
+  `state_req`) so operator-tuned values (e.g. `SEQ-BURN-DUR`) stay adjustable, exactly
+  like the old `{{VAR}}` behavior. Unresolvable refs at send time are an error, never
+  silently 0. Other statements in a `daq_local` state are a compile error.
+  Values, durations, and windows may also be **constant arithmetic** over literals and
+  soft-channel identifiers (e.g. `sleep 2000 - SEQ-IGN-LEAD`), folded at send time —
+  this is how absolute-time schedules are expressed as sequential sleeps. A resolved
+  negative sleep is a send-time error (the payload is refused, with an alarm).
+  A trailing `transition X` in a `daq_local` sequence is not a timed step: it declares
+  the **completion transition** — when the node reports `sequence_complete`, the engine
+  transitions the machine to `X`. A `transition` anywhere else in a `daq_local`
+  sequence is a compile error.
+
+  A `daq_local` state with `abort_rule`s **must** also declare an `abort_sequence`
+  block: timed set-steps (same restrictions as the sequence) serialized into the
+  payload's `exit_sequence`, which the DAQ runs locally (<1 ms) when a rule trips.
+  Its trailing `transition X` declares the **abort destination**: the state the engine
+  enters when the node reports `abort_triggered` (this replaces any hardcoded "abort"
+  state name).
+
+  Payload lifecycle: the payload is (re)resolved and sent when the engine **enters**
+  the state (`state_update` now means "enter this state now"), and re-sent on DAQ
+  `state_req`. On node reconnect the controlnode does **not** re-send a running
+  `daq_local` state (re-entry would re-fire the sequence from t=0); instead, a
+  reconnect while the machine is in a `daq_local` state is treated as
+  state-uncertain and the engine fires the abort destination with an alarm. Abort trigger rules for DAQ-local monitoring are declared:
+
+```
+    abort_rule CPT-01 > 850 from 0ms to 20000ms
+```
+
+## `.chan` — software channels
+
+```
+# operator-settable
+channel SEQ-BURN-DUR
+    description "Burn duration"       # optional, shown in the HMI
+    type float
+    default 3000
+    min 500
+    max 10000
+    units ms
+
+# computed every tick (read-only; may reference any channel incl. other computed)
+channel PT-FUEL-AVG
+    units psi
+    compute (PT-01 + PT-02) / 2
+
+channel IGNITION-OK
+    type bool
+    compute TC-01 > 400 and PT-FUEL-AVG > 300
+```
+
+- Settable channels keep today's semantics (role derived from type, min/max guards,
+  persistence of values across restarts).
+- `compute` channels are read-only, recomputed every engine tick, dependency-ordered;
+  cycles are a compile error.
+
+## `.alert` — alerts
+
+```
+template every_daqnode          # instantiated per configured daqNode automatically
+    on disconnect -> alarm "{node} disconnected"
+    on reconnect  -> info  "{node} reconnected"
+    on bad_data   -> warning "{refDes} out of range: {value}"
+    on stale      -> warning "{refDes} stale"
+
+alert CHAMBER-HIGH
+    if CPT-01 > LIM-CPT01-HIGH
+    severity alarm
+    message "Chamber pressure high: {CPT-01} psi"
+    latch                       # stays raised until operator ack, even if condition clears
+```
+
+- Server becomes the single source of alerts (browser only renders). `{name}`
+  placeholders interpolate channel values / event fields at raise time.
+- Rule alerts are edge-triggered (raise on false→true); non-latching rules auto-clear
+  on true→false.
+
+## Engine
+
+- One engine tick loop in the controlnode (rate from `system.yaml`, new key
+  `engineTickRateHz`, default 100). Per tick: recompute `.chan` computed channels →
+  run every active state's controller → evaluate `.alert` rules.
+- Sequences run in per-machine goroutines; `transition` cancels the running sequence
+  via context.
+
+## Resolved semantics (locked during implementation)
+
+- `if/elif/else` is allowed in `sequence` blocks too, not just controllers. Loops
+  remain absent everywhere.
+- `wait_until … timeout <d>` **requires** the `-> <state>` clause (timeout behavior
+  must be explicit).
+- Engine time is tick-derived, not wall-clock: each tick advances 1000/TickHz ms and
+  `sleep`/`timeout` measure against that (deterministic tests, timing consistent with
+  controller reaction).
+- `daq_local` states: the controlnode does **not** re-run the sequence (the DAQ runs
+  its cached copy; re-running would double-command valves). Therefore a `daq_local`
+  state may not have a `controller` block (compile error) — guards belong on
+  controlnode-side states. `abort_rule` lines are only legal inside `daq_local` states.
+- Transitioning to the currently-active state re-enters it (restarts its sequence).
+- Transition arbitration: per tick, pending requests drain first, then controllers run
+  (their `transition` applies that tick), then sequences resume. A sequence transition
+  racing a controller abort is discarded (per-state epoch), never resurrecting a dead
+  state.
+- Writes coerce booleans to 1/0; assigning a string to a channel is a runtime error.

@@ -10,8 +10,14 @@
 // Alerts flash until acknowledged. Acking on one client acks for all operators
 // via the server broadcasting alert_acked to all /ws/data subscribers.
 //
-// Sources wired up: server-sent bad_data / bad_data_snapshot (range checking) via
-// handleBadData below, and DAQ err messages via handleDaqError in ws.js.
+// THIS MODULE IS RENDER-ONLY. Alerts are CREATED by the control node (rule
+// alerts from config/alerts/*.alert, per-daqNode template alerts for
+// disconnect / reconnect / bad_data / stale, and server notices), and arrive as
+// alert / alert_snapshot / alert_acked messages. Do not construct alerts here:
+// two browsers would otherwise disagree about what is alarming, and an operator
+// acking on one would not clear it for anyone else. The only exceptions are
+// faults the server cannot observe — the local control link ('cmd-not-sent' in
+// ws.js) and browser-side JS failures (errors.js, pid.js render guards).
 // =============================================================================
 
 let _alerts    = [];    // [{ id, category, message, timestamp, acked }]
@@ -19,28 +25,36 @@ let _collapsed = true;
 let _barEl     = null;
 let _listEl    = null;
 
+// badDataState tracks which channels the server currently reports as out of
+// range, for VALUE DISPLAY (the red reading / LED on a widget). It carries no
+// alert of its own — the server raises the bad-data alert.
+const badDataState = {};   // refDes -> { status, value, validMin, validMax, t }
+
 // =============================================================================
 // Public API (called from ws.js)
 // =============================================================================
 
-// handleBadData converts a bad_data (or bad_data_snapshot entry) message from
-// the server into an alert bar entry.  Uses a stable ID ("bad:<refDes>") so
-// that updates replace the existing entry rather than adding duplicates.
+// handleBadData records a bad_data (or bad_data_snapshot entry) message for
+// display. Render-only: the matching alert arrives separately from the server.
 function handleBadData(msg) {
-    const id = 'bad:' + msg.refDes;
+    if (!msg || !msg.refDes) return;
     if (msg.status === 'ok') {
-        ackAlertLocally(id);
+        delete badDataState[msg.refDes];
         return;
     }
-    const dir   = msg.status === 'high' ? '>' : '<';
-    const bound = msg.status === 'high' ? msg.validMax : msg.validMin;
-    ingestAlert({
-        id,
-        category:  'alarm',
-        message:   `${msg.refDes} out of range: ${msg.value.toFixed(2)} ${dir} ${bound}`,
-        timestamp: Math.round((msg.t ?? Date.now() / 1000) * 1000),
-        acked:     false,
-    });
+    badDataState[msg.refDes] = {
+        status:   msg.status,
+        value:    msg.value,
+        validMin: msg.validMin,
+        validMax: msg.validMax,
+        t:        msg.t,
+    };
+}
+
+// isChannelBad reports whether the server currently flags a channel as out of
+// range, for widgets that colour their reading.
+function isChannelBad(refDes) {
+    return Object.prototype.hasOwnProperty.call(badDataState, refDes);
 }
 
 function ingestAlert(a) {

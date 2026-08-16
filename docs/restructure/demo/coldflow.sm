@@ -1,0 +1,62 @@
+# Demo state machine: LOX cold-flow test
+# Exercises every v1 language feature — see demo_walkthrough.md for how it executes.
+#
+# Channels used (would come from controls.yaml / .chan files):
+#   OV-05-CMD, FV-02-CMD, VENT-CMD      hardware command channels on DAQ001
+#   CPT-01, PT-FUEL-AVG, IGNITION-OK    sensor + computed channels
+#   LIM-CPT01-HIGH, SEQ-TARGET-PRESS,   operator-settable soft channels
+#   SEQ-BURN-DUR
+
+machine coldFlow
+
+state safe                          # first state in file = initial state
+    operator                        # operator may command entry from the HMI
+    sequence
+        FV-02-CMD = 0
+        OV-05-CMD = 0
+        VENT-CMD = 1
+        # no transition: machine rests here until the operator commands one
+
+state pressurize
+    operator
+    controller                      # runs every engine tick while active
+        if CPT-01 > LIM-CPT01-HIGH
+            transition abort
+    sequence                        # runs once on entry, in its own goroutine
+        VENT-CMD = 0
+        OV-05-CMD = 1
+        wait_until PT-FUEL-AVG > SEQ-TARGET-PRESS timeout 30s -> safe
+        transition fire
+
+state fire                          # not operator-flagged: only reachable by sequence
+    controller
+        if CPT-01 > LIM-CPT01-HIGH
+            transition abort
+        if not IGNITION-OK
+            transition abort
+    sequence
+        FV-02-CMD = 1
+        sleep SEQ-BURN-DUR          # duration from a soft channel (ms)
+        FV-02-CMD = 0
+        transition vent
+
+state vent
+    sequence
+        OV-05-CMD = 0
+        VENT-CMD = 1
+        wait_until PT-FUEL-AVG < 50 timeout 2m -> safe
+        transition safe
+
+state abort
+    daq_local DAQ001                # compiled + cached on DAQ001 for local execution
+    abort_rule CPT-01 > 850 from 0ms to 20000ms
+    sequence                        # restricted subset: literal sets + sleeps only
+        FV-02-CMD = 0
+        OV-05-CMD = 0
+        sleep 100ms
+        VENT-CMD = 1
+    abort_sequence                  # run locally on DAQ001 when the rule trips
+        FV-02-CMD = 0
+        OV-05-CMD = 0
+        VENT-CMD = 1
+        transition safe             # abort destination reported to the engine

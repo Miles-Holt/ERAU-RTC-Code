@@ -23,7 +23,6 @@ type SystemConfig struct {
 	Network     Network
 	CtrNode     CtrNodeDef
 	DaqNodes    DaqNodes
-	DaqControls []DaqControl // state machine definitions per DAQ node
 }
 
 // Network holds system-wide timing and port settings from system.yaml.
@@ -32,6 +31,7 @@ type Network struct {
 	BroadcastRateHz  int // rate at which the broker ticks data to browsers
 	ManagementRateHz int // rate at which DAQ node clients send keepalives
 	ChannelStaleMs   int // milliseconds before a channel value is considered stale
+	EngineTickRateHz int // state machine engine tick rate (default 100)
 }
 
 // CtrNodeDef describes the control node itself, including the virtual health
@@ -41,7 +41,6 @@ type CtrNodeDef struct {
 	IP          string
 	Description string
 	Enabled     bool
-	WSPort      int
 	Health      CtrHealth
 }
 
@@ -168,6 +167,11 @@ type DaqNodeDef struct {
 }
 
 // Module describes one NI module slot in a DAQ node chassis.
+//
+// Only ModuleModelNumber, SampleRateHz and Enabled reach the DAQ node (see
+// BuildDaqNodeConfigJSON).  SlotID, Description and IOMode are parsed but not
+// forwarded: they document the physical chassis for whoever maintains the YAML,
+// and are kept deliberately.
 type Module struct {
 	SlotID            int    // physical slot number in the chassis (0 if unassigned)
 	ModuleModelNumber string // e.g. "Thermocouple", "Analog-Input", "Digital-IO"
@@ -185,6 +189,7 @@ type yamlSystem struct {
 	BroadcastRateHz          int `yaml:"broadcastRateHz"`
 	ConnectionManagementRateHz int `yaml:"connectionManagementRateHz"`
 	ChannelStaleMs           int `yaml:"channelStaleMs"`
+	EngineTickRateHz         int `yaml:"engineTickRateHz"`
 }
 
 type yamlControlNode struct {
@@ -296,12 +301,16 @@ func ParseDir(configDir string) (*SystemConfig, error) {
 		BroadcastRateHz:  sys.BroadcastRateHz,
 		ManagementRateHz: sys.ConnectionManagementRateHz,
 		ChannelStaleMs:   sys.ChannelStaleMs,
+		EngineTickRateHz: sys.EngineTickRateHz,
 	}
 	if cfg.Network.BroadcastRateHz == 0 {
 		cfg.Network.BroadcastRateHz = 20
 	}
 	if cfg.Network.WebSocketPort == 0 {
 		cfg.Network.WebSocketPort = 8000
+	}
+	if cfg.Network.EngineTickRateHz == 0 {
+		cfg.Network.EngineTickRateHz = 100
 	}
 
 	// controlNode.yaml
@@ -413,12 +422,8 @@ func ParseDir(configDir string) (*SystemConfig, error) {
 		cfg.DaqNodes.Nodes = append(cfg.DaqNodes.Nodes, node)
 	}
 
-	// control/*.yaml (DAQ node state machine definitions)
-	daqControls, err := parseDaqControls(configDir)
-	if err != nil {
-		return nil, fmt.Errorf("control configs: %w", err)
-	}
-	cfg.DaqControls = daqControls
+	// control/*.yaml (DAQ node state machine definitions) — deprecated, no longer loaded.
+	// State machines now come from the DSL (config/machines/*.sm) loaded by the engine.
 
 	return cfg, nil
 }
@@ -666,6 +671,11 @@ type ChannelBounds struct {
 	Min *float64
 	Max *float64
 }
+
+// The state_config message is built by webclient.BuildStateConfigJSON, which
+// can take the compiled *statemachine.Program directly; the stub that used to
+// live here (typed interface{} to dodge an import cycle, always returning nil)
+// was dead code.
 
 // BuildChannelBoundsMap returns a map from channel refDes → ChannelBounds for
 // every enabled channel that has at least one of validMin / validMax set.

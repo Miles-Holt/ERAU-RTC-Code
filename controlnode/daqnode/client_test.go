@@ -125,8 +125,9 @@ func TestClientStateTransitionInterception(t *testing.T) {
 	b := broker.New(nil, nil, nil)
 	go b.Run(50)
 
-	// Client with a real state machine (starts in "safe").
-	c := New("DAQ001", host, port, `{"type":"config"}`, b, testControl(), fakeVars{})
+	// Client without state machine (old YAML system is deprecated).
+	// The new DSL system handles state machines through the engine.
+	c := New("DAQ001", host, port, `{"type":"config"}`, b, nil)
 	go c.connect()
 
 	// Wait for the handshake to complete.
@@ -134,29 +135,6 @@ func TestClientStateTransitionInterception(t *testing.T) {
 	case <-gotConfig:
 	case <-time.After(2 * time.Second):
 		t.Fatal("handshake never completed")
-	}
-
-	// Drain the initial state_update the client sends on connect.
-	waitForMsgType(t, msgs, "state_update", 2*time.Second)
-
-	// Inject an operator state-change command as the broker would deliver it.
-	cmd, _ := json.Marshal(map[string]interface{}{
-		"type":   "cmd",
-		"refDes": "SYS-TARGET-STATE-DAQ001",
-		"value":  "manualControl",
-	})
-	c.cmdCh <- cmd
-
-	// The client must emit an exit message targeting manualControl — NOT forward
-	// the raw cmd to the DAQ node.
-	m := waitForAnyMsg(t, msgs, 2*time.Second, func(m map[string]interface{}) bool {
-		return m["type"] == "exit" || m["type"] == "hard_exit"
-	})
-	if m["target"] != "manualControl" {
-		t.Fatalf("exit target = %v, want manualControl", m["target"])
-	}
-	if c.sm.Pending() != "manualControl" {
-		t.Errorf("state machine pending = %q, want manualControl", c.sm.Pending())
 	}
 }
 
@@ -200,7 +178,8 @@ func TestClientHandshakeAndData(t *testing.T) {
 	defer unsub()
 
 	configJSON := `{"type":"config","sampleRateHz":20}`
-	c := New("DAQ-1", host, port, configJSON, b, nil, nil)
+	// Client without a state machine (no old YAML config, no DSL program/engine)
+	c := New("DAQ-1", host, port, configJSON, b, nil)
 
 	// connect() runs one full connection cycle and returns when it errors.
 	go c.connect()

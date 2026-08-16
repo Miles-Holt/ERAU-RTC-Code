@@ -1,0 +1,145 @@
+package dsl
+
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
+
+// ── Source reconstruction ─────────────────────────────────────────────────────
+//
+// The compiled AST is the only description of the running configuration that is
+// guaranteed to be in sync with what the engine executes (a .sm file on disk may
+// have been edited since startup).  These helpers render it back to DSL-shaped
+// text so the /docs pages can show the actual compiled logic.
+
+// ExprString renders an expression back to DSL source text.  Parentheses are
+// added wherever the sub-expression binds looser than its parent, so the output
+// re-parses to the same tree.
+func ExprString(e Expr) string {
+	return exprString(e, 0)
+}
+
+// precedence mirrors the parser's binding strength; higher binds tighter.
+func precedence(op string) int {
+	switch op {
+	case "or":
+		return 1
+	case "and":
+		return 2
+	case "==", "!=", "<", "<=", ">", ">=":
+		return 3
+	case "+", "-":
+		return 4
+	case "*", "/", "%":
+		return 5
+	}
+	return 6
+}
+
+func exprString(e Expr, parentPrec int) string {
+	switch v := e.(type) {
+	case nil:
+		return ""
+	case *LiteralExpr:
+		return LiteralString(v)
+	case *IdentExpr:
+		return v.Name
+	case *UnaryExpr:
+		inner := exprString(v.Operand, 6)
+		if v.Op == "not" {
+			s := "not " + inner
+			if parentPrec > 0 {
+				return "(" + s + ")"
+			}
+			return s
+		}
+		return v.Op + inner
+	case *BinaryExpr:
+		p := precedence(v.Op)
+		// Left-associative: the right operand needs parens at equal precedence.
+		s := exprString(v.Left, p) + " " + v.Op + " " + exprString(v.Right, p+1)
+		if p < parentPrec {
+			return "(" + s + ")"
+		}
+		return s
+	default:
+		return fmt.Sprintf("%v", e)
+	}
+}
+
+// LiteralString renders a literal the way it would be written in source.
+func LiteralString(l *LiteralExpr) string {
+	if l == nil {
+		return ""
+	}
+	switch v := l.Value.(type) {
+	case int64:
+		return strconv.FormatInt(v, 10)
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	case bool:
+		if v {
+			return "true"
+		}
+		return "false"
+	case string:
+		return strconv.Quote(v)
+	default:
+		return fmt.Sprintf("%v", l.Value)
+	}
+}
+
+// StmtLines renders a statement block back to DSL source lines, one entry per
+// line, indented with `indent` levels of four spaces for nested if/elif/else
+// bodies.  Used by the /docs machine pages to list what a sequence actually does.
+func StmtLines(stmts []Stmt, indent int) []string {
+	var out []string
+	pad := strings.Repeat("    ", indent)
+	for _, s := range stmts {
+		switch v := s.(type) {
+		case *AssignStmt:
+			out = append(out, pad+v.Target+" = "+ExprString(v.Value))
+		case *IncrementStmt:
+			out = append(out, pad+v.Target+"++")
+		case *DecrementStmt:
+			out = append(out, pad+v.Target+"--")
+		case *TransitionStmt:
+			out = append(out, pad+"transition "+v.Target)
+		case *SleepStmt:
+			out = append(out, pad+"sleep "+ExprString(v.Duration))
+		case *WaitUntilStmt:
+			line := pad + "wait_until " + ExprString(v.Condition)
+			if v.Timeout != nil {
+				line += " timeout " + ExprString(v.Timeout)
+				if v.TimeoutState != "" {
+					line += " -> " + v.TimeoutState
+				}
+			}
+			out = append(out, line)
+		case *IfStmt:
+			out = append(out, pad+"if "+ExprString(v.Condition))
+			out = append(out, StmtLines(v.Body, indent+1)...)
+			for _, e := range v.Elif {
+				if e.Condition == nil {
+					out = append(out, pad+"else")
+				} else {
+					out = append(out, pad+"elif "+ExprString(e.Condition))
+				}
+				out = append(out, StmtLines(e.Body, indent+1)...)
+			}
+		default:
+			out = append(out, pad+fmt.Sprintf("%T", s))
+		}
+	}
+	return out
+}
+
+// AbortRuleString renders an abort_rule back to source form.
+func AbortRuleString(r *AbortRule) string {
+	if r == nil {
+		return ""
+	}
+	return fmt.Sprintf("abort_rule %s %s %s from %s to %s",
+		r.Channel, r.Op, ExprString(r.Value), ExprString(r.FromMs), ExprString(r.ToMs))
+}
