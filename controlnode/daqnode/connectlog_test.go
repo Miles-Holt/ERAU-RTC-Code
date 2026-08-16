@@ -3,6 +3,7 @@ package daqnode
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -14,11 +15,31 @@ type fakeClock struct{ t time.Time }
 func (c *fakeClock) now() time.Time          { return c.t }
 func (c *fakeClock) advance(d time.Duration) { c.t = c.t.Add(d) }
 
-// logSink captures log lines in order instead of writing to stdout.
-type logSink struct{ lines []string }
+// logSink captures log lines in order instead of writing to stdout.  Safe for
+// concurrent use: most tests call Pending/Connected/Tick synchronously from
+// the test goroutine (so reading .lines directly is fine there), but
+// client_reconnect_test.go drives it from a Client.Run() goroutine while
+// reading from the test goroutine, so writes go through a mutex and that test
+// reads via Snapshot() instead of the raw field.
+type logSink struct {
+	mu    sync.Mutex
+	lines []string
+}
 
 func (s *logSink) Printf(format string, args ...interface{}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.lines = append(s.lines, fmt.Sprintf(format, args...))
+}
+
+// Snapshot returns a copy of the captured lines so far. Safe to call
+// concurrently with Printf.
+func (s *logSink) Snapshot() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]string, len(s.lines))
+	copy(out, s.lines)
+	return out
 }
 
 func newTestAggregator(total int, interval time.Duration) (*ConnectAggregator, *fakeClock, *logSink) {

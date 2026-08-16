@@ -3,6 +3,7 @@
 package daqnode
 
 import (
+	"context"
 	"controlnode/broker"
 	"controlnode/statemachine"
 	"encoding/json"
@@ -63,6 +64,11 @@ type Client struct {
 
 	agg         *ConnectAggregator // optional; see SetAggregator
 	loggedFirst bool               // true once the first connect attempt has been logged
+
+	// retryDelay overrides reconnectDelay between reconnect attempts; zero
+	// means "use reconnectDelay".  Settable via SetRetryDelay so tests can
+	// drive many reconnect cycles quickly instead of sleeping for seconds.
+	retryDelay time.Duration
 }
 
 // New creates a Client.  configJSON is the config payload to send after the DAQ
@@ -91,6 +97,13 @@ func (c *Client) RefDes() string { return c.refDes }
 // Run(); nil is a valid no-op (falls back to the old per-attempt log line).
 func (c *Client) SetAggregator(agg *ConnectAggregator) {
 	c.agg = agg
+}
+
+// SetRetryDelay overrides the delay between reconnect attempts (default
+// reconnectDelay, 2s).  Must be called before Run(); intended for tests that
+// need many reconnect cycles without sleeping for seconds of wall-clock time.
+func (c *Client) SetRetryDelay(d time.Duration) {
+	c.retryDelay = d
 }
 
 // SendStateUpdate queues a resolved `state_update` payload for the node.  It is
@@ -125,10 +138,21 @@ func (c *Client) reportErr(err error) {
 	}
 }
 
-// Run connects to the DAQ node and blocks, reconnecting on any error.
-// It also registers/deregisters the cmd channel with the broker.
-func (c *Client) Run() {
+// Run connects to the DAQ node and blocks, reconnecting on any error, until
+// ctx is cancelled.  It also registers/deregisters the cmd channel with the
+// broker.
+func (c *Client) Run(ctx context.Context) {
+	delay := c.retryDelay
+	if delay <= 0 {
+		delay = reconnectDelay
+	}
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		c.b.RegisterDaq(c.refDes, c.cmdCh)
 		connected, err := c.connect()
 		c.b.RegisterDaq(c.refDes, nil) // deregister while disconnected
@@ -147,9 +171,14 @@ func (c *Client) Run() {
 			// "still retrying" noise instead of logging every 2s ourselves.
 			c.agg.Pending(c.refDes)
 		} else if err != nil && !connected {
-			log.Printf("daqnode %s: disconnected: %v — retrying in %s", c.refDes, err, reconnectDelay)
+			log.Printf("daqnode %s: disconnected: %v — retrying in %s", c.refDes, err, delay)
 		}
-		time.Sleep(reconnectDelay)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(delay):
+		}
 	}
 }
 

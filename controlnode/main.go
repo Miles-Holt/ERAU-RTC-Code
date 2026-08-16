@@ -298,7 +298,7 @@ func main() {
 	sensorRefDes := buildHealthSensorMap(cfg)
 	if len(sensorRefDes) > 0 {
 		hp := health.New(b, sensorRefDes, allCtrCmdRefDes)
-		go hp.Run(cfg.Network.BroadcastRateHz)
+		go hp.Run(rootCtx, cfg.Network.BroadcastRateHz)
 	}
 
 	// ── DAQ node clients (one goroutine per enabled DAQ node) ─────────────
@@ -351,7 +351,7 @@ func main() {
 	go connAgg.Run(rootCtx.Done())
 	for refDes, client := range daqClients {
 		client.SetAggregator(connAgg)
-		go client.Run()
+		go client.Run(rootCtx)
 		log.Printf("daqnode %s: client started", refDes)
 	}
 

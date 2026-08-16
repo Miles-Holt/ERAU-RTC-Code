@@ -2,6 +2,7 @@
 package health
 
 import (
+	"context"
 	"controlnode/broker"
 	"time"
 )
@@ -12,6 +13,11 @@ type Publisher struct {
 	startTime    time.Time
 	sensorRefDes map[string]string // metric name → refDes
 	cmdRefDes    []string          // command refDes values to publish as 0 each tick
+
+	// now is the clock uptime is measured against.  Defaults to time.Now;
+	// overridable via SetClock so tests can advance time deterministically
+	// instead of sleeping.
+	now func() time.Time
 }
 
 // New creates a Publisher.  sensorRefDes maps metric keys to the refDes values
@@ -32,11 +38,27 @@ func New(b *broker.Broker, sensorRefDes map[string]string, cmdRefDes []string) *
 		startTime:    time.Now(),
 		sensorRefDes: sensorRefDes,
 		cmdRefDes:    cmdRefDes,
+		now:          time.Now,
 	}
 }
 
-// Run publishes health metrics at broadcastRateHz.  Blocks until process exits.
-func (p *Publisher) Run(broadcastRateHz int) {
+// SetClock overrides the clock uptime is measured against.  Must be called
+// before Run(); intended for tests that need to advance "time" without
+// sleeping.  Passing a clock does not retroactively move startTime, which is
+// still whatever it was when New() ran — call SetStartTime too if the test
+// needs full control over both ends.
+func (p *Publisher) SetClock(now func() time.Time) {
+	p.now = now
+}
+
+// SetStartTime overrides the reference point uptime is measured from.
+// Intended for tests, alongside SetClock.
+func (p *Publisher) SetStartTime(t time.Time) {
+	p.startTime = t
+}
+
+// Run publishes health metrics at broadcastRateHz until ctx is cancelled.
+func (p *Publisher) Run(ctx context.Context, broadcastRateHz int) {
 	if broadcastRateHz <= 0 {
 		broadcastRateHz = 20
 	}
@@ -52,11 +74,17 @@ func (p *Publisher) Run(broadcastRateHz int) {
 	}
 	tick := 0
 
-	for range ticker.C {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
 		values := make(map[string]float64, 4)
 
 		if rd, ok := p.sensorRefDes["uptime"]; ok {
-			values[rd] = time.Since(p.startTime).Seconds()
+			values[rd] = p.now().Sub(p.startTime).Seconds()
 		}
 		if rd, ok := p.sensorRefDes["loopTime"]; ok {
 			values[rd] = float64(p.b.LoopTimeNs.Load()) / 1000000.0 // ns → ms
