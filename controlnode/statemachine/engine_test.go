@@ -1033,6 +1033,130 @@ func TestNew_Validation(t *testing.T) {
 	}
 }
 
+// gatedProgram is a minimal machine exercising `operator from a, b`:
+//   - idle:   operator from armed   (gated)
+//   - armed:  operator from idle    (gated)
+//   - manual: operator              (ungated — commandable from anywhere)
+//   - burn:   operator from armed, daq_local; its sequence completion AND its
+//     abort_sequence both target idle, which idle's gate does not allow from
+//     burn — proving those internal paths bypass the gate.
+func gatedProgram(t *testing.T) *Program {
+	t.Helper()
+	src := Source{Name: "g.sm", Text: "" +
+		"machine gt\n" +
+		"state idle\n" +
+		"    operator from armed\n" +
+		"state armed\n" +
+		"    operator from idle\n" +
+		"state manual\n" +
+		"    operator\n" +
+		"state burn\n" +
+		"    operator from armed\n" +
+		"    daq_local DAQ001\n" +
+		"    abort_rule CPT-01 > 850 from 0ms to 1000ms\n" +
+		"    sequence\n" +
+		"        IGN-CMD = 1\n" +
+		"        transition idle\n" +
+		"    abort_sequence\n" +
+		"        IGN-CMD = 0\n" +
+		"        transition idle\n"}
+	prog, err := Compile([]Source{src}, Options{KnownChannels: []string{"IGN-CMD", "CPT-01"}})
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	return prog
+}
+
+// TestEngine_OperatorFromGate covers the `operator from a, b` gate end to end:
+// a command from a listed state is accepted, from an unlisted state it is
+// rejected with the exact message the engine documents, an ungated operator
+// state is commandable from anywhere, and — critically — the gate never
+// blocks NotifyAbortTriggered or an in-.sm `transition` statement, even when
+// their destination would be refused if an operator tried to command it.
+func TestEngine_OperatorFromGate(t *testing.T) {
+	h := startEngine(t, gatedProgram(t), newFakeSpace(
+		map[string]float64{"IGN-CMD": 0, "CPT-01": 100}, nil))
+
+	// idle is the initial state.
+	if got, _ := h.eng.State("gt"); got != "idle" {
+		t.Fatalf("initial state: got %q, want idle", got)
+	}
+
+	// ACCEPTED: armed is gated "from idle", and the machine is in idle.
+	if err := h.eng.RequestTarget("gt", "armed"); err != nil {
+		t.Fatalf("RequestTarget(armed) from idle: unexpected error %v", err)
+	}
+	h.waitState(t, "gt", "armed", 50)
+
+	// Ungated operator state: manual has no `from` list, so it's commandable
+	// from armed (or anywhere else) too.
+	if err := h.eng.RequestTarget("gt", "manual"); err != nil {
+		t.Fatalf("RequestTarget(manual) from armed: unexpected error %v", err)
+	}
+	h.waitState(t, "gt", "manual", 50)
+
+	// REJECTED: armed is gated "from idle"; the machine is in manual.
+	err := h.eng.RequestTarget("gt", "armed")
+	if err == nil {
+		t.Fatalf("RequestTarget(armed) from manual: expected rejection")
+	}
+	wantErr := `machine "gt": cannot command "armed" from "manual" (allowed from: idle)`
+	if err.Error() != wantErr {
+		t.Errorf("rejection message:\n got  %q\n want %q", err.Error(), wantErr)
+	}
+	// A rejected request must not have moved the machine.
+	if got, _ := h.eng.State("gt"); got != "manual" {
+		t.Errorf("machine moved to %q on a rejected command", got)
+	}
+
+	// manual is a dead end for operator commands in this fixture (armed only
+	// accepts from idle, idle only accepts from armed). Reset to idle via the
+	// same internal-transition path NotifyAbortTriggered/transition use, which
+	// is exactly the point: engine-internal moves are never gate-checked.
+	h.eng.enqueuePriority(transitionReq{machine: "gt", target: "idle"})
+	h.waitState(t, "gt", "idle", 50)
+
+	// Drive the machine to burn via its only legal operator path (armed is
+	// gated "from idle", burn is gated "from armed"), so the abort/completion
+	// checks below start from a state idle's gate ("from armed") does NOT list.
+	if err := h.eng.RequestTarget("gt", "armed"); err != nil {
+		t.Fatalf("RequestTarget(armed) from idle: %v", err)
+	}
+	h.waitState(t, "gt", "armed", 50)
+	if err := h.eng.RequestTarget("gt", "burn"); err != nil {
+		t.Fatalf("RequestTarget(burn) from armed: unexpected error %v", err)
+	}
+	h.waitState(t, "gt", "burn", 50)
+
+	// A plain operator command into idle from burn must still be rejected —
+	// this confirms the fixture actually exercises the gate below.
+	if err := h.eng.RequestTarget("gt", "idle"); err == nil {
+		t.Fatalf("RequestTarget(idle) from burn: expected rejection")
+	}
+
+	// NotifyAbortTriggered must still land in idle — the abort_sequence's
+	// declared destination — even though idle's gate does not list burn.
+	if err := h.eng.NotifyAbortTriggered("gt"); err != nil {
+		t.Fatalf("NotifyAbortTriggered: unexpected error %v", err)
+	}
+	h.waitState(t, "gt", "idle", 50)
+
+	// The in-.sm `transition idle` completion path (burn's sequence, not its
+	// abort_sequence) must likewise ignore the gate.
+	if err := h.eng.RequestTarget("gt", "armed"); err != nil {
+		t.Fatalf("RequestTarget(armed) from idle: %v", err)
+	}
+	h.waitState(t, "gt", "armed", 50)
+	if err := h.eng.RequestTarget("gt", "burn"); err != nil {
+		t.Fatalf("RequestTarget(burn) from armed: %v", err)
+	}
+	h.waitState(t, "gt", "burn", 50)
+	if err := h.eng.NotifySequenceComplete("gt"); err != nil {
+		t.Fatalf("NotifySequenceComplete: unexpected error %v", err)
+	}
+	h.waitState(t, "gt", "idle", 50)
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 func equalWrites(got, want []write) bool {

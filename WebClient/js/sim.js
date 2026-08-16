@@ -233,17 +233,19 @@ const SIM_CHANNELS = {
 // SIM_STATE_CONFIG mirrors the state_config message the controlnode builds from
 // config/machines/daq001.sm (see webclient.BuildStateConfigJSON): machine
 // "fuelSeq", targetRefDes "SM-fuelSeq-TARGET", and one entry per state with its
-// compiled index and operator flag.  Every state in that file is `operator`.
+// compiled index, operator flag, and `from` gate list. Every state in that
+// file is `operator`; the `from` lists mirror the `operator from a, b`
+// clauses in daq001.sm exactly.
 const SIM_STATE_CONFIG = {
     type: 'state_config',
     machines: [{
         name:         'fuelSeq',
         targetRefDes: 'SM-fuelSeq-TARGET',
         states: [
-            { name: 'safe',          index: 0, operator: true },
-            { name: 'manualControl', index: 1, operator: true },
-            { name: 'autoSequence',  index: 2, operator: true },
-            { name: 'abort',         index: 3, operator: true },
+            { name: 'safe',          index: 0, operator: true, from: ['manualControl', 'abort'] },
+            { name: 'manualControl', index: 1, operator: true, from: ['safe'] },
+            { name: 'autoSequence',  index: 2, operator: true, from: ['manualControl'] },
+            { name: 'abort',         index: 3, operator: true, from: ['manualControl', 'autoSequence'] },
         ]
     }]
 };
@@ -264,6 +266,16 @@ function simReceiveCommand(refDes, value) {
         const st = (config.states || []).find(s => s.name === value);
         if (!st) { console.warn('sim: machine', machineName, 'has no state', value); return; }
         if (!st.operator) { console.warn('sim:', value, 'is not operator-commandable'); return; }
+        // Gate: mirror the server's `operator from a, b` check so the sim
+        // exercises the same rule the real engine enforces. A non-empty
+        // `from` list restricts commanding into `st` to those source states.
+        if (st.from && st.from.length) {
+            const cur = SIM_CHANNELS['SM-' + machineName + '-STATE']?.stateName;
+            if (!st.from.includes(cur)) {
+                console.warn('sim: cannot command', value, 'from', cur, '(allowed from:', st.from.join(', ') + ')');
+                return;
+            }
+        }
 
         // Production emits BOTH: the numeric SM-<MACHINE>-STATE data channel
         // (state index) and the authoritative state_change message.

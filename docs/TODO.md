@@ -16,10 +16,13 @@ all of them are things a future run should close.
   `abort_rule` trips, and `state_req` is answered only while a machine is
   actually in a `daq_local` state on that node. The node side needs to be
   reviewed against `docs/websocket-protocol.md` Part 2.
-- [ ] **`operator from X,Y` transition gating** — today the `operator` flag makes
-  a state commandable from *any* current state. Some transitions should only be
-  legal from specific states (e.g. `autoSequence` only from `safe`). Proposed
-  syntax: `operator from safe, manualControl`.
+- [x] **`operator from X,Y` transition gating** — done. `operator from a, b`
+  restricts operator-commanded entry to that state to the listed current
+  states; bare `operator` stays commandable from anywhere. Gating is
+  operator-input-only — DAQ aborts, sequence completions, and in-`.sm`
+  `transition` statements are never gated. Applied to
+  `config/machines/daq001.sm` (safe/manualControl/autoSequence/abort). See
+  `docs/dsl-guide.md` and `docs/restructure/dsl_spec.md`.
 - [ ] **Rename `SEQ-BURN-DUR`** — it is an **absolute cutoff time** measured from
   sequence start, not a burn duration (the burn is `SEQ-BURN-DUR - 2000` ms long).
   `SEQ-CUTOFF-T` or `SEQ-MAINS-CLOSE-T` would stop the next person misreading it.

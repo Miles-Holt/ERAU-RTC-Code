@@ -83,6 +83,7 @@ const (
 	TOK_RPAREN
 	TOK_DOT
 	TOK_ARROW
+	TOK_COMMA
 )
 
 // Token represents a lexical token.
@@ -188,6 +189,11 @@ func (l *Lexer) Tokenize() ([]Token, error) {
 			continue
 		case '.':
 			l.tokens = append(l.tokens, Token{Type: TOK_DOT, Value: ".", Line: l.line})
+			l.pos++
+			continue
+		case ',':
+			// Only list separators use a comma today (`operator from a, b`).
+			l.tokens = append(l.tokens, Token{Type: TOK_COMMA, Value: ",", Line: l.line})
 			l.pos++
 			continue
 		}

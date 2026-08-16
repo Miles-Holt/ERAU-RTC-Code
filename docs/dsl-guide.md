@@ -119,6 +119,46 @@ state without it is only reachable from another state's logic — which is how
 Everything else can transition into any state; the flag governs *operator*
 requests only.
 
+### `operator from a, b` — restricting where a command may come from
+
+An `operator` state can optionally list the states it must currently be
+commanded *from*. [`config/machines/daq001.sm`](../config/machines/daq001.sm)
+uses this to restore the intended fuelSeq transition graph:
+
+```
+state safe
+    operator from manualControl, abort
+
+state manualControl
+    operator from safe
+
+state autoSequence
+    operator from manualControl
+
+state abort
+    operator from manualControl, autoSequence
+```
+
+Read `operator from manualControl, autoSequence` on `abort` as: the operator's
+abort button only works while the machine is currently in `manualControl` or
+`autoSequence` — trying to command `abort` from, say, `safe` is refused. Bare
+`operator` (no `from`) stays commandable from anywhere, as before.
+
+**This restricts operator input only.** It never blocks:
+- DAQ-originated aborts (`NotifyAbortTriggered`, e.g. an `abort_rule` tripping
+  and the node reporting `abort_triggered`),
+- sequence completions (a `daq_local` state's completion transition),
+- or any `transition X` statement inside `.sm` controller/sequence code.
+
+Those are the machine's own logic, not a crew request, so `abort_sequence`'s
+`transition abort` and `autoSequence`'s `transition safe` above fire
+regardless of what `from` says. A gated command rejected at the engine looks
+like:
+
+```
+machine "fuelSeq": cannot command "abort" from "safe" (allowed from: manualControl, autoSequence)
+```
+
 ### `controller` — runs every tick
 
 ```
@@ -194,7 +234,7 @@ autosequence:
 
 ```
 state autoSequence
-    operator
+    operator from manualControl
     daq_local DAQ001
     abort_rule CPT-01 > LIM-CPT01-HIGH from 0ms to 20000ms
     abort_rule CPT-01 < LIM-CPT01-LOW from SEQ-IGN-LEAD to SEQ-BURN-DUR

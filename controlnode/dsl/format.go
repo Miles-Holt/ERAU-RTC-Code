@@ -135,6 +135,16 @@ func StmtLines(stmts []Stmt, indent int) []string {
 	return out
 }
 
+// OperatorString renders the `operator` state flag back to source form,
+// including its optional gate list: `operator` when from is empty,
+// `operator from a, b` otherwise.  The output re-parses to the same flag.
+func OperatorString(from []string) string {
+	if len(from) == 0 {
+		return "operator"
+	}
+	return "operator from " + strings.Join(from, ", ")
+}
+
 // AbortRuleString renders an abort_rule back to source form.
 func AbortRuleString(r *AbortRule) string {
 	if r == nil {

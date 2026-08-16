@@ -48,6 +48,42 @@ type State struct {
 	daqLocal         *DaqLocalState // pre-resolved expressions for daq_local states
 	CompletionTarget string         // for daq_local states: target state on sequence_complete; "" if none
 	AbortTarget      string         // for daq_local states: target state on abort_triggered; "" if none
+
+	// operatorFrom is the `operator from a, b` gate list: the states an
+	// operator may command THIS state from.  Empty means ungated — commandable
+	// from any state, the pre-gating behaviour.  It restricts operator input
+	// only: `transition` statements, DAQ-reported aborts and completions are
+	// never gated.  operatorFromLine is the source line, for compile errors.
+	operatorFrom     []string
+	operatorFromLine int
+}
+
+// OperatorFrom returns the states this state may be operator-commanded from.
+// An empty result means the state is ungated: either it is not operator-
+// commandable at all (check Operator), or it is commandable from any state.
+// The returned slice is a copy, so callers cannot mutate the compiled program.
+func (s *State) OperatorFrom() []string {
+	if len(s.operatorFrom) == 0 {
+		return nil
+	}
+	out := make([]string, len(s.operatorFrom))
+	copy(out, s.operatorFrom)
+	return out
+}
+
+// operatorCommandableFrom reports whether an operator may command entry to this
+// state while the machine is in the state named cur.  Ungated states accept any
+// current state.
+func (s *State) operatorCommandableFrom(cur string) bool {
+	if len(s.operatorFrom) == 0 {
+		return true
+	}
+	for _, name := range s.operatorFrom {
+		if name == cur {
+			return true
+		}
+	}
+	return false
 }
 
 // HasDaqLocal returns true if this state has a daq_local definition that needs resolution.
@@ -226,6 +262,7 @@ func Compile(sources []Source, opts Options) (*Program, error) {
 	for i, def := range defs {
 		m := prog.Machines[i]
 		c.checkTargets(m)
+		c.checkOperatorGates(m)
 		c.checkReferences(prog, m, def)
 	}
 	if len(c.errs) > 0 {
@@ -289,8 +326,11 @@ func (c *compiler) buildMachine(file string, def *dsl.MachineDef) *Machine {
 			continue
 		}
 		st := &State{
-			Name:          sd.Name,
-			Operator:      sd.Operator,
+			Name:             sd.Name,
+			Operator:         sd.Operator,
+			operatorFrom:     sd.OperatorFrom,
+			operatorFromLine: sd.OperatorFromLine,
+
 			DaqLocal:      sd.DaqLocal,
 			Controller:    sd.Controller,
 			Sequence:      sd.Sequence,
@@ -402,6 +442,43 @@ func (c *compiler) checkTargets(m *Machine) {
 		walk(st.Controller)
 		walk(st.Sequence)
 		walk(st.AbortSequence) // the abort destination must exist too
+	}
+}
+
+// checkOperatorGates validates every `operator from a, b` list.  It runs as a
+// whole-machine pass because a gate may name a state declared later in the file.
+func (c *compiler) checkOperatorGates(m *Machine) {
+	for _, st := range m.States {
+		if len(st.operatorFrom) == 0 {
+			continue
+		}
+		line := st.operatorFromLine
+		if !st.Operator {
+			// Unreachable through the parser (it rejects a bare `from` line);
+			// kept so a programmatically built AST cannot slip a dead gate past.
+			c.errorf(m.Source, line,
+				"state %q: \"from\" requires the operator flag", st.Name)
+			continue
+		}
+		seen := make(map[string]bool, len(st.operatorFrom))
+		for _, name := range st.operatorFrom {
+			switch {
+			case name == st.Name:
+				c.errorf(m.Source, line,
+					"state %q: \"operator from\" may not list the state itself "+
+						"(re-entry by operator command is not a transition anyone declares)", st.Name)
+			case seen[name]:
+				c.errorf(m.Source, line,
+					"state %q: duplicate state %q in \"operator from\"", st.Name, name)
+			default:
+				seen[name] = true
+				if _, ok := m.byName[name]; !ok {
+					c.errorf(m.Source, line,
+						"state %q: \"operator from\" names %q, which is not a state of machine %q",
+						st.Name, name, m.Name)
+				}
+			}
+		}
 	}
 }
 

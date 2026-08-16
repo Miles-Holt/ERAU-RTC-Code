@@ -14,7 +14,7 @@
 machine fuelSeq
 
 state safe
-    operator
+    operator from manualControl, abort
     sequence
         NV-01-POS = 0
         NV-01-NEG = 0
@@ -25,11 +25,11 @@ state safe
         FV-01-CMD = 0
 
 state manualControl
-    operator
+    operator from safe
     # Operator has full command authority over all commandable channels.
 
 state autoSequence
-    operator
+    operator from manualControl
     daq_local DAQ001
     abort_rule CPT-01 > LIM-CPT01-HIGH from 0ms to 20000ms
     abort_rule CPT-01 < LIM-CPT01-LOW from SEQ-IGN-LEAD to SEQ-BURN-DUR
@@ -57,7 +57,7 @@ state autoSequence
         transition abort                # abort destination (on abort_triggered)
 
 state abort
-    operator
+    operator from manualControl, autoSequence
     sequence
         NV-05-CMD = 1                   # LOX purge open        (t = 0)
         NV-06-CMD = 1                   # Fuel purge open       (t = 0)

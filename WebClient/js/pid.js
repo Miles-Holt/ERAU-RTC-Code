@@ -875,7 +875,19 @@ function _updateDaqControlState(svgEl, id, machineName, stateValue) {
     const sel = svgEl.querySelector('[data-pid-id="' + id + '"] [data-daqctrl-select]');
     if (!sel) return;
 
-    const operatorStates = (machineConfig.states || []).filter(s => s.operator);
+    // Gate: a state with a non-empty `from` list is only offered while the
+    // machine is currently in one of those states; a state with no `from`
+    // (or an empty one) is always offered. If the current state isn't known
+    // yet (stateName falsy — e.g. widget just mounted, no state_change/data
+    // seen), we can't evaluate the gate at all, so fail open and show every
+    // operator state rather than guess; the server is the authority and will
+    // reject anything actually out of bounds.
+    const operatorStates = (machineConfig.states || []).filter(s => {
+        if (!s.operator) return false;
+        if (!stateName) return true;
+        if (!s.from || !s.from.length) return true;
+        return s.from.includes(stateName);
+    });
     const targetRefDes = machineConfig.targetRefDes;
 
     // Rebuild dropdown options

@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -277,6 +278,103 @@ func TestContractStateConfig(t *testing.T) {
 	// No machines at all → no message (server.go skips the send).
 	if BuildStateConfigJSON(nil) != nil {
 		t.Error("BuildStateConfigJSON(nil) should return nil")
+	}
+}
+
+// smSourceGated is modeled on config/machines/daq001.sm's gating, but
+// deliberately leaves manualControl as a bare `operator` (no `from`) so the
+// contract test covers both a gated state and an ungated one — it cannot
+// pass by hardcoding "from" onto every state.
+const smSourceGated = `machine fuelSeq
+
+state safe
+    operator from manualControl, abort
+    sequence
+        OV-01-CMD = 0
+
+state manualControl
+    operator
+
+state autoSequence
+    operator from manualControl
+    sequence
+        OV-01-CMD = 1
+        transition abort
+
+state abort
+    operator from manualControl, autoSequence
+    sequence
+        OV-01-CMD = 0
+`
+
+// TestContractStateConfig_OperatorFrom pins the `from` field state_config
+// gained for the `operator from a, b` gate — WebClient/js/pid.js's
+// _updateDaqControlState filters the operator dropdown against it. Covers
+// both a gated state (safe/autoSequence/abort) and an ungated one
+// (manualControl, which must serialize `from` as absent, not `[]`).
+func TestContractStateConfig_OperatorFrom(t *testing.T) {
+	prog, err := statemachine.Compile(
+		[]statemachine.Source{{Name: "fuelseq.sm", Text: smSourceGated}},
+		statemachine.Options{KnownChannels: []string{
+			"OV-01-CMD", "SM-fuelSeq-STATE", "SM-fuelSeq-TARGET",
+		}},
+	)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+
+	raw := BuildStateConfigJSON(prog)
+
+	var msg struct {
+		Machines []struct {
+			Name   string `json:"name"`
+			States []struct {
+				Name string   `json:"name"`
+				From []string `json:"from"`
+			} `json:"states"`
+		} `json:"machines"`
+	}
+	if err := json.Unmarshal(raw, &msg); err != nil {
+		t.Fatalf("state_config: %v", err)
+	}
+	if len(msg.Machines) != 1 {
+		t.Fatalf("machines = %d, want 1", len(msg.Machines))
+	}
+
+	want := map[string][]string{
+		"safe":          {"manualControl", "abort"},
+		"manualControl": nil,
+		"autoSequence":  {"manualControl"},
+		"abort":         {"manualControl", "autoSequence"},
+	}
+	got := map[string][]string{}
+	for _, st := range msg.Machines[0].States {
+		got[st.Name] = st.From
+	}
+	for name, wantFrom := range want {
+		gotFrom, ok := got[name]
+		if !ok {
+			t.Fatalf("state %q missing from state_config", name)
+		}
+		if len(gotFrom) != len(wantFrom) {
+			t.Fatalf("state %q from = %#v, want %#v", name, gotFrom, wantFrom)
+		}
+		for i := range wantFrom {
+			if gotFrom[i] != wantFrom[i] {
+				t.Errorf("state %q from[%d] = %q, want %q", name, i, gotFrom[i], wantFrom[i])
+			}
+		}
+	}
+
+	// The ungated state must omit "from" entirely (omitempty), not emit "from":[].
+	if !strings.Contains(string(raw), `"name":"manualControl"`) {
+		t.Fatalf("state_config missing manualControl: %s", raw)
+	}
+	idx := strings.Index(string(raw), `"name":"manualControl"`)
+	nextComma := strings.IndexAny(string(raw)[idx:], "}")
+	segment := string(raw)[idx : idx+nextComma]
+	if strings.Contains(segment, `"from"`) {
+		t.Errorf("ungated state manualControl serialized a from field: %s", segment)
 	}
 }
 

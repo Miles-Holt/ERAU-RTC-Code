@@ -61,6 +61,21 @@ state abort
 - Each machine auto-publishes a read-only software channel `SM-<NAME>-STATE` (current
   state name) and accepts operator target requests on `SM-<NAME>-TARGET` (only states
   flagged `operator` are accepted).
+- **`operator from a, b`**: an optional gate on the `operator` flag restricting which
+  states the machine must currently be in for the operator to command entry into this
+  one, e.g.:
+  ```
+  state abort
+      operator from manualControl, autoSequence
+  ```
+  With no `from` clause (bare `operator`), the state is commandable from any current
+  state, same as before. `from` with no preceding `operator` on the same state, an
+  empty name list, a trailing comma, an unknown state name, and a self-reference are
+  all compile errors. **The gate restricts operator input only.** DAQ-originated
+  aborts (`NotifyAbortTriggered`), sequence completions, and any `transition` statement
+  inside `.sm` code are never gated — they are the machine's own logic, not an operator
+  request, and always take effect regardless of `from`. A rejected operator command
+  returns `machine %q: cannot command %q from %q (allowed from: %s)`.
 - **controller**: straight-line statements + `if/elif/else`; no loops, no sleeps. Runs
   every engine tick while the state is active. `transition X` ends the tick and switches
   state (kills the running sequence).

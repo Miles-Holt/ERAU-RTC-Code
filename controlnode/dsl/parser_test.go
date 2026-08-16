@@ -690,3 +690,105 @@ func TestParser_AbortSequence(t *testing.T) {
 		t.Errorf("sleep right operand: got %#v, want SEQ-IGN-LEAD", bin.Right)
 	}
 }
+
+// TestParser_OperatorFrom covers the `operator from a, b` gate list.
+func TestParser_OperatorFrom(t *testing.T) {
+	input := "machine test\n" +
+		"state manualControl\n" +
+		indent(4) + "operator from safe, abort\n" +
+		"state safe\n" +
+		indent(4) + "operator\n"
+
+	toks, err := NewLexer(input).Tokenize()
+	if err != nil {
+		t.Fatalf("lexer error: %v", err)
+	}
+	decl, err := Parse(toks)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	machine, ok := decl.(*MachineDef)
+	if !ok {
+		t.Fatalf("expected MachineDef, got %T", decl)
+	}
+	if len(machine.States) != 2 {
+		t.Fatalf("number of states: got %d, expected 2", len(machine.States))
+	}
+
+	mc := machine.States[0]
+	if !mc.Operator {
+		t.Errorf("manualControl: expected operator=true")
+	}
+	if want := []string{"safe", "abort"}; !stringSliceEq(mc.OperatorFrom, want) {
+		t.Errorf("manualControl.OperatorFrom: got %#v, want %#v", mc.OperatorFrom, want)
+	}
+	if mc.OperatorFromLine != 3 {
+		t.Errorf("manualControl.OperatorFromLine: got %d, want 3", mc.OperatorFromLine)
+	}
+
+	safe := machine.States[1]
+	if !safe.Operator {
+		t.Errorf("safe: expected operator=true")
+	}
+	if len(safe.OperatorFrom) != 0 {
+		t.Errorf("safe.OperatorFrom: got %#v, want empty (bare operator)", safe.OperatorFrom)
+	}
+}
+
+func stringSliceEq(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// TestParser_OperatorFromErrors covers the invalid forms of the gate list:
+// trailing comma, `from` with no state names, and `from` without a preceding
+// `operator` flag on the same line — each must be a file:line error.
+func TestParser_OperatorFromErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{
+			"trailing comma",
+			"machine m\nstate s\n" + indent(4) + "operator from a, b,\n",
+			"operator from: expected a state name",
+		},
+		{
+			"from with no state names",
+			"machine m\nstate s\n" + indent(4) + "operator from\n",
+			"operator from: expected a state name",
+		},
+		{
+			"from without operator",
+			"machine m\nstate s\n" + indent(4) + "from a, b\n",
+			"requires the operator flag on the same line",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			toks, err := NewLexer(tt.src).Tokenize()
+			if err != nil {
+				t.Fatalf("lexer error: %v", err)
+			}
+			decl, err := Parse(toks)
+			if err == nil {
+				t.Fatalf("expected parse error, got success: %#v", decl)
+			}
+			if !strings.HasPrefix(err.Error(), "file:") {
+				t.Errorf("error %q is missing a file:line prefix", err)
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("error %q does not contain %q", err, tt.want)
+			}
+		})
+	}
+}

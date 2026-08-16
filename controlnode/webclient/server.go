@@ -39,6 +39,13 @@ type stateConfigState struct {
 	Name     string `json:"name"`
 	Index    int    `json:"index"`
 	Operator bool   `json:"operator"`
+
+	// From is the `operator from a, b` gate list: the states this one may be
+	// commanded from.  The key is OMITTED entirely for an ungated state (a
+	// state commandable from anywhere), so the browser's test is simply
+	// "no from ⇒ always offer it".  The server still re-checks every request —
+	// this list only keeps illegal targets out of the operator's dropdown.
+	From []string `json:"from,omitempty"`
 }
 
 // stateConfigMachine is one entry of machines[] in the state_config message.
@@ -73,6 +80,7 @@ func BuildStateConfigJSON(prog *statemachine.Program) []byte {
 				Name:     st.Name,
 				Index:    st.Index,
 				Operator: st.Operator,
+				From:     st.OperatorFrom(),
 			})
 		}
 		msg.Machines = append(msg.Machines, mc)

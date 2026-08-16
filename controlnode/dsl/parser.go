@@ -134,8 +134,20 @@ func (p *Parser) parseState() (*StateDef, error) {
 		tok := p.peek()
 		switch tok.Type {
 		case TOK_OPERATOR:
-			p.advance()
+			opTok := p.advance()
 			state.Operator = true
+			// Optional gate list on the SAME logical line: `operator from a, b`.
+			// The lexer emits no newline token, so "same line" is decided by the
+			// token's line number — a bare `from …` on its own line is rejected
+			// below instead of silently attaching to the flag above it.
+			if p.isFrom() && p.peek().Line == opTok.Line {
+				from, line, err := p.parseOperatorFrom()
+				if err != nil {
+					return nil, err
+				}
+				state.OperatorFrom = from
+				state.OperatorFromLine = line
+			}
 
 		case TOK_DAQ_LOCAL:
 			p.advance()
@@ -183,8 +195,43 @@ func (p *Parser) parseState() (*StateDef, error) {
 			return state, nil
 
 		default:
+			if tok.Type == TOK_IDENT && tok.Value == "from" {
+				// A gate list only has meaning as part of the operator flag; on
+				// its own line (or on a state that never declared `operator`) it
+				// would otherwise read as a silently ignored line.
+				return nil, p.errorf(tok.Line,
+					"state %q: \"from\" requires the operator flag on the same line (write \"operator from a, b\")", name)
+			}
 			return nil, p.errorf(tok.Line, "unexpected token in state: %s", p.tokStr(tok))
 		}
+	}
+}
+
+// isFrom reports whether the current token is the `from` keyword.  `from` is not
+// a reserved word — abort_rule windows already spell it as a plain identifier,
+// and the gate list reuses that same token rather than introducing a second one.
+func (p *Parser) isFrom() bool {
+	tok := p.peek()
+	return tok.Type == TOK_IDENT && tok.Value == "from"
+}
+
+// parseOperatorFrom parses `from <state> (, <state>)*` after an `operator` flag
+// and returns the names plus the line the list starts on.  An empty list and a
+// trailing comma are both errors: every comma must be followed by a name.
+func (p *Parser) parseOperatorFrom() ([]string, int, error) {
+	fromTok := p.advance() // `from`
+	var names []string
+	for {
+		nameTok, err := p.expect(TOK_IDENT)
+		if err != nil {
+			return nil, 0, p.errorf(fromTok.Line,
+				"operator from: expected a state name, got %s", p.tokStr(p.peek()))
+		}
+		names = append(names, nameTok.Value)
+		if !p.is(TOK_COMMA) {
+			return names, fromTok.Line, nil
+		}
+		p.advance() // `,`
 	}
 }
 
@@ -1074,6 +1121,7 @@ func (p *Parser) tokName(typ TokenType) string {
 		TOK_RPAREN:         ")",
 		TOK_DOT:            ".",
 		TOK_ARROW:          "->",
+		TOK_COMMA:          ",",
 	}
 	if name, ok := names[typ]; ok {
 		return name

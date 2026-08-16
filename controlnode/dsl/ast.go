@@ -143,8 +143,17 @@ func (d *MachineDef) Line() int { return d.LineNo }
 
 // StateDef defines a state within a machine.
 type StateDef struct {
-	Name       string
-	Operator   bool
+	Name     string
+	Operator bool
+
+	// OperatorFrom is the optional gate list of `operator from a, b`: the state
+	// may only be operator-commanded while the machine is in one of these
+	// states.  Empty means the `operator` flag is ungated (commandable from any
+	// state), which is the original behaviour.  OperatorFromLine is the source
+	// line the list was written on, for compile errors about it.
+	OperatorFrom     []string
+	OperatorFromLine int
+
 	DaqLocal   string // optional daqNode name
 	Controller []Stmt
 	Sequence   []Stmt

@@ -499,8 +499,15 @@ func (e *Engine) States() map[string]string {
 }
 
 // RequestTarget is the operator entry point (HMI writes to SM-<NAME>-TARGET).
-// It is rejected unless the target state carries the `operator` flag.  The
-// state change itself is applied by the engine loop, not by the caller.
+// It is rejected unless the target state carries the `operator` flag AND — when
+// that flag declares an `operator from` gate list — the machine is currently in
+// one of the listed states.  The state change itself is applied by the engine
+// loop, not by the caller.
+//
+// The gate restricts OPERATOR input only.  Engine-internal paths (`transition`
+// statements in .sm code, NotifyAbortTriggered, NotifySequenceComplete,
+// NotifyDaqReconnect) deliberately bypass it: a DAQ-detected abort must never be
+// blocked by a graph the operator's console draws.
 func (e *Engine) RequestTarget(machine, state string) error {
 	m, ok := e.machines[machine]
 	if !ok {
@@ -512,6 +519,10 @@ func (e *Engine) RequestTarget(machine, state string) error {
 	}
 	if !st.Operator {
 		return fmt.Errorf("machine %q: state %q is not operator-commandable", machine, state)
+	}
+	if cur := m.current(); !st.operatorCommandableFrom(stateName(cur)) {
+		return fmt.Errorf("machine %q: cannot command %q from %q (allowed from: %s)",
+			machine, state, stateName(cur), strings.Join(st.operatorFrom, ", "))
 	}
 	select {
 	case e.transitions <- transitionReq{machine: machine, target: state}:

@@ -103,3 +103,48 @@ func TestDescribeEvalError(t *testing.T) {
 		t.Error("nil error should stay nil")
 	}
 }
+
+// TestOperatorString_RoundTrip covers OperatorString's two forms — bare
+// `operator` and `operator from a, b` — and that each re-parses to the same
+// flag/gate list it was rendered from.
+func TestOperatorString_RoundTrip(t *testing.T) {
+	tests := []struct {
+		name string
+		from []string
+		want string
+	}{
+		{"bare operator", nil, "operator"},
+		{"single gate", []string{"safe"}, "operator from safe"},
+		{"multi gate", []string{"safe", "abort"}, "operator from safe, abort"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := OperatorString(tt.from)
+			if got != tt.want {
+				t.Fatalf("OperatorString(%#v) = %q, want %q", tt.from, got, tt.want)
+			}
+
+			src := "machine m\nstate s\n    " + got + "\n"
+			toks, err := NewLexer(src).Tokenize()
+			if err != nil {
+				t.Fatalf("lex %q: %v", src, err)
+			}
+			decl, err := Parse(toks)
+			if err != nil {
+				t.Fatalf("parse %q: %v", src, err)
+			}
+			m, ok := decl.(*MachineDef)
+			if !ok || len(m.States) != 1 {
+				t.Fatalf("parse %q: unexpected decl %#v", src, decl)
+			}
+			st := m.States[0]
+			if !st.Operator {
+				t.Errorf("re-parsed state: operator=false, want true")
+			}
+			if !stringSliceEq(st.OperatorFrom, tt.from) {
+				t.Errorf("re-parsed OperatorFrom: got %#v, want %#v", st.OperatorFrom, tt.from)
+			}
+		})
+	}
+}

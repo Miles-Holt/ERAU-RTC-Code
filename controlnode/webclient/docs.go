@@ -515,7 +515,8 @@ func (s *Server) docsMachines() string {
 			}
 			opTag := "—"
 			if st.Operator {
-				opTag = `<span class="tag op">operator</span>`
+				opTag = `<span class="tag op">operator</span> <span class="tag">` +
+					esc(docsGateText(st)) + `</span>`
 			}
 			daqTag := "—"
 			if st.DaqLocal != "" {
@@ -537,8 +538,11 @@ func (s *Server) docsMachines() string {
 				"</td><td>" + esc(t.Kind) + "</td><td><code>" + esc(t.Detail) + "</code></td></tr>")
 		}
 		b.WriteString("</table></div>")
-		b.WriteString(`<p class="hint">Operator-flagged states are additionally reachable at any time by writing
-their name (or index) to <code>SM-` + esc(m.Name) + `-TARGET</code>; those requests are not listed above.</p>`)
+		b.WriteString(`<p class="hint">Operator-flagged states are additionally reachable by writing their name
+to <code>SM-` + esc(m.Name) + `-TARGET</code>; those requests are not listed above. A state whose flag carries
+a gate (<code>operator from a, b</code>) accepts that request only while the machine is in one of the listed
+states — the gate restricts operator input only, never a <code>transition</code> in the machine itself or a
+DAQ-reported abort.</p>`)
 
 		for _, st := range m.States {
 			b.WriteString(docsStateDetail(m, st))
@@ -628,7 +632,7 @@ func docsStateDetail(m *statemachine.Machine, st *statemachine.State) string {
 
 	var flags []string
 	if st.Operator {
-		flags = append(flags, `<span class="tag op">operator</span>`)
+		flags = append(flags, `<span class="tag op">`+esc(dsl.OperatorString(st.OperatorFrom()))+`</span>`)
 	}
 	if st.DaqLocal != "" {
 		flags = append(flags, `<span class="tag daq">daq_local `+esc(st.DaqLocal)+`</span>`)
@@ -638,6 +642,13 @@ func docsStateDetail(m *statemachine.Machine, st *statemachine.State) string {
 	}
 	if len(flags) > 0 {
 		b.WriteString("<p>" + strings.Join(flags, " ") + "</p>")
+	}
+	if st.Operator {
+		b.WriteString(`<p class="hint">Operator command: ` + esc(docsGateText(st)) +
+			`. Requests from any other state are refused by the engine (the HMI also hides them).</p>`)
+	} else {
+		b.WriteString(`<p class="hint">Not operator-commandable: this state is entered only by the machine's
+own logic or by a DAQ report.</p>`)
 	}
 
 	if len(st.Controller) > 0 {
@@ -758,8 +769,12 @@ func docsStateDiagram(m *statemachine.Machine, trans []docsTransition) string {
 	fmt.Fprintf(&b, `<div class="scroll"><svg viewBox="0 0 %.0f %.0f" width="%.0f" height="%.0f" role="img" `+
 		`aria-label="state transition diagram for machine %s" style="max-width:100%%;height:auto">`,
 		w, h, w, h, esc(m.Name))
-	b.WriteString(`<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" ` +
-		`orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>`)
+	b.WriteString(`<defs>` +
+		`<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" ` +
+		`orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>` +
+		`<marker id="ohd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" ` +
+		`orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b36b00"/></marker>` +
+		`</defs>`)
 	b.WriteString(`<g fill="none" stroke="currentColor" stroke-opacity="0.55">`)
 
 	for _, e := range edges {
@@ -797,6 +812,49 @@ func docsStateDiagram(m *statemachine.Machine, trans []docsTransition) string {
 	}
 	b.WriteString("</g>")
 
+	// Operator-command edges: from each state an `operator from ...` gate
+	// permits, to the gated target. Drawn dashed and in a distinct color so
+	// they read as operator input, not machine-driven transitions (the solid
+	// arrows above, which sequence/controller/transition logic always uses
+	// and which gating never restricts).
+	type opEdge struct{ from, to string }
+	var opEdges []opEdge
+	for _, st := range m.States {
+		if !st.Operator {
+			continue
+		}
+		for _, from := range st.OperatorFrom() {
+			if from == st.Name {
+				continue
+			}
+			opEdges = append(opEdges, opEdge{from: from, to: st.Name})
+		}
+	}
+	if len(opEdges) > 0 {
+		b.WriteString(`<g fill="none" stroke="#b36b00" stroke-opacity="0.75" stroke-dasharray="4 3">`)
+		for _, oe := range opEdges {
+			p1, ok1 := pos[oe.from]
+			p2, ok2 := pos[oe.to]
+			if !ok1 || !ok2 {
+				continue
+			}
+			dx, dy := p2.x-p1.x, p2.y-p1.y
+			mx, my := (p1.x+p2.x)/2, (p1.y+p2.y)/2
+			length := math.Hypot(dx, dy)
+			if length == 0 {
+				continue
+			}
+			nxo, nyo := -dy/length, dx/length
+			bow := -18.0 // bow opposite the transition arrows so the two don't overlap
+			qx, qy := mx+nxo*bow, my+nyo*bow
+			sx, sy := trimToBox(p1.x, p1.y, qx, qy, rx+4, ry+4)
+			ex, ey := trimToBox(p2.x, p2.y, qx, qy, rx+6, ry+6)
+			fmt.Fprintf(&b, `<path d="M %.1f %.1f Q %.1f %.1f %.1f %.1f" marker-end="url(#ohd)"/>`,
+				sx, sy, qx, qy, ex, ey)
+		}
+		b.WriteString("</g>")
+	}
+
 	for _, st := range m.States {
 		p := pos[st.Name]
 		dash := ""
@@ -823,6 +881,12 @@ func docsStateDiagram(m *statemachine.Machine, trans []docsTransition) string {
 	b.WriteString(`<p class="hint">Bold box = <code>operator</code>-commandable · dashed box =
 <code>daq_local</code> (cached and executed on the node) · filled dot = initial state.
 Arrow labels name the trigger, not the condition; the table below carries the conditions.</p>`)
+	b.WriteString(`<p class="hint">` +
+		`<svg width="28" height="10" aria-hidden="true"><line x1="1" y1="5" x2="27" y2="5" ` +
+		`stroke="currentColor" stroke-opacity="0.55"/></svg> sequence / controller transition (machine logic) &nbsp;&nbsp; ` +
+		`<svg width="28" height="10" aria-hidden="true"><line x1="1" y1="5" x2="27" y2="5" ` +
+		`stroke="#b36b00" stroke-opacity="0.75" stroke-dasharray="4 3"/></svg> operator command ` +
+		`(restricted by <code>operator from</code>; never blocks aborts or sequence completions)</p>`)
 	return b.String()
 }
 
@@ -1234,6 +1298,22 @@ func docsOrDash(s string) string {
 		return "—"
 	}
 	return esc(s)
+}
+
+// docsGateText renders a state's operator-command gate as plain text for the
+// /docs machines page. Callers esc() the result themselves.
+//   - not operator-commandable at all: "not operator-commandable"
+//   - operator-commandable, no gate:    "commandable from: any state"
+//   - operator-commandable, gated:      "commandable from: a, b"
+func docsGateText(st *statemachine.State) string {
+	if !st.Operator {
+		return "not operator-commandable"
+	}
+	from := st.OperatorFrom()
+	if len(from) == 0 {
+		return "commandable from: any state"
+	}
+	return "commandable from: " + strings.Join(from, ", ")
 }
 
 func docsParen(s string) string {

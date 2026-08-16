@@ -148,6 +148,28 @@ func TestDocsMachineTransitions(t *testing.T) {
 	}
 }
 
+// TestDocsMachineOperatorGate checks the machines page renders the
+// `operator from a, b` gate text (docsGateText) for the real daq001.sm
+// config: a gated state's allowed sources, and the "any state" phrasing for
+// an ungated one if there is one, plus the "not operator-commandable" phrasing
+// for a non-operator state.
+func TestDocsMachineOperatorGate(t *testing.T) {
+	ts := docsTestServer(t)
+	body := getDocsPage(t, ts, "/docs/machines")
+
+	for _, want := range []string{
+		"commandable from: manualControl, abort",        // safe
+		"commandable from: safe",                        // manualControl
+		"commandable from: manualControl",               // autoSequence
+		"commandable from: manualControl, autoSequence", // abort
+		"operator command",                              // SVG legend
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("machines page missing gate text %q", want)
+		}
+	}
+}
+
 // TestDocsUnknownPage404 keeps /docs from swallowing arbitrary paths.
 func TestDocsUnknownPage404(t *testing.T) {
 	ts := docsTestServer(t)

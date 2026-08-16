@@ -327,6 +327,50 @@ func TestCompile_Errors(t *testing.T) {
 			sources: []Source{{Name: "a.sm", Text: "channel X\n    type float\n"}},
 			want:    "expected a machine definition",
 		},
+		{
+			name: "operator from: unknown gate state name",
+			sources: []Source{{Name: "a.sm", Text: "" +
+				"machine a\n" +
+				"state safe\n" +
+				"    operator from nowhere\n" +
+				"    sequence\n" +
+				"        X = 1\n"}},
+			want: `"operator from" names "nowhere", which is not a state of machine "a"`,
+		},
+		{
+			name: "operator from: self-reference",
+			sources: []Source{{Name: "a.sm", Text: "" +
+				"machine a\n" +
+				"state safe\n" +
+				"    operator from safe\n" +
+				"    sequence\n" +
+				"        X = 1\n" +
+				"state manualControl\n" +
+				"    operator\n"}},
+			want: `may not list the state itself`,
+		},
+		{
+			name: "operator from: from without operator",
+			sources: []Source{{Name: "a.sm", Text: "" +
+				"machine a\n" +
+				"state safe\n" +
+				"    from manualControl\n" +
+				"    sequence\n" +
+				"        X = 1\n"}},
+			want: `requires the operator flag on the same line`,
+		},
+		{
+			name: "operator from: duplicate name",
+			sources: []Source{{Name: "a.sm", Text: "" +
+				"machine a\n" +
+				"state safe\n" +
+				"    operator from manualControl, manualControl\n" +
+				"    sequence\n" +
+				"        X = 1\n" +
+				"state manualControl\n" +
+				"    operator\n"}},
+			want: `duplicate state "manualControl" in "operator from"`,
+		},
 	}
 
 	for _, tt := range tests {
