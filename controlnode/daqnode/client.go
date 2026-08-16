@@ -60,6 +60,9 @@ type Client struct {
 	cmdCh      chan []byte // broker writes cmd JSON here; we forward to DAQ node
 	outCh      chan []byte // state_update payloads bound for the DAQ node
 	engine     EngineController
+
+	agg         *ConnectAggregator // optional; see SetAggregator
+	loggedFirst bool               // true once the first connect attempt has been logged
 }
 
 // New creates a Client.  configJSON is the config payload to send after the DAQ
@@ -80,6 +83,15 @@ func New(refDes, ip string, port int, configJSON string, b *broker.Broker, engin
 
 // RefDes returns the node's refDes.
 func (c *Client) RefDes() string { return c.refDes }
+
+// SetAggregator wires a shared ConnectAggregator into the client.  When set,
+// repeated failed connect retries report their pending state to it instead of
+// each logging their own "retrying in Ns" line; connected/disconnected state
+// changes are still logged individually by the client.  Must be called before
+// Run(); nil is a valid no-op (falls back to the old per-attempt log line).
+func (c *Client) SetAggregator(agg *ConnectAggregator) {
+	c.agg = agg
+}
 
 // SendStateUpdate queues a resolved `state_update` payload for the node.  It is
 // called from the engine loop (OnDaqStateEnter) and must never block; if the
@@ -125,8 +137,16 @@ func (c *Client) Run() {
 			// Server-side alert source: the alert engine raises the template's
 			// `disconnect` alert from here, so no browser has to infer it.
 			c.b.NoteDaqDisconnected(c.refDes)
+			// A drop after a successful connection is a real state change —
+			// always worth its own line, not folded into the retry summary.
+			log.Printf("daqnode %s: disconnected: %v", c.refDes, err)
 		}
-		if err != nil {
+		if c.agg != nil {
+			// Whether this was the very first attempt or a connection that just
+			// dropped, we are now waiting again — let the aggregator own the
+			// "still retrying" noise instead of logging every 2s ourselves.
+			c.agg.Pending(c.refDes)
+		} else if err != nil && !connected {
 			log.Printf("daqnode %s: disconnected: %v — retrying in %s", c.refDes, err, reconnectDelay)
 		}
 		time.Sleep(reconnectDelay)
@@ -138,7 +158,13 @@ func (c *Client) Run() {
 // or (false, err) if it failed before that point.
 func (c *Client) connect() (connected bool, err error) {
 	u := url.URL{Scheme: "ws", Host: c.addr, Path: "/"}
-	log.Printf("daqnode %s: connecting to %s", c.refDes, u.String())
+	if !c.loggedFirst {
+		// Only the first-ever attempt gets its own line; every retry after
+		// this reports through the aggregator (or the fallback line below)
+		// instead of repeating "connecting to..." every reconnectDelay.
+		log.Printf("daqnode %s: connecting to %s", c.refDes, u.String())
+		c.loggedFirst = true
+	}
 
 	conn, _, err := daqDialer.Dial(u.String(), nil)
 	if err != nil {
@@ -174,6 +200,9 @@ func (c *Client) connect() (connected bool, err error) {
 	// The link is up (handshake complete): the alert engine resolves the
 	// disconnect alert and raises `reconnect` for every connect after the first.
 	c.b.NoteDaqConnected(c.refDes)
+	if c.agg != nil {
+		c.agg.Connected(c.refDes)
+	}
 
 	// ── Post-connect state handling ───────────────────────────────────────
 	// We deliberately do NOT push a state_update here.  `state_update` means

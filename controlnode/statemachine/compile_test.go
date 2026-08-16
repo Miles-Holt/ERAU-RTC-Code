@@ -28,7 +28,7 @@ const coldflowPath = "../../docs/restructure/demo/coldflow.sm"
 var coldflowChannels = []string{
 	"OV-05-CMD", "FV-02-CMD", "VENT-CMD",
 	"CPT-01", "PT-FUEL-AVG", "IGNITION-OK",
-	"LIM-CPT01-HIGH", "SEQ-TARGET-PRESS", "SEQ-BURN-DUR",
+	"LIM-CPT01-HIGH", "SEQ-TARGET-PRESS", "SEQ-CUTOFF-T",
 }
 
 func loadColdflow(t *testing.T) *Program {
@@ -125,8 +125,8 @@ func TestCompile_Coldflow(t *testing.T) {
 	if !ok {
 		t.Fatalf("fire stmt 2: got %T, want *dsl.SleepStmt", fire.Sequence[1])
 	}
-	if id, ok := sl.Duration.(*dsl.IdentExpr); !ok || id.Name != "SEQ-BURN-DUR" {
-		t.Errorf("fire sleep duration: got %v, want SEQ-BURN-DUR ident", sl.Duration)
+	if id, ok := sl.Duration.(*dsl.IdentExpr); !ok || id.Name != "SEQ-CUTOFF-T" {
+		t.Errorf("fire sleep duration: got %v, want SEQ-CUTOFF-T ident", sl.Duration)
 	}
 
 	// abort: daq_local payload precompiled, no controlnode-side controller.

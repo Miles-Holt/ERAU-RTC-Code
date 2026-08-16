@@ -5,7 +5,7 @@
 #   OV-05-CMD, FV-02-CMD, VENT-CMD      hardware command channels on DAQ001
 #   CPT-01, PT-FUEL-AVG, IGNITION-OK    sensor + computed channels
 #   LIM-CPT01-HIGH, SEQ-TARGET-PRESS,   operator-settable soft channels
-#   SEQ-BURN-DUR
+#   SEQ-CUTOFF-T
 
 machine coldFlow
 
@@ -36,7 +36,7 @@ state fire                          # not operator-flagged: only reachable by se
             transition abort
     sequence
         FV-02-CMD = 1
-        sleep SEQ-BURN-DUR          # duration from a soft channel (ms)
+        sleep SEQ-CUTOFF-T          # duration from a soft channel (ms)
         FV-02-CMD = 0
         transition vent
 

@@ -23,11 +23,14 @@ all of them are things a future run should close.
   `transition` statements are never gated. Applied to
   `config/machines/daq001.sm` (safe/manualControl/autoSequence/abort). See
   `docs/dsl-guide.md` and `docs/restructure/dsl_spec.md`.
-- [ ] **Rename `SEQ-BURN-DUR`** — it is an **absolute cutoff time** measured from
-  sequence start, not a burn duration (the burn is `SEQ-BURN-DUR - 2000` ms long).
-  `SEQ-CUTOFF-T` or `SEQ-MAINS-CLOSE-T` would stop the next person misreading it.
-  Touches `config/channels/softchannels.chan`, `config/machines/daq001.sm`, and
-  any persisted value in `softChannelValues.yaml`.
+- [x] **Rename `SEQ-BURN-DUR`** — done. It is an **absolute cutoff time** measured
+  from sequence start, not a burn duration (the burn is `SEQ-CUTOFF-T - 2000` ms
+  long). Renamed to `SEQ-CUTOFF-T` everywhere — `config/channels/softchannels.chan`
+  (description now spells out the absolute-time semantics), `config/machines/daq001.sm`
+  (arithmetic + abort_rule window + comment block), the persisted value in
+  `softChannelValues.yaml` (key migrated, not orphaned), `docs/dsl-guide.md`,
+  `docs/restructure/dsl_spec.md`, `docs/websocket-protocol.md` (+ embedded copy),
+  the `docs/restructure/demo/` files, and Go test fixtures referencing the name.
 - [ ] **daq_local re-entry semantics on reconnect** — a reconnect mid-`daq_local`
   currently fires the abort destination with an alarm (state-uncertain). If the
   node ever gains a "report your current schedule position" message, this could
@@ -39,8 +42,16 @@ all of them are things a future run should close.
 - [x] **controlNode -> daqNode JSON messages** — `docs/websocket-protocol.md` Part 2 documents the whole DAQ link (`config_req`/`config`, `data`, `err`, `cmd`, `state_update` with `runId` + `entry_sequence`/`exit_sequence`/`abort_rules`, `state_req`, `abort_triggered`, `sequence_complete`, reconnect-uncertain behaviour). `docs/dsl-guide.md` is the config-authoring guide, and the running config is served live at `http://<controlnode>:8000/docs`.
 
 ### console
-- [ ] **Clean up** remove "retrying in 2s" from the console log while waiting for a connection
-- [ ] **Future proof** make the re-try for connect a list of nodes that the control node is attempting to connect to. Provides future proof against lots of nodes congesting the console log.
+- [x] **Clean up** — done. Per-retry "retrying in 2s" lines are gone; only the
+  first connect attempt and real state changes (connected/disconnected) log
+  individually.
+- [x] **Future proof** — done. `daqnode.ConnectAggregator`
+  (`controlnode/daqnode/connectlog.go`) tracks the SET of nodes currently
+  awaiting connection and logs one summary line ("waiting for connection:
+  DAQ001, DAQ003 (2 of 4 nodes, retrying every 2s)") on membership change and
+  at a slow periodic cadence, plus a single "all nodes connected" line when the
+  last pending node connects. Scales to any number of nodes without console
+  spam. See `controlnode/daqnode/connectlog_test.go`.
 
 ### dataHealth
 - [x] **Bad data detection** — server-side range checks (`broker.checkBounds`) emit `bad_data` / `bad_data_snapshot` when a value leaves `[validMin, validMax]`; the browser shows a red LED and an alert-bar alarm. Bounds come from the YAML config.

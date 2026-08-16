@@ -44,7 +44,7 @@ Solid arrows from `controller` lines fire on **any engine tick**; arrows from
 `sleep`, `wait_until`, assign channels (which become `cmd` messages to the daqNode),
 and `transition`. A `transition` from *anywhere* (controller, sequence, operator)
 cancels the running sequence immediately — so if `controller` aborts mid-burn, the
-`sleep SEQ-BURN-DUR` never finishes.
+`sleep SEQ-CUTOFF-T` never finishes.
 
 **Operator interaction:** the machine auto-publishes two soft channels —
 `SM-COLDFLOW-STATE` (current state name, drives the HMI display) and
@@ -58,7 +58,7 @@ it's only reachable through `pressurize`'s sequence.
 |---|---|
 | startup | machine enters `safe`; sequence safes both valves, opens vent |
 | operator → `pressurize` | vent closes, `OV-05` opens; sequence parks on `wait_until` tank pressure ≥ `SEQ-TARGET-PRESS` (30 s timeout falls back to `safe`) |
-| pressure reached | sequence transitions to `fire`: `FV-02` opens, burns for `SEQ-BURN-DUR` ms while the controller re-checks abort guards every tick |
+| pressure reached | sequence transitions to `fire`: `FV-02` opens, burns for `SEQ-CUTOFF-T` ms while the controller re-checks abort guards every tick |
 | burn done | `fire` → `vent`: main valve closed, vent opened, waits for pressure < 50 |
 | vented | back to `safe`, ready for the next run |
 
@@ -124,7 +124,7 @@ network drop). Both land in the same `abort` state.
 | `controller` per-tick guards | `pressurize`, `fire` |
 | `sequence` with sleep/wait_until/transition | all states |
 | `wait_until … timeout … -> state` | `pressurize`, `vent` |
-| duration from a channel | `sleep SEQ-BURN-DUR` |
+| duration from a channel | `sleep SEQ-CUTOFF-T` |
 | computed-channel reference | `PT-FUEL-AVG`, `IGNITION-OK` |
 | hyphenated identifiers | every refDes |
 | `not` / boolean logic | `if not IGNITION-OK` |

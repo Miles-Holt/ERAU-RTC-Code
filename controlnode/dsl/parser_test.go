@@ -83,7 +83,7 @@ func TestParser_SimpleMachine(t *testing.T) {
 }
 
 func TestParser_Channel(t *testing.T) {
-	input := "channel SEQ-BURN-DUR\n" +
+	input := "channel SEQ-CUTOFF-T\n" +
 		indent(4) + "type float\n" +
 		indent(4) + "default 3000\n" +
 		indent(4) + "min 500\n" +
@@ -106,8 +106,8 @@ func TestParser_Channel(t *testing.T) {
 		t.Fatalf("expected ChannelDef, got %T", decl)
 	}
 
-	if ch.Name != "SEQ-BURN-DUR" {
-		t.Errorf("channel name: got %q, expected %q", ch.Name, "SEQ-BURN-DUR")
+	if ch.Name != "SEQ-CUTOFF-T" {
+		t.Errorf("channel name: got %q, expected %q", ch.Name, "SEQ-CUTOFF-T")
 	}
 
 	if ch.Type != "float" {

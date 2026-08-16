@@ -90,7 +90,7 @@ state abort
   for local (<1 ms) execution. Assignment values, sleep durations, and `abort_rule`
   thresholds/windows may be **literals or soft-channel identifiers**; identifiers are
   resolved to numbers when the payload is sent to the node (connect, reconnect,
-  `state_req`) so operator-tuned values (e.g. `SEQ-BURN-DUR`) stay adjustable, exactly
+  `state_req`) so operator-tuned values (e.g. `SEQ-CUTOFF-T`) stay adjustable, exactly
   like the old `{{VAR}}` behavior. Unresolvable refs at send time are an error, never
   silently 0. Other statements in a `daq_local` state are a compile error.
   Values, durations, and windows may also be **constant arithmetic** over literals and
@@ -124,8 +124,8 @@ state abort
 
 ```
 # operator-settable
-channel SEQ-BURN-DUR
-    description "Burn duration"       # optional, shown in the HMI
+channel SEQ-CUTOFF-T
+    description "Main-valve cutoff time, absolute from sequence start (burn length = this minus valve-open time)"  # optional, shown in the HMI
     type float
     default 3000
     min 500

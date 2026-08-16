@@ -1,7 +1,7 @@
 # Sequence Timings
-channel SEQ-BURN-DUR
+channel SEQ-CUTOFF-T
     type float
-    description "Burn duration"
+    description "Main-valve cutoff time, absolute from sequence start (burn length = this minus valve-open time)"
     units ms
     default 3000
     min 500

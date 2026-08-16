@@ -112,7 +112,7 @@ node's memory and appear in the `data` stream like any other channel.
 {
   "type": "softchan_config",
   "channels": [
-    { "refDes": "SEQ-BURN-DUR", "description": "Burn duration", "units": "ms",
+    { "refDes": "SEQ-CUTOFF-T", "description": "Main-valve cutoff time, absolute from sequence start (burn length = this minus valve-open time)", "units": "ms",
       "role": "cmd-float", "default": 3000, "min": 500, "max": 10000 },
     { "refDes": "PT-FUEL-AVG", "description": "", "units": "", "role": "",
       "default": 0, "min": null, "max": null, "computed": true }

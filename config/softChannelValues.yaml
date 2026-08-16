@@ -1,7 +1,7 @@
 values:
     LIM-CPT01-HIGH: 450
     LIM-CPT01-LOW: 50
-    SEQ-BURN-DUR: 3000
+    SEQ-CUTOFF-T: 3000
     SEQ-IGN-LEAD: 500
     SM-fuelSeq-STATE: 0
     SM-fuelSeq-TARGET: 0

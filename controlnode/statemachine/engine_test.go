@@ -221,7 +221,7 @@ func (h *harness) assertNoErrors(t *testing.T) {
 }
 
 // coldflowSpace is the nominal channel space for the reference machine.
-func coldflowSpace(burnDurMs float64) *fakeSpace {
+func coldflowSpace(cutoffMs float64) *fakeSpace {
 	return newFakeSpace(map[string]float64{
 		"OV-05-CMD":        0,
 		"FV-02-CMD":        0,
@@ -230,7 +230,7 @@ func coldflowSpace(burnDurMs float64) *fakeSpace {
 		"PT-FUEL-AVG":      0,
 		"LIM-CPT01-HIGH":   850,
 		"SEQ-TARGET-PRESS": 300,
-		"SEQ-BURN-DUR":     burnDurMs,
+		"SEQ-CUTOFF-T":     cutoffMs,
 	}, map[string]bool{
 		"IGNITION-OK": true,
 	})

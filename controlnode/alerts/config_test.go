@@ -171,7 +171,7 @@ func TestLoadDir(t *testing.T) {
 func TestShippedConfigLoads(t *testing.T) {
 	cfg, err := LoadDir("../../config/alerts", Options{
 		KnownChannels: []string{
-			"CPT-01", "LIM-CPT01-HIGH", "LIM-CPT01-LOW", "SEQ-BURN-DUR", "SEQ-IGN-LEAD",
+			"CPT-01", "LIM-CPT01-HIGH", "LIM-CPT01-LOW", "SEQ-CUTOFF-T", "SEQ-IGN-LEAD",
 		},
 	})
 	if err != nil {

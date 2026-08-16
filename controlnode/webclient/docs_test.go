@@ -113,7 +113,7 @@ func TestDocsPagesServe(t *testing.T) {
 		want []string
 	}{
 		{"/docs", []string{"System summary", "DAQ001", "engineTickRateHz"}},
-		{"/docs/channels", []string{"Hardware channels", "Software channels", "SEQ-BURN-DUR", "CPT-01"}},
+		{"/docs/channels", []string{"Hardware channels", "Software channels", "SEQ-CUTOFF-T", "CPT-01"}},
 		{"/docs/machines", []string{"fuelSeq", "autoSequence", "daq_local", "<svg", "abort_rule"}},
 		{"/docs/alerts", []string{"CHAMBER-HIGH", "every_daqnode", "disconnect"}},
 		{"/docs/protocol", []string{"state_update", "sequence_complete", "config_req"}},

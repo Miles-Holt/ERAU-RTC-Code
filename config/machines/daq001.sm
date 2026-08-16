@@ -4,9 +4,10 @@
 # sequential sleeps, so absolute times are reconstructed with send-time arithmetic:
 #   igniter at t = SEQ-IGN-LEAD        (default 500 ms — leads the mains)
 #   mains   at t = 2000 ms
-#   cutoff  at t = SEQ-BURN-DUR        (default 3000 ms, absolute — NOT burn length)
+#   cutoff  at t = SEQ-CUTOFF-T        (default 3000 ms, absolute — NOT burn length)
+#   (burn length = SEQ-CUTOFF-T - 2000 ms, i.e. mains-open to mains-close)
 # Constraint (checked at payload send, refused if violated):
-#   0 <= SEQ-IGN-LEAD <= 2000 <= SEQ-BURN-DUR
+#   0 <= SEQ-IGN-LEAD <= 2000 <= SEQ-CUTOFF-T
 #
 # abort_sequence runs LOCALLY on DAQ001 (<1 ms) when an abort_rule trips; its
 # trailing transition is the controlnode-side abort destination.
@@ -32,7 +33,7 @@ state autoSequence
     operator from manualControl
     daq_local DAQ001
     abort_rule CPT-01 > LIM-CPT01-HIGH from 0ms to 20000ms
-    abort_rule CPT-01 < LIM-CPT01-LOW from SEQ-IGN-LEAD to SEQ-BURN-DUR
+    abort_rule CPT-01 < LIM-CPT01-LOW from SEQ-IGN-LEAD to SEQ-CUTOFF-T
     sequence
         OV-01-CMD = 0                   # LOX vent close        (t = 0)
         FV-01-CMD = 0                   # Fuel vent close       (t = 0)
@@ -43,10 +44,10 @@ state autoSequence
         sleep 2000 - SEQ-IGN-LEAD
         OV-05-CMD = 1                   # LOX main open         (t = 2000)
         FV-03-CMD = 1                   # Fuel main open        (t = 2000)
-        sleep SEQ-BURN-DUR - 2000
-        OV-05-CMD = 0                   # LOX main close        (t = BURN_DUR)
-        FV-03-CMD = 0                   # Fuel main close       (t = BURN_DUR)
-        IG-01-CMD = 0                   # Igniter off           (t = BURN_DUR)
+        sleep SEQ-CUTOFF-T - 2000
+        OV-05-CMD = 0                   # LOX main close        (t = CUTOFF_T)
+        FV-03-CMD = 0                   # Fuel main close       (t = CUTOFF_T)
+        IG-01-CMD = 0                   # Igniter off           (t = CUTOFF_T)
         transition safe                 # completion transition (on sequence_complete)
     abort_sequence                      # runs locally on the DAQ when a rule trips
         OV-05-CMD = 0                   # LOX main close

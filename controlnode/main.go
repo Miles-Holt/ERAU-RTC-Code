@@ -344,7 +344,13 @@ func main() {
 		log.Printf("alerts: no state machines — alert engine ticking standalone at %d Hz",
 			cfg.Network.EngineTickRateHz)
 	}
+	// Shared aggregator: while any node is still trying to connect, log ONE
+	// periodic summary line ("waiting for connection: A, B (2 of 4 nodes, ...")
+	// instead of every client logging its own "retrying in 2s" every attempt.
+	connAgg := daqnode.NewConnectAggregator(len(daqClients), 30*time.Second, nil, nil)
+	go connAgg.Run(rootCtx.Done())
 	for refDes, client := range daqClients {
+		client.SetAggregator(connAgg)
 		go client.Run()
 		log.Printf("daqnode %s: client started", refDes)
 	}

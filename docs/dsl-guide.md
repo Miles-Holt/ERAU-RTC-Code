@@ -28,7 +28,7 @@ tabs work, but mixing tabs and spaces in one file is an error.
 
 **Comments** start with `#` and run to the end of the line.
 
-**Identifiers may contain hyphens** — `PT-01`, `OV-05-CMD`, `SEQ-BURN-DUR` are
+**Identifiers may contain hyphens** — `PT-01`, `OV-05-CMD`, `SEQ-CUTOFF-T` are
 all single names. The consequence you will hit eventually:
 
 ```
@@ -56,9 +56,9 @@ restarts. Two kinds:
 **Settable** — an operator (or a machine) writes them:
 
 ```
-channel SEQ-BURN-DUR
+channel SEQ-CUTOFF-T
     type float
-    description "Burn duration"     # optional; shown in the HMI
+    description "Main-valve cutoff time, absolute from sequence start (burn length = this minus valve-open time)"
     units ms                        # optional
     default 3000
     min 500                         # writes outside [min,max] are rejected
@@ -89,7 +89,7 @@ them yourself:
 | `SM-<NAME>-TARGET` | writable | requested state — a name from the HMI, an index from another machine |
 
 The running example is [`config/channels/softchannels.chan`](../config/channels/softchannels.chan):
-two sequence timings (`SEQ-BURN-DUR`, `SEQ-IGN-LEAD`) and two abort limits
+two sequence timings (`SEQ-CUTOFF-T`, `SEQ-IGN-LEAD`) and two abort limits
 (`LIM-CPT01-HIGH`, `LIM-CPT01-LOW`). Putting limits in a channel instead of a
 literal is the point — the crew can retune them from the HMI between runs
 without a rebuild.
@@ -237,7 +237,7 @@ state autoSequence
     operator from manualControl
     daq_local DAQ001
     abort_rule CPT-01 > LIM-CPT01-HIGH from 0ms to 20000ms
-    abort_rule CPT-01 < LIM-CPT01-LOW from SEQ-IGN-LEAD to SEQ-BURN-DUR
+    abort_rule CPT-01 < LIM-CPT01-LOW from SEQ-IGN-LEAD to SEQ-CUTOFF-T
     sequence
         OV-01-CMD = 0                   # LOX vent close        (t = 0)
         FV-01-CMD = 0                   # Fuel vent close       (t = 0)
@@ -248,8 +248,8 @@ state autoSequence
         sleep 2000 - SEQ-IGN-LEAD
         OV-05-CMD = 1                   # LOX main open         (t = 2000)
         FV-03-CMD = 1                   # Fuel main open        (t = 2000)
-        sleep SEQ-BURN-DUR - 2000
-        OV-05-CMD = 0                   # LOX main close        (t = BURN_DUR)
+        sleep SEQ-CUTOFF-T - 2000
+        OV-05-CMD = 0                   # LOX main close        (t = CUTOFF_T)
         FV-03-CMD = 0
         IG-01-CMD = 0
         transition safe                 # completion transition
@@ -388,7 +388,7 @@ error alerts, not at startup):
 - `no value yet for channel "CPT-01" (nothing has published it since startup)` —
   the channel is configured correctly but nothing has sent a value yet, usually
   because its DAQ node has not connected. Not a config bug.
-- `unresolvable reference: "SEQ-BURN-DUR" — payload refused` — a `daq_local`
+- `unresolvable reference: "SEQ-CUTOFF-T" — payload refused` — a `daq_local`
   payload could not be resolved at send time; the node was deliberately sent
   nothing.
 
