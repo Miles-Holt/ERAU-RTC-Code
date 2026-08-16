@@ -1,0 +1,38 @@
+# Sequence Timings
+channel SEQ-BURN-DUR
+    type float
+    description "Burn duration"
+    units ms
+    default 3000
+    min 500
+    max 10000
+
+channel SEQ-IGN-LEAD
+    type float
+    description "Igniter lead time (before main valves open)"
+    units ms
+    default 500
+    min 0
+    max 5000
+
+# Abort Limits
+channel LIM-CPT01-HIGH
+    type float
+    description "Chamber pressure high abort threshold"
+    units psia
+    default 450
+    min 0
+    max 2000
+
+channel LIM-CPT01-LOW
+    type float
+    description "Chamber pressure low abort threshold"
+    units psia
+    default 50
+    min 0
+    max 500
+
+# Machine state channels are auto-generated per compiled machine:
+#   SM-<NAME>-STATE   read-only, current state index
+#   SM-<NAME>-TARGET  operator-commandable target state
+# The old single-machine SYS-STATE / SYS-TARGET-STATE pair is gone.

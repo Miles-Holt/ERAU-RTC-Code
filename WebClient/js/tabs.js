@@ -159,6 +159,20 @@ function startRename(tab, nameEl) {
     });
 }
 
+// showAddTabMenu opens a menu of all tab types anchored under the + button, so
+// creating a Graph/Console/Dev tab is discoverable (previously only reachable by
+// right-clicking an existing tab).
+function showAddTabMenu(anchorEl) {
+    const rect  = anchorEl.getBoundingClientRect();
+    const types = ['frontPanel', 'graph', 'dataView', 'console', 'dev'];
+    const menuW = 150;                 // approx; keeps the menu on-screen near the right edge
+    const x = Math.max(4, Math.min(rect.left, window.innerWidth - menuW - 4));
+    showContextMenu(x, rect.bottom + 4, types.map(t => ({
+        label:  TAB_TYPE_LABELS[t],
+        action: () => addTab(t),
+    })));
+}
+
 function showContextMenu(x, y, items) {
     document.getElementById('context-menu')?.remove();
     const menu = document.createElement('div');

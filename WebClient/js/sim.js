@@ -223,21 +223,55 @@ const SIM_CHANNELS = {
     'CTR001-daqConnected': { type: 'sine', base: 1,    amp: 0, freq: 0, phase: 0, noise: 0 },
     'CTR001-wcConnected':  { type: 'sine', base: 1,    amp: 0, freq: 0, phase: 0, noise: 0 },
 
-    // State machine channels
-    'SYS-STATE':        { type: 'state', stateIdx: 0 },
-    'SYS-TARGET-STATE': { type: 'bool_cmd', cmdRefDes: 'SYS-TARGET-STATE' },
+    // State machine channels — mirrors config/machines/daq001.sm (machine fuelSeq).
+    // STATE is the numeric state index; TARGET is the operator target index the
+    // server echoes back on the data path.
+    'SM-fuelSeq-STATE':  { type: 'state',     stateIdx: 0, stateName: 'safe' },
+    'SM-fuelSeq-TARGET': { type: 'state_cmd', machine: 'fuelSeq', stateIdx: 0 },
+};
+
+// SIM_STATE_CONFIG mirrors the state_config message the controlnode builds from
+// config/machines/daq001.sm (see webclient.BuildStateConfigJSON): machine
+// "fuelSeq", targetRefDes "SM-fuelSeq-TARGET", and one entry per state with its
+// compiled index and operator flag.  Every state in that file is `operator`.
+const SIM_STATE_CONFIG = {
+    type: 'state_config',
+    machines: [{
+        name:         'fuelSeq',
+        targetRefDes: 'SM-fuelSeq-TARGET',
+        states: [
+            { name: 'safe',          index: 0, operator: true },
+            { name: 'manualControl', index: 1, operator: true },
+            { name: 'autoSequence',  index: 2, operator: true },
+            { name: 'abort',         index: 3, operator: true },
+        ]
+    }]
 };
 
 // --- Command intercept ────────────────────────────────────────────────────────
 
 function simReceiveCommand(refDes, value) {
-    // Handle state transition commands
-    if (refDes === 'SYS-TARGET-STATE') {
-        const sysState = SIM_CHANNELS['SYS-STATE'];
-        if (sysState) {
-            const idx = typeof value === 'number' ? value : parseInt(value, 10);
-            if (!isNaN(idx)) sysState.stateIdx = idx;
+    // SM-<MACHINE>-TARGET carries the state NAME as a STRING — exactly what
+    // pid.js sends and what webclient's handleStateMachineTarget requires.
+    if (refDes.startsWith('SM-') && refDes.endsWith('-TARGET')) {
+        const machineName = refDes.slice(3, -'-TARGET'.length);  // "SM-fuelSeq-TARGET" -> "fuelSeq"
+        if (typeof value !== 'string' || !value) {
+            console.warn('sim:', refDes, 'expects a state name string, got', value);
+            return;
         }
+        const config = machineStateConfig[machineName];
+        if (!config) { console.warn('sim: unknown machine', machineName); return; }
+        const st = (config.states || []).find(s => s.name === value);
+        if (!st) { console.warn('sim: machine', machineName, 'has no state', value); return; }
+        if (!st.operator) { console.warn('sim:', value, 'is not operator-commandable'); return; }
+
+        // Production emits BOTH: the numeric SM-<MACHINE>-STATE data channel
+        // (state index) and the authoritative state_change message.
+        const stateCh  = SIM_CHANNELS['SM-' + machineName + '-STATE'];
+        const targetCh = SIM_CHANNELS[refDes];
+        if (stateCh)  { stateCh.stateIdx = st.index; stateCh.stateName = st.name; }
+        if (targetCh) { targetCh.stateIdx = st.index; }
+        applyStateChange({ type: 'state_change', machine: machineName, state: st.name });
         return;
     }
 
@@ -274,6 +308,7 @@ function generateData(tSec) {
                 break;
             }
             case 'state':
+            case 'state_cmd':
                 d[refDes] = ch.stateIdx;
                 break;
         }
@@ -295,18 +330,13 @@ function startSim() {
 
     applyConfig(SIM_CONFIG);
 
-    // Inject fake state machine config for the daqControl widget
-    applyStateConfig({
-        type: 'state_config',
-        daqNodes: [{
-            daqNode: 'DAQ001',
-            states: {
-                safe:           { operatorControl: false, transitions: [{ target: 'manualControl', on: 'operator_request' }] },
-                manualControl:  { operatorControl: true,  transitions: [{ target: 'autoSequence', on: 'operator_request' }, { target: 'safe', on: 'operator_request' }] },
-                autoSequence:   { operatorControl: false, transitions: [{ target: 'abort', on: 'operator_abort' }] },
-                abort:          { operatorControl: false, transitions: [{ target: 'safe', on: 'operator_request' }] },
-            }
-        }]
+    // Inject the state machine config for the daqControl widget, then the
+    // initial state_change — the same order a real connection delivers them.
+    applyStateConfig(SIM_STATE_CONFIG);
+    applyStateChange({
+        type:    'state_change',
+        machine: 'fuelSeq',
+        state:   SIM_CHANNELS['SM-fuelSeq-STATE'].stateName,
     });
 
     simInterval = setInterval(() => {
@@ -326,6 +356,9 @@ function stopSim() {
     // Clear sim state so a fresh start is clean
     for (const k of Object.keys(simCmdState)) delete simCmdState[k];
     for (const k of Object.keys(simFbDelay))  delete simFbDelay[k];
+    SIM_CHANNELS['SM-fuelSeq-STATE'].stateIdx  = 0;
+    SIM_CHANNELS['SM-fuelSeq-STATE'].stateName = 'safe';
+    SIM_CHANNELS['SM-fuelSeq-TARGET'].stateIdx = 0;
 
     setStatus('disconnected', 'Disconnected');
     devStats.connectedAt = null;

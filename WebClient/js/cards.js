@@ -1,8 +1,12 @@
 // =============================================================================
 // Card builders
 // =============================================================================
-
-const isCmd = ch => ch.role === 'cmd-bool' || ch.role === 'cmd-pct' || ch.role === 'cmd-float';
+//
+// NOTE: buildCard and the build*Card helpers below are currently UNREACHABLE —
+// nothing calls buildCard (the Data View tab was replaced by the Channel List /
+// valve-panel UI).  Kept as scaffolding for a possible future card/dashboard tab.
+// `isCmd` moved to utils.js since dataview.js also uses it.
+// =============================================================================
 
 function buildCard(ctrl, tab) {
     switch (ctrl.type) {
@@ -91,12 +95,14 @@ function buildValveCard(ctrl, tab) {
             const posOut = mkEl('span', 'pos-out', '0%');
             slider.addEventListener('input',  () => posOut.textContent = `${slider.value}%`);
             slider.addEventListener('change', () => sendCommand(cmdCh.refDes, parseFloat(slider.value)));
+            markCmdWidget(slider);
             btnRow.appendChild(slider); btnRow.appendChild(posOut);
         } else {
             const openBtn  = mkEl('button', 'btn btn-open',  'OPEN');
             const closeBtn = mkEl('button', 'btn btn-close', 'CLOSE');
             openBtn.addEventListener('click',  () => sendCommand(cmdCh.refDes, 1));
             closeBtn.addEventListener('click', () => sendCommand(cmdCh.refDes, 0));
+            markCmdWidget(openBtn); markCmdWidget(closeBtn);
             btnRow.appendChild(openBtn); btnRow.appendChild(closeBtn);
         }
         card.appendChild(btnRow);
@@ -158,6 +164,7 @@ function buildIgnitionCard(ctrl, tab) {
         const armId  = `arm-${ctrl.refDes}-${tab.id}`;
         const armBox = document.createElement('input');
         armBox.type = 'checkbox'; armBox.id = armId; armBox.className = 'arm-checkbox';
+        markCmdWidget(armBox);   // gate ARM; FIRE stays controlled by the ARM handler
         const armLbl = document.createElement('label');
         armLbl.htmlFor = armId; armLbl.textContent = 'ARM'; armLbl.className = 'arm-label';
         const fireBtn = mkEl('button', 'btn btn-fire', 'FIRE');
@@ -186,6 +193,7 @@ function buildDigitalOutCard(ctrl, _tab) {
         const offBtn = mkEl('button', 'btn btn-close', 'OFF');
         onBtn.addEventListener('click',  () => sendCommand(cmdCh.refDes, 1));
         offBtn.addEventListener('click', () => sendCommand(cmdCh.refDes, 0));
+        markCmdWidget(onBtn); markCmdWidget(offBtn);
         btnRow.appendChild(onBtn); btnRow.appendChild(offBtn);
         card.appendChild(btnRow);
     }
@@ -204,6 +212,7 @@ function buildVFDCard(ctrl, _tab) {
         input.className = 'vfd-input';
         const sendBtn = mkEl('button', 'btn', 'Set Hz');
         sendBtn.addEventListener('click', () => sendCommand(cmdCh.refDes, parseFloat(input.value)));
+        markCmdWidget(input); markCmdWidget(sendBtn);
         row.appendChild(input); row.appendChild(sendBtn);
         card.appendChild(row);
     }

@@ -40,413 +40,11 @@
 //
 // =============================================================================
 
-const PID = {
-    GRID:        20,    // px per grid cell
-    SENSOR_W:    120,   // sensor box width  (6 cells)
-    SENSOR_H:    50,    // sensor box height (2.5 cells)
-    NODE_R:      5,     // junction dot radius
-    PORT_R:      6,     // port hit-circle radius
-    PORT_OFF:    20,    // port offset from node centre
-    STUB:        40,    // orthogonal routing stub length
-    CANVAS_W:    2400,
-    CANVAS_H:    1800,
-    CORNER_R:    8,     // rounded corner radius px
-    OBS_MARGIN:  6,     // obstacle clearance margin px
-    VALVE_R:     18,    // valve circle radius px
-    VALVE_PORT_OFF: 0,  // valve port offset from centre px
-    DAQCTRL_W:   200,   // daqControl widget default width px (10 cells)
-    DAQCTRL_H:   60,    // daqControl widget default height px (3 cells)
-};
-
-// ── YAML serialiser ──────────────────────────────────────────────────────────
-
-function pidToYaml(layout) {
-    function q(s) {
-        s = String(s);
-        return /[:#{}[\],&*?|<>=!%@`'"\\]/.test(s) ? '"' + s.replace(/"/g, '\\"') + '"' : s;
-    }
-    let y = 'name: ' + q(layout.name || 'Untitled') + '\nversion: 1\nobjects:\n';
-    for (const o of layout.objects) {
-        y += '  - id: '   + q(o.id)  + '\n';
-        y += '    type: ' + o.type   + '\n';
-        if (o.type === 'graph') {
-            if (o.name)             y += '    name: '           + q(o.name)        + '\n';
-            y +=                        '    gridX: '           + o.gridX           + '\n';
-            y +=                        '    gridY: '           + o.gridY           + '\n';
-            y +=                        '    gridW: '           + (o.gridW || 20)   + '\n';
-            y +=                        '    gridH: '           + (o.gridH || 10)   + '\n';
-            if (o.showName === false)                          y += '    showName: false\n';
-            if (o.showLeftSidebar)                             y += '    showLeftSidebar: true\n';
-            if (o.legendPosition && o.legendPosition !== 'none') y += '    legendPosition: ' + o.legendPosition + '\n';
-            if (o.lines && o.lines.length) {
-                y += '    lines:\n';
-                for (const l of o.lines) {
-                    y += '      - refDes: ' + q(l.refDes) + '\n';
-                    if (l.color)           y += '        color: '  + q(l.color)  + '\n';
-                    if (l.yAxis && l.yAxis !== 1) y += '        yAxis: ' + l.yAxis + '\n';
-                    if (l.hidden)          y += '        hidden: true\n';
-                }
-            }
-        } else if (o.type === 'tank') {
-            y +=                              '    gridX: '  + o.gridX           + '\n';
-            y +=                              '    gridY: '  + o.gridY           + '\n';
-            y +=                              '    gridW: '  + (o.gridW  || 5)   + '\n';
-            y +=                              '    gridH: '  + (o.gridH  || 8)   + '\n';
-            if (o.rotation)              y += '    rotation: ' + o.rotation      + '\n';
-            if (o.cornerR !== undefined) y += '    cornerR: '  + o.cornerR       + '\n';
-            if (o.label)                 y += '    label: '    + q(o.label)      + '\n';
-            if (o.showLabel === false)   y += '    showLabel: false\n';
-            if (o.labelOffsetX)          y += '    labelOffsetX: ' + o.labelOffsetX + '\n';
-            if (o.labelOffsetY)          y += '    labelOffsetY: ' + o.labelOffsetY + '\n';
-        } else if (o.type === 'valve') {
-            if (o.controlRefDes)        y += '    controlRefDes: ' + q(o.controlRefDes) + '\n';
-            if (o.showRefDes === false)  y += '    showRefDes: false\n';
-            if (o.rotation)             y += '    rotation: ' + o.rotation + '\n';
-            y +=                             '    gridX: ' + o.gridX + '\n';
-            y +=                             '    gridY: ' + o.gridY + '\n';
-            if (o.labelOffsetX)         y += '    labelOffsetX: ' + o.labelOffsetX + '\n';
-            if (o.labelOffsetY)         y += '    labelOffsetY: ' + o.labelOffsetY + '\n';
-        } else if (o.type === 'daqControl') {
-            if (o.daqRefDes)           y += '    daqRefDes: ' + q(o.daqRefDes) + '\n';
-            y +=                           '    gridX: ' + o.gridX + '\n';
-            y +=                           '    gridY: ' + o.gridY + '\n';
-            if (o.gridW && o.gridW !== 10) y += '    gridW: ' + o.gridW + '\n';
-            if (o.gridH && o.gridH !== 3)  y += '    gridH: ' + o.gridH + '\n';
-        } else {
-            if (o.refDes)              y += '    refDes: ' + q(o.refDes) + '\n';
-            if (o.units)               y += '    units: '  + q(o.units)  + '\n';
-            if (o.showRefDes === false) y += '    showRefDes: false\n';
-            if (o.showUnits  === false) y += '    showUnits: false\n';
-            if (o.showName   === true)  y += '    showName: true\n';
-            if (o.rotation)            y += '    rotation: '    + o.rotation      + '\n';
-            y +=                           '    gridX: '   + o.gridX    + '\n';
-            y +=                           '    gridY: '   + o.gridY    + '\n';
-            if (o.labelOffsetX)        y += '    labelOffsetX: ' + o.labelOffsetX + '\n';
-            if (o.labelOffsetY)        y += '    labelOffsetY: ' + o.labelOffsetY + '\n';
-        }
-    }
-    y += 'connections:\n';
-    for (const c of layout.connections) {
-        y += '  - id: '       + q(c.id)       + '\n';
-        y += '    fromId: '   + q(c.fromId)   + '\n';
-        y += '    fromPort: ' + c.fromPort     + '\n';
-        y += '    toId: '     + q(c.toId)     + '\n';
-        y += '    toPort: '   + c.toPort       + '\n';
-        if (c.fluid)          y += '    fluid: '    + c.fluid        + '\n';
-    }
-    return y;
-}
-
-// ── YAML parser (handles our exact schema only) ──────────────────────────────
-
-function pidFromYaml(text) {
-    const out = { name: 'Untitled', version: 1, objects: [], connections: [] };
-    let section = null, cur = null, subSection = null, subCur = null;
-    function uq(s) { return s.trim().replace(/^["']|["']$/g, ''); }
-    function coerce(v) {
-        const u = uq(v);
-        if (u === 'true')  return true;
-        if (u === 'false') return false;
-        return (u !== '' && !isNaN(u)) ? Number(u) : u;
-    }
-    function kv(obj, str) {
-        const m = str.match(/^([\w]+):\s*(.*)/);
-        if (m) obj[m[1]] = coerce(m[2]);
-    }
-    for (const raw of text.split(/\r?\n/)) {
-        const t = raw.trim();
-        if (!t || t.startsWith('#')) continue;
-        const ind = raw.search(/\S/);
-        if (ind === 0) {
-            subSection = null; subCur = null;
-            const m = t.match(/^(\w+):\s*(.*)/);
-            if (!m) continue;
-            if      (m[1] === 'name')        out.name    = uq(m[2]);
-            else if (m[1] === 'version')     out.version = parseInt(m[2]) || 1;
-            else if (m[1] === 'objects')     { section = 'objects';     cur = null; }
-            else if (m[1] === 'connections') { section = 'connections'; cur = null; }
-        } else if (ind <= 3) {
-            // Section item: "  - id: ..."
-            subSection = null; subCur = null;
-            if (t.startsWith('- ')) {
-                cur = {};
-                if (section === 'objects')     out.objects.push(cur);
-                if (section === 'connections') out.connections.push(cur);
-                kv(cur, t.slice(2));
-            } else if (cur) {
-                kv(cur, t);
-            }
-        } else if (ind <= 5) {
-            // Object property at indent 4: "    key: value" or "    lines:"
-            if (cur) {
-                const m = t.match(/^([\w]+):\s*(.*)/);
-                if (m) {
-                    if (m[2] === '' || m[2].trim() === '') {
-                        // Subsection header (e.g. "    lines:")
-                        subSection = m[1];
-                        if (!cur[subSection]) cur[subSection] = [];
-                        subCur = null;
-                    } else {
-                        subSection = null; subCur = null;
-                        cur[m[1]] = coerce(m[2]);
-                    }
-                }
-            }
-        } else {
-            // Subsection item or property at indent 6+
-            if (t.startsWith('- ') && subSection && cur) {
-                subCur = {};
-                cur[subSection].push(subCur);
-                kv(subCur, t.slice(2));
-            } else if (subCur) {
-                kv(subCur, t);
-            }
-        }
-    }
-    return out;
-}
-
-// ── SVG namespace helper ─────────────────────────────────────────────────────
-
-function svgN(tag, attrs) {
-    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
-    if (attrs) for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
-    return el;
-}
-
-// ── Port positions ───────────────────────────────────────────────────────────
-
-function portPos(obj, port) {
-    const x = obj.gridX * PID.GRID;
-    const y = obj.gridY * PID.GRID;
-    if (obj.type === 'sensor') {
-        if (port === 'bottom') return { x: x + PID.SENSOR_W / 2, y: y + PID.SENSOR_H };
-    }
-    if (obj.type === 'node') {
-        return { x, y };
-    }
-    if (obj.type === 'valve') {
-        const off = PID.VALVE_PORT_OFF;
-        if (port === 'top')    return { x,        y: y - off };
-        if (port === 'right')  return { x: x+off, y };
-        if (port === 'bottom') return { x,        y: y + off };
-        if (port === 'left')   return { x: x-off, y };
-    }
-    if (obj.type === 'daqControl') {
-        const w = (obj.gridW || 10) * PID.GRID;
-        const h = (obj.gridH || 3)  * PID.GRID;
-        if (port === 'top')    return { x: x + w / 2, y };
-        if (port === 'right')  return { x: x + w,     y: y + h / 2 };
-        if (port === 'bottom') return { x: x + w / 2, y: y + h };
-        if (port === 'left')   return { x,             y: y + h / 2 };
-    }
-    return { x, y };
-}
-
-// ── Obstacle-aware orthogonal router ────────────────────────────────────────
-
-function pidObstacleRects(objects, excludeIds) {
-    const M = PID.OBS_MARGIN;
-    return objects
-        .filter(o => !excludeIds.has(o.id) && (o.type === 'sensor' || o.type === 'graph' || o.type === 'valve' || o.type === 'tank' || o.type === 'daqControl'))
-        .map(o => {
-            if (o.type === 'tank') {
-                const rot = o.rotation || 0;
-                const W = (o.gridW || 5) * PID.GRID;
-                const H = (o.gridH || 8) * PID.GRID;
-                // For 90/270 rotations swap W and H for bounding box
-                const bW = (rot === 90 || rot === 270) ? H : W;
-                const bH = (rot === 90 || rot === 270) ? W : H;
-                const cx = o.gridX * PID.GRID + W / 2;
-                const cy = o.gridY * PID.GRID + H / 2;
-                return { x1: cx - bW/2 - M, y1: cy - bH/2 - M, x2: cx + bW/2 + M, y2: cy + bH/2 + M };
-            }
-            if (o.type === 'graph') {
-                return {
-                    x1: o.gridX * PID.GRID - M,
-                    y1: o.gridY * PID.GRID - M,
-                    x2: o.gridX * PID.GRID + (o.gridW || 20) * PID.GRID + M,
-                    y2: o.gridY * PID.GRID + (o.gridH || 10) * PID.GRID + M,
-                };
-            }
-            if (o.type === 'valve') {
-                const x = o.gridX * PID.GRID, y = o.gridY * PID.GRID, R = PID.VALVE_R;
-                return { x1: x-R-M, y1: y-R-M, x2: x+R+M, y2: y+R+M };
-            }
-            if (o.type === 'daqControl') {
-                return {
-                    x1: o.gridX * PID.GRID - M,
-                    y1: o.gridY * PID.GRID - M,
-                    x2: o.gridX * PID.GRID + (o.gridW || 10) * PID.GRID + M,
-                    y2: o.gridY * PID.GRID + (o.gridH || 3) * PID.GRID + M,
-                };
-            }
-            return {
-                x1: o.gridX * PID.GRID - M,
-                y1: o.gridY * PID.GRID - M,
-                x2: o.gridX * PID.GRID + PID.SENSOR_W + M,
-                y2: o.gridY * PID.GRID + PID.SENSOR_H + M,
-            };
-        });
-}
-
-function pidSegClear(ax, ay, bx, by, rects) {
-    if (ax === bx && ay === by) return true;
-    for (const r of rects) {
-        if (ay === by) {
-            const lo = Math.min(ax, bx), hi = Math.max(ax, bx);
-            if (ay > r.y1 && ay < r.y2 && hi > r.x1 && lo < r.x2) return false;
-        } else if (ax === bx) {
-            const lo = Math.min(ay, by), hi = Math.max(ay, by);
-            if (ax > r.x1 && ax < r.x2 && hi > r.y1 && lo < r.y2) return false;
-        }
-    }
-    return true;
-}
-
-function pidRoundedPath(pts, r) {
-    const s = [pts[0]];
-    for (let i = 1; i < pts.length - 1; i++) {
-        const prev = s[s.length - 1], curr = pts[i], next = pts[i + 1];
-        const dx1 = Math.sign(curr.x - prev.x), dy1 = Math.sign(curr.y - prev.y);
-        const dx2 = Math.sign(next.x - curr.x), dy2 = Math.sign(next.y - curr.y);
-        if (dx1 !== dx2 || dy1 !== dy2) s.push(curr);
-    }
-    s.push(pts[pts.length - 1]);
-    if (s.length < 2) return '';
-
-    let d = 'M ' + s[0].x + ' ' + s[0].y;
-    for (let i = 1; i < s.length; i++) {
-        const prev = s[i - 1], curr = s[i], next = i < s.length - 1 ? s[i + 1] : null;
-        if (next) {
-            const dx1 = Math.sign(curr.x - prev.x), dy1 = Math.sign(curr.y - prev.y);
-            const dx2 = Math.sign(next.x - curr.x), dy2 = Math.sign(next.y - curr.y);
-            if (dx1 !== dx2 || dy1 !== dy2) {
-                const len1 = Math.abs(curr.x - prev.x) + Math.abs(curr.y - prev.y);
-                const len2 = Math.abs(next.x - curr.x) + Math.abs(next.y - curr.y);
-                const rr   = Math.min(r, len1 / 2, len2 / 2);
-                d += ' L ' + (curr.x - dx1 * rr) + ' ' + (curr.y - dy1 * rr);
-                d += ' Q ' + curr.x + ' ' + curr.y + ' ' + (curr.x + dx2 * rr) + ' ' + (curr.y + dy2 * rr);
-                continue;
-            }
-        }
-        d += ' L ' + curr.x + ' ' + curr.y;
-    }
-    return d;
-}
-
-function pidCandidateClear(pts, noFromRects, noToRects, allRects) {
-    const last = pts.length - 2;
-    for (let i = 0; i <= last; i++) {
-        const rects = i === 0 ? noFromRects : i === last ? noToRects : allRects;
-        if (!pidSegClear(pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y, rects)) return false;
-    }
-    return true;
-}
-
-function orthRouteAvoiding(p1, d1, p2, d2, objects, fromId, toId) {
-    function ext(p, d, dist) {
-        if (d === 'top')    return { x: p.x,        y: p.y - dist };
-        if (d === 'bottom') return { x: p.x,        y: p.y + dist };
-        if (d === 'right')  return { x: p.x + dist, y: p.y };
-        return                      { x: p.x - dist, y: p.y };
-    }
-    const G = PID.GRID, S = PID.STUB, R = PID.CORNER_R;
-    const s1 = ext(p1, d1, S), s2 = ext(p2, d2, S);
-
-    const allRects    = pidObstacleRects(objects, new Set());
-    const noFromRects = pidObstacleRects(objects, new Set([fromId]));
-    const noToRects   = pidObstacleRects(objects, new Set([toId]));
-
-    function zOk(my) {
-        if (d1 === 'bottom' && my < s1.y) return false;
-        if (d1 === 'top'    && my > s1.y) return false;
-        if (d2 === 'bottom' && my < s2.y) return false;
-        if (d2 === 'top'    && my > s2.y) return false;
-        return true;
-    }
-    function uOk(mx) {
-        if (d1 === 'right' && mx < s1.x) return false;
-        if (d1 === 'left'  && mx > s1.x) return false;
-        if (d2 === 'right' && mx < s2.x) return false;
-        if (d2 === 'left'  && mx > s2.x) return false;
-        return true;
-    }
-
-    const offsets = [0, G, -G, 2*G, -2*G, 3*G, -3*G, 4*G, -4*G, 6*G, -6*G, 8*G, -8*G, 10*G, -10*G];
-
-    if (Math.abs(s1.x - s2.x) < 1 || Math.abs(s1.y - s2.y) < 1) {
-        const pts = [p1, s1, s2, p2];
-        if (pidCandidateClear(pts, noFromRects, noToRects, allRects))
-            return { d: pidRoundedPath(pts, R), error: null };
-    }
-
-    // Try L-shapes: single corner after stubs — simpler than Z/U when unobstructed
-    function lOk1() { // corner at (s2.x, s1.y): s1 goes horizontal, then vertical to s2
-        if (d1 === 'right'  && s2.x < s1.x) return false;
-        if (d1 === 'left'   && s2.x > s1.x) return false;
-        if (d2 === 'bottom' && s1.y > s2.y) return false;
-        if (d2 === 'top'    && s1.y < s2.y) return false;
-        return true;
-    }
-    function lOk2() { // corner at (s1.x, s2.y): s1 goes vertical, then horizontal to s2
-        if (d1 === 'bottom' && s2.y < s1.y) return false;
-        if (d1 === 'top'    && s2.y > s1.y) return false;
-        if (d2 === 'right'  && s1.x < s2.x) return false;
-        if (d2 === 'left'   && s1.x > s2.x) return false;
-        return true;
-    }
-    if (lOk1()) {
-        const lPts = [p1, s1, { x: s2.x, y: s1.y }, s2, p2];
-        if (pidCandidateClear(lPts, noFromRects, noToRects, allRects))
-            return { d: pidRoundedPath(lPts, R), error: null };
-    }
-    if (lOk2()) {
-        const lPts = [p1, s1, { x: s1.x, y: s2.y }, s2, p2];
-        if (pidCandidateClear(lPts, noFromRects, noToRects, allRects))
-            return { d: pidRoundedPath(lPts, R), error: null };
-    }
-
-    for (const off of offsets) {
-        const my = Math.round((s1.y + s2.y) / 2 / G) * G + off;
-        if (zOk(my)) {
-            const zPts = [p1, s1, { x: s1.x, y: my }, { x: s2.x, y: my }, s2, p2];
-            if (pidCandidateClear(zPts, noFromRects, noToRects, allRects))
-                return { d: pidRoundedPath(zPts, R), error: null };
-        }
-
-        const mx = Math.round((s1.x + s2.x) / 2 / G) * G + off;
-        if (uOk(mx)) {
-            const uPts = [p1, s1, { x: mx, y: s1.y }, { x: mx, y: s2.y }, s2, p2];
-            if (pidCandidateClear(uPts, noFromRects, noToRects, allRects))
-                return { d: pidRoundedPath(uPts, R), error: null };
-        }
-    }
-
-    let fallPts = null;
-    for (const off of [0, G, -G, 2*G, -2*G, 4*G, -4*G, 6*G, -6*G]) {
-        const my = Math.round((s1.y + s2.y) / 2 / G) * G + off;
-        if (zOk(my)) {
-            fallPts = [p1, s1, { x: s1.x, y: my }, { x: s2.x, y: my }, s2, p2];
-            break;
-        }
-        const mx = Math.round((s1.x + s2.x) / 2 / G) * G + off;
-        if (uOk(mx)) {
-            fallPts = [p1, s1, { x: mx, y: s1.y }, { x: mx, y: s2.y }, s2, p2];
-            break;
-        }
-    }
-    if (!fallPts) fallPts = [p1, s1, s2, p2];
-    return { d: pidRoundedPath(fallPts, R), error: 'Could not route without crossing an object' };
-}
-
-// ── SVG coordinate from pointer event ───────────────────────────────────────
-
-function pidSvgPt(svgEl, e) {
-    const pt = svgEl.createSVGPoint();
-    pt.x = e.clientX; pt.y = e.clientY;
-    return pt.matrixTransform(svgEl.getScreenCTM().inverse());
-}
+// ── Shared render/serialisation helpers moved to pidRender.js ────────────────
+// PID (constants), svgN, pidSvgPt, portPos, pidFromYaml and the valve-symbol
+// geometry helpers now live in pidRender.js, shared with the standalone editor
+// so the same YAML renders identically on both pages. pidToYaml also lived here
+// but was unused by the viewer, so it was removed.
 
 // =============================================================================
 // buildFrontPanelContent  — called by tabs.js when creating a front-panel tab
@@ -634,8 +232,37 @@ function renderPidAll(tab) {
 
     tab.pid.gObjs.innerHTML  = '';
     tab.pid.gConns.innerHTML = '';
-    for (const obj of tab.pid.objects) renderPidObj(tab, obj);
-    for (const conn of tab.pid.connections) renderPidConn(tab, conn);
+    tab.pid._routedPaths     = new Map();   // connId -> Array<{x,y}>; feeds pipe-overlap avoidance
+    // Render each object/connection in isolation — one malformed object (e.g. an
+    // embedded graph that fails to initialise) must not blank the whole panel.
+    // Objects render before connections, so without this a single throwing object
+    // would drop every pipe.
+    // Browser-local render failures only — the server cannot see them, so these
+    // stay client-side (every SYSTEM alert comes from the control node).
+    for (const obj of tab.pid.objects) {
+        try { renderPidObj(tab, obj); }
+        catch (e) {
+            console.error('pid: object', obj.id, '(' + obj.type + ') failed to render:', e);
+            if (typeof ingestAlert === 'function') ingestAlert({
+                id:        'piderr:' + obj.id,   // stable id → replaces, doesn't stack
+                category:  'warning',
+                message:   'Panel: "' + obj.type + '" object failed to render (' + obj.id + ')',
+                timestamp: Date.now(), acked: false,
+            });
+        }
+    }
+    for (const conn of tab.pid.connections) {
+        try { renderPidConn(tab, conn); }
+        catch (e) {
+            console.error('pid: connection', conn.id, 'failed to render:', e);
+            if (typeof ingestAlert === 'function') ingestAlert({
+                id:        'piderr:' + conn.id,
+                category:  'warning',
+                message:   'Panel: pipe failed to render (' + conn.id + ')',
+                timestamp: Date.now(), acked: false,
+            });
+        }
+    }
     rebindPidLiveData(tab);
 }
 
@@ -722,8 +349,13 @@ function makeSensorGroup(obj) {
 function makeDaqControlGroup(obj) {
     const W = (obj.gridW || 10) * PID.GRID;
     const H = (obj.gridH || 3)  * PID.GRID;
-    const daqRef = obj.daqRefDes || '';
-    const cfg = daqControlConfig[daqRef];
+    // daqRefDes holds the state MACHINE name (e.g. "fuelSeq"), matching
+    // state_config machines[].name.  Layouts that predate machines have none.
+    const machineName = obj.daqRefDes || '';
+    if (!machineName) {
+        console.warn('pid: daqControl object "' + obj.id +
+            '" has no daqRefDes (state machine name) — widget is unbound and cannot command transitions');
+    }
 
     const g = svgN('g', {
         class: 'pid-obj pid-daqctrl',
@@ -736,9 +368,9 @@ function makeDaqControlGroup(obj) {
         class: 'pid-daqctrl-bg', x: 0, y: 0, width: W, height: H, rx: 4,
     }));
 
-    // Top row: DAQ refDes label (left) + connection status (right)
+    // Top row: label (or machine name fallback) + connection status (right)
     const labelEl = svgN('text', { class: 'pid-daqctrl-label', x: 8, y: 18 });
-    labelEl.textContent = daqRef || 'DAQ???';
+    labelEl.textContent = obj.label || machineName || 'unbound';
     g.appendChild(labelEl);
 
     const connEl = svgN('text', { class: 'pid-daqctrl-conn', x: W - 8, y: 18 });
@@ -747,7 +379,7 @@ function makeDaqControlGroup(obj) {
 
     // Bottom row: state label (left) + dropdown (right via foreignObject)
     const stateEl = svgN('text', { class: 'pid-daqctrl-state', x: 8, y: H - 12 });
-    stateEl.textContent = 'State: ---';
+    stateEl.textContent = machineName ? 'State: ---' : 'State: unbound';
     g.appendChild(stateEl);
 
     // Dropdown in foreignObject
@@ -758,23 +390,22 @@ function makeDaqControlGroup(obj) {
         sel.className = 'pid-daqctrl-select';
         sel.setAttribute('data-daqctrl-select', '');
         sel.style.width = '100%';
+        // Only a bound widget is a command widget; an unbound one must stay
+        // disabled even after the operator logs in (updateCommandWidgets()
+        // re-enables everything tagged .cmd-widget).
+        if (machineName) markCmdWidget(sel);
+        else sel.disabled = true;
 
         // Populate with initial placeholder
         const placeholder = document.createElement('option');
         placeholder.value = '';
-        placeholder.textContent = '-- transition --';
+        placeholder.textContent = machineName ? '-- transition --' : '(unbound)';
         placeholder.disabled = true;
         placeholder.selected = true;
         sel.appendChild(placeholder);
 
-        sel.addEventListener('change', () => {
-            const target = sel.value;
-            if (!target) return;
-            // Send command to request state transition
-            // Use SYS-TARGET-STATE or a per-DAQ channel
-            sendCommand('SYS-TARGET-STATE', target);
-            sel.selectedIndex = 0;
-        });
+        // The change handler is installed by _updateDaqControlState once
+        // state_config arrives (it needs the machine's targetRefDes).
 
         fo.appendChild(sel);
         g.appendChild(fo);
@@ -836,42 +467,8 @@ function makeTankGroup(obj) {
 
 // Returns SVG line attributes for the IO-CMD center line.
 // open (truthy) = horizontal (0°), closed (falsy) = vertical (90°).
-function _valveLineAttrs(isOpen) {
-    const L = PID.VALVE_R - 3;
-    return isOpen
-        ? { x1: -L, y1: 0,  x2: L, y2: 0  }
-        : { x1: 0,  y1: -L, x2: 0, y2: L  };
-}
-
-// Returns SVG arc path for POS-FB feedback.
-// pct 100 = open (pointer at 180°), pct 0 = closed (pointer at 90°).
-function _valveArcPath(pct) {
-    const R = PID.VALVE_R + 7;
-    const endAngle = Math.PI - (Math.max(0, Math.min(100, pct)) / 100) * (Math.PI / 2);
-    const startAngle = Math.PI;
-    if (Math.abs(startAngle - endAngle) < 0.01) return '';
-    const x1 = Math.cos(startAngle) * R, y1 = Math.sin(startAngle) * R;
-    const x2 = Math.cos(endAngle)   * R, y2 = Math.sin(endAngle)   * R;
-    return 'M ' + x1 + ' ' + y1 + ' A ' + R + ' ' + R + ' 0 0 1 ' + x2 + ' ' + y2;
-}
-
-// Returns {cx, cy} for the POS-FB pointer dot.
-function _valvePtrPos(pct) {
-    const R = PID.VALVE_R + 7;
-    const angle = Math.PI - (Math.max(0, Math.min(100, pct)) / 100) * (Math.PI / 2);
-    return { cx: Math.cos(angle) * R, cy: Math.sin(angle) * R };
-}
-
-// Determines command/feedback type from ctrl.subType string.
-function _valveSubtypeInfo(ctrl) {
-    if (!ctrl) return { hasCmd: false, cmdRole: null, hasFb: false, fbIsPct: false };
-    const st = (ctrl.subType || '').toUpperCase();
-    const hasCmd  = st.includes('IO-CMD') || st.includes('POS-CMD');
-    const cmdRole = st.includes('POS-CMD') ? 'cmd-pct' : (hasCmd ? 'cmd-bool' : null);
-    const hasFb   = st.includes('IO-FB') || st.includes('POS-FB');
-    const fbIsPct = st.includes('POS-FB');
-    return { hasCmd, cmdRole, hasFb, fbIsPct };
-}
+// Valve symbol geometry helpers (_valveLineAttrs, _valveArcPath, _valvePtrPos,
+// _valveSubtypeInfo) moved to pidRender.js — shared with the editor.
 
 function makeValveGroup(obj) {
     const ctrl  = configControls.find(c => c.refDes === obj.controlRefDes);
@@ -1200,7 +797,8 @@ function makeGraphGroup(obj, tab) {
     }
     if (obj.lines?.length) cell.chart.update('none');
 
-    // Attach scroll-zoom and proximity tooltip
+    // Attach drag-pan, scroll-zoom and proximity tooltip
+    attachDragPan(canvas, cell);
     attachScrollZoom(canvas, cell);
     attachProximityTooltip(canvas, cell);
 
@@ -1221,12 +819,16 @@ function renderPidConn(tab, conn) {
     const to   = tab.pid.objects.find(o => o.id === conn.toId);
     if (!from || !to) return;
 
+    if (!tab.pid._routedPaths) tab.pid._routedPaths = new Map();
+
     const p1 = portPos(from, conn.fromPort);
     const p2 = portPos(to,   conn.toPort);
-    const { d } = orthRouteAvoiding(
-        p1, conn.fromPort, p2, conn.toPort,
-        tab.pid.objects, conn.fromId, conn.toId
-    );
+    const pipeSegs = pidPipeSegs(tab.pid._routedPaths, conn.id);
+    const { d, pts } = pidRoute({
+        p1, d1: conn.fromPort, p2, d2: conn.toPort,
+        objects: tab.pid.objects, pipeSegs,
+    });
+    tab.pid._routedPaths.set(conn.id, pts);
 
     let wrap = tab.pid.gConns.querySelector('[data-conn-id="' + conn.id + '"]');
     if (!wrap) {
@@ -1244,43 +846,64 @@ function renderPidConn(tab, conn) {
 // DAQ Control helpers
 // =============================================================================
 
-function _updateDaqControlState(svgEl, id, daqRef, stateValue) {
-    const cfg = daqControlConfig[daqRef];
-    if (!cfg) return;
-    const stateNames = Object.keys(cfg.states);
-    const stateIdx = typeof stateValue === 'number' ? Math.round(stateValue) : parseInt(stateValue, 10);
-    const stateName = stateNames[stateIdx] || ('state_' + stateValue);
+// _updateDaqControlState renders the machine's current state into one widget.
+// stateValue accepts BOTH shapes the server produces:
+//   • a string  — the state NAME, from the authoritative state_change message
+//   • a number  — the state INDEX, from the SM-<MACHINE>-STATE data channel,
+//                 resolved through machineStateConfig[].states[].index
+function _updateDaqControlState(svgEl, id, machineName, stateValue) {
+    const machineConfig = machineStateConfig[machineName];
+    if (!machineConfig) return;
+
+    // Resolve state name
+    let stateName;
+    if (typeof stateValue === 'number') {
+        const stIdx = Math.round(stateValue);
+        const states = machineConfig.states || [];
+        stateName = (states.find(s => s.index === stIdx) || states[stIdx])?.name
+            || ('state_' + stateValue);
+    } else {
+        stateName = String(stateValue);
+    }
+    machineCurrentState[machineName] = stateName;
 
     // Update state text
     const stateEl = svgEl.querySelector('[data-pid-id="' + id + '"] .pid-daqctrl-state');
     if (stateEl) stateEl.textContent = 'State: ' + stateName;
 
-    // Update dropdown with valid operator transitions from current state
+    // Update dropdown with operator-accessible states
     const sel = svgEl.querySelector('[data-pid-id="' + id + '"] [data-daqctrl-select]');
     if (!sel) return;
 
-    const stDef = cfg.states[stateName];
-    const opTransitions = stDef
-        ? stDef.transitions.filter(t => t.on === 'operator_request' || t.on === 'operator_abort')
-        : [];
+    const operatorStates = (machineConfig.states || []).filter(s => s.operator);
+    const targetRefDes = machineConfig.targetRefDes;
 
     // Rebuild dropdown options
     sel.innerHTML = '';
     const placeholder = document.createElement('option');
     placeholder.value = '';
-    placeholder.textContent = opTransitions.length ? '-- transition --' : '(no transitions)';
+    placeholder.textContent = operatorStates.length ? '-- transition --' : '(no transitions)';
     placeholder.disabled = true;
     placeholder.selected = true;
     sel.appendChild(placeholder);
 
-    for (const t of opTransitions) {
+    for (const st of operatorStates) {
         const opt = document.createElement('option');
-        const targetIdx = stateNames.indexOf(t.target);
-        opt.value = targetIdx >= 0 ? String(targetIdx) : t.target;
-        opt.textContent = t.target;
+        opt.value = st.name;  // Send state NAME as string
+        opt.textContent = st.name;
         sel.appendChild(opt);
     }
-    sel.disabled = opTransitions.length === 0;
+    // Respect auth gating: rebuilding the dropdown must not hand an
+    // unauthenticated browser a live command control.
+    sel.disabled = operatorStates.length === 0 || !operatorName;
+
+    // Update the change handler to use the new targetRefDes and send as string
+    sel.onchange = () => {
+        const target = sel.value;
+        if (!target) return;
+        sendCommand(targetRefDes, target);  // Send as STRING, not number
+        sel.selectedIndex = 0;
+    };
 }
 
 // =============================================================================
@@ -1339,18 +962,25 @@ function rebindPidLiveData(tab) {
             }
         }
 
-        // ── daqControl: bind SYS-STATE + connection staleness ──────────────
+        // ── daqControl: bind SM-<MACHINE>-STATE + connection staleness ──────────────
         if (obj.type === 'daqControl' && obj.daqRefDes) {
             const id = obj.id;
-            const daqRef = obj.daqRefDes;
-            const cfg = daqControlConfig[daqRef];
-            const stateNames = cfg ? Object.keys(cfg.states) : [];
+            const machineName = obj.daqRefDes;  // daqRefDes now holds the machine name
+            const smStateRefDes = 'SM-' + machineName + '-STATE';
             let connStaleTimer = null;
 
-            // Listen for SYS-STATE to update current state + dropdown
-            tab.channelUpdaters['SYS-STATE'] = value => {
-                _updateDaqControlState(tab.pid.svgEl, id, daqRef, value);
+            // Listen for SM-<MACHINE>-STATE (numeric index) to update current
+            // state + dropdown.  state_change (state NAME) drives the same
+            // function from ws.js — whichever arrives first wins.
+            tab.channelUpdaters[smStateRefDes] = value => {
+                _updateDaqControlState(tab.pid.svgEl, id, machineName, value);
             };
+
+            // A re-render (new layout, new state_config) must not blank the
+            // widget: repaint the last known state immediately.
+            if (machineCurrentState[machineName] !== undefined) {
+                _updateDaqControlState(tab.pid.svgEl, id, machineName, machineCurrentState[machineName]);
+            }
 
             // Track connection via CTR001-daqConnected
             tab.channelUpdaters['CTR001-daqConnected'] = value => {

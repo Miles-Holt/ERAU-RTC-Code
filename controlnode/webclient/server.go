@@ -2,31 +2,196 @@
 package webclient
 
 import (
+	"controlnode/alerts"
 	"controlnode/broker"
+	"controlnode/statemachine"
 	"encoding/json"
 	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
 
+// StateMachineRequester is the interface the webclient needs from the state machine engine.
+type StateMachineRequester interface {
+	RequestTarget(machine, state string) error
+}
+
+// =============================================================================
+// Browser protocol builders
+// =============================================================================
+//
+// Every browser-bound message whose shape the WebClient depends on is built by
+// one of the functions below.  main.go calls them for the live system and
+// protocol_test.go calls the same functions, so a renamed Go field breaks the
+// contract test instead of silently blanking a widget in the browser.
+
+// stateConfigState is one entry of machines[].states[] in the state_config
+// message.  Read by WebClient/js/ws.js (applyStateConfig) and
+// WebClient/js/pid.js (_updateDaqControlState).
+type stateConfigState struct {
+	Name     string `json:"name"`
+	Index    int    `json:"index"`
+	Operator bool   `json:"operator"`
+}
+
+// stateConfigMachine is one entry of machines[] in the state_config message.
+type stateConfigMachine struct {
+	Name         string             `json:"name"`
+	TargetRefDes string             `json:"targetRefDes"`
+	States       []stateConfigState `json:"states"`
+}
+
+type stateConfigMsg struct {
+	Type     string               `json:"type"`
+	Machines []stateConfigMachine `json:"machines"`
+}
+
+// BuildStateConfigJSON builds the state_config message from compiled machines.
+// It lists every machine with its states and its SM-<NAME>-TARGET refDes.
+// Returns nil when no machines are loaded (the server then sends nothing).
+func BuildStateConfigJSON(prog *statemachine.Program) []byte {
+	if prog == nil || len(prog.Machines) == 0 {
+		return nil
+	}
+
+	msg := stateConfigMsg{Type: "state_config"}
+	for _, m := range prog.Machines {
+		mc := stateConfigMachine{
+			Name:         m.Name,
+			TargetRefDes: "SM-" + m.Name + "-TARGET",
+			States:       []stateConfigState{},
+		}
+		for _, st := range m.States {
+			mc.States = append(mc.States, stateConfigState{
+				Name:     st.Name,
+				Index:    st.Index,
+				Operator: st.Operator,
+			})
+		}
+		msg.Machines = append(msg.Machines, mc)
+	}
+
+	payload, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("webclient: marshal state_config: %v", err)
+		return nil
+	}
+	return payload
+}
+
+// stateChangeMsg is the authoritative "machine X is now in state Y" broadcast.
+// Read by WebClient/js/ws.js (applyStateChange).
+type stateChangeMsg struct {
+	Type    string `json:"type"`
+	Machine string `json:"machine"`
+	State   string `json:"state"`
+}
+
+// StateChangeJSON builds the state_change broadcast the engine's OnStateChange
+// callback publishes.  The state is the state NAME (the numeric
+// SM-<NAME>-STATE channel carries the index on the data path).
+func StateChangeJSON(machine, state string) []byte {
+	payload, err := json.Marshal(stateChangeMsg{Type: "state_change", Machine: machine, State: state})
+	if err != nil {
+		log.Printf("webclient: marshal state_change: %v", err)
+		return nil
+	}
+	return payload
+}
+
+// pidLayoutMsg carries one front-panel layout file to the browser.
+// Read by WebClient/js/ws.js (applyPidLayout).
+type pidLayoutMsg struct {
+	Type     string `json:"type"`
+	Name     string `json:"name"`
+	Filename string `json:"filename"`
+	Content  string `json:"content"`
+}
+
+// PidLayoutJSON builds a pid_layout message.  Used both when panels are loaded
+// from disk at startup and when an operator saves a layout over /ws/ctrl.
+func PidLayoutJSON(name, filename, content string) []byte {
+	payload, err := json.Marshal(pidLayoutMsg{
+		Type: "pid_layout", Name: name, Filename: filename, Content: content,
+	})
+	if err != nil {
+		log.Printf("webclient: marshal pid_layout %q: %v", filename, err)
+		return nil
+	}
+	return payload
+}
+
+// alertAckedMsg tells every browser an alert was acknowledged.
+// Read by WebClient/js/ws.js (ackAlertLocally(msg.id)).
+type alertAckedMsg struct {
+	Type string `json:"type"`
+	ID   string `json:"id"`
+}
+
+// AlertAckedJSON builds the alert_acked broadcast.  It is sent both when an
+// operator acks an alert and when the server RESOLVES one (a non-latching rule
+// going false, a node reconnecting): to the browser, "resolved" and
+// "acknowledged" render identically — the row stops flashing.
+func AlertAckedJSON(id string) []byte {
+	payload, err := json.Marshal(alertAckedMsg{Type: "alert_acked", ID: id})
+	if err != nil {
+		log.Printf("webclient: marshal alert_acked: %v", err)
+		return nil
+	}
+	return payload
+}
+
+// alertMsg is one alert row pushed to the browser.  The record fields are
+// inlined at the top level (id/category/message/timestamp/acked) because
+// WebClient/js/alerts.js ingestAlert reads them straight off the message.
+type alertMsg struct {
+	Type string `json:"type"`
+	alerts.Record
+}
+
+// AlertJSON builds the `alert` broadcast for one registry record.
+func AlertJSON(rec alerts.Record) []byte {
+	payload, err := json.Marshal(alertMsg{Type: "alert", Record: rec})
+	if err != nil {
+		log.Printf("webclient: marshal alert: %v", err)
+		return nil
+	}
+	return payload
+}
+
+// alertSnapshotMsg is the full alert list, sent on connect and once a second.
+type alertSnapshotMsg struct {
+	Type   string          `json:"type"`
+	Alerts []alerts.Record `json:"alerts"`
+}
+
+// AlertSnapshotJSON builds the alert_snapshot broadcast, or nil when there is
+// nothing to send (the server then skips the send entirely).
+func AlertSnapshotJSON(recs []alerts.Record) []byte {
+	if len(recs) == 0 {
+		return nil
+	}
+	payload, err := json.Marshal(alertSnapshotMsg{Type: "alert_snapshot", Alerts: recs})
+	if err != nil {
+		log.Printf("webclient: marshal alert_snapshot: %v", err)
+		return nil
+	}
+	return payload
+}
+
 var upgrader = websocket.Upgrader{
 	// Allow all origins — this runs on a private LAN with no cross-origin concerns.
 	CheckOrigin: func(r *http.Request) bool { return true },
-}
-
-// alertRecord holds one alert entry in the server's in-memory alert list.
-type alertRecord struct {
-	ID        string `json:"id"`
-	Category  string `json:"category"`  // "info" | "warning" | "alarm"
-	Message   string `json:"message"`
-	Timestamp int64  `json:"timestamp"` // Unix ms
-	Acked     bool   `json:"acked"`
+	// permessage-deflate: telemetry frames are highly repetitive JSON (refDes keys
+	// repeated every tick), so compression is a large byte-savings on the browser link.
+	EnableCompression: true,
 }
 
 // Server listens for browser WebSocket connections on the configured port.
@@ -39,20 +204,53 @@ type Server struct {
 	b                  *broker.Broker
 	fileServer         http.Handler
 	userAuth           *UserAuthConfig
-	layoutPaths        map[string]string // filename → absolute disk path (immutable)
+	layoutPaths        map[string]string     // filename → absolute disk path (immutable)
+	engine             StateMachineRequester // state machine engine, or nil if not running
+
+	// alerts is THE server-side alert registry.  Rule alerts, per-daqNode
+	// template alerts and the server's own notices (layout saved, rejected
+	// state-machine target) all live in it, and this server is its publisher.
+	alerts *alerts.Registry
+
+	// docs holds the compiled configuration the /docs pages are rendered from.
+	// It is set once at startup (SetDocs) and read-only afterwards; nil in tests
+	// that do not exercise the documentation route.
+	docs *DocsInput
 
 	mu            sync.RWMutex
-	panelMessages [][]byte      // pid_layout messages; updated when a layout is saved
-	alerts        []alertRecord // in-memory alert list
+	panelMessages [][]byte // pid_layout messages; updated when a layout is saved
 }
+
+// PublishAlert implements alerts.Sink: broadcast one alert row.
+func (s *Server) PublishAlert(rec alerts.Record) {
+	if payload := AlertJSON(rec); payload != nil {
+		s.b.Publish(payload)
+	}
+}
+
+// PublishAlertAcked implements alerts.Sink: broadcast an ack/resolve.
+func (s *Server) PublishAlertAcked(id string) {
+	if payload := AlertAckedJSON(id); payload != nil {
+		s.b.Publish(payload)
+	}
+}
+
+// Alerts returns the registry the server publishes for, so the wiring layer can
+// hand it to the alert engine.
+func (s *Server) Alerts() *alerts.Registry { return s.alerts }
 
 // New creates a Server.
 // layoutPaths maps layout filename (e.g. "test_panel.yaml") → absolute path on disk.
 // Pass userAuth=nil to disable authentication (any credentials are accepted).
 // Pass softchanConfigJSON=nil if there are no software channels.
+// engine may be nil if no state machine engine is running.
+// alertRegistry may be nil, in which case the server creates its own (tests, and
+// any deployment without .alert config); either way the server is the registry's
+// publisher, so every alert reaches the browser through the same path.
 func New(port int, configJSON string, softchanConfigJSON []byte, stateConfigJSON []byte,
 	panelMessages [][]byte, b *broker.Broker, webRoot string, embedded fs.FS,
-	userAuth *UserAuthConfig, layoutPaths map[string]string) *Server {
+	userAuth *UserAuthConfig, layoutPaths map[string]string, engine StateMachineRequester,
+	alertRegistry *alerts.Registry) *Server {
 
 	var fsh http.Handler
 	if webRoot != "" {
@@ -60,7 +258,10 @@ func New(port int, configJSON string, softchanConfigJSON []byte, stateConfigJSON
 	} else if embedded != nil {
 		fsh = http.FileServer(http.FS(embedded))
 	}
-	return &Server{
+	if alertRegistry == nil {
+		alertRegistry = alerts.NewRegistry()
+	}
+	s := &Server{
 		port:               port,
 		configJSON:         []byte(configJSON),
 		softchanConfigJSON: softchanConfigJSON,
@@ -70,16 +271,31 @@ func New(port int, configJSON string, softchanConfigJSON []byte, stateConfigJSON
 		fileServer:         fsh,
 		userAuth:           userAuth,
 		layoutPaths:        layoutPaths,
+		engine:             engine,
+		alerts:             alertRegistry,
 	}
+	alertRegistry.SetSink(s)
+	return s
+}
+
+// Handler builds the HTTP mux (WebSocket endpoints + static file serving).
+// It is used by ListenAndServe and is exported so tests can drive the exact
+// production routing via httptest without binding a port.
+func (s *Server) Handler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/ws/data", s.ServeWsData)
+	mux.HandleFunc("/ws/ctrl", s.ServeWsCtrl)
+	// /docs is read-only reference material generated from the loaded config;
+	// it carries no operational authority, so it needs no auth (same as the
+	// WebClient itself on this closed LAN).
+	mux.HandleFunc("/docs", s.handleDocs)
+	mux.HandleFunc("/docs/", s.handleDocs)
+	mux.HandleFunc("/", s.handleStatic)
+	return mux
 }
 
 // ListenAndServe starts the HTTP/WebSocket server.  Blocks until the process exits.
 func (s *Server) ListenAndServe() error {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/ws/data", s.ServeWsData)
-	mux.HandleFunc("/ws/ctrl", s.ServeWsCtrl)
-	mux.HandleFunc("/", s.handleStatic)
-
 	// Broadcast active alert list to all data subscribers at 1 Hz so clients
 	// that dismissed an alert locally will see it re-appear if it is still active.
 	go func() {
@@ -94,7 +310,7 @@ func (s *Server) ListenAndServe() error {
 
 	addr := fmt.Sprintf(":%d", s.port)
 	log.Printf("webclient: listening on http://0.0.0.0%s", addr)
-	return http.ListenAndServe(addr, mux)
+	return http.ListenAndServe(addr, s.Handler())
 }
 
 // handleStatic serves embedded/directory static files for non-WS requests.
@@ -258,7 +474,13 @@ func (s *Server) ServeWsCtrl(w http.ResponseWriter, r *http.Request) {
 				log.Printf("webclient ctrl %s: bad cmd JSON: %v", r.RemoteAddr, err)
 				continue
 			}
-			s.b.SendCmd(cmd)
+
+			// Check if this is a state machine target request (SM-<NAME>-TARGET)
+			if strings.HasPrefix(cmd.RefDes, "SM-") && strings.HasSuffix(cmd.RefDes, "-TARGET") && s.engine != nil {
+				s.handleStateMachineTarget(cmd)
+			} else {
+				s.b.SendCmd(cmd)
+			}
 
 		case "ack_alert":
 			if !authorized {
@@ -271,19 +493,12 @@ func (s *Server) ServeWsCtrl(w http.ResponseWriter, r *http.Request) {
 			if err := json.Unmarshal(raw, &req); err != nil || req.ID == "" {
 				continue
 			}
-			s.mu.Lock()
-			for i := range s.alerts {
-				if s.alerts[i].ID == req.ID {
-					s.alerts[i].Acked = true
-					break
-				}
+			// The registry broadcasts alert_acked through PublishAlertAcked; an
+			// unknown id is still relayed so a client holding a stale row locally
+			// can clear it.
+			if !s.alerts.Ack(req.ID) {
+				log.Printf("webclient ctrl %s: ack for unknown alert %q relayed anyway", r.RemoteAddr, req.ID)
 			}
-			s.mu.Unlock()
-			payload, _ := json.Marshal(map[string]interface{}{
-				"type": "alert_acked",
-				"id":   req.ID,
-			})
-			s.b.Publish(payload)
 
 		case "set_layout":
 			if !authorized {
@@ -308,18 +523,27 @@ func (s *Server) ServeWsCtrl(w http.ResponseWriter, r *http.Request) {
 				log.Printf("webclient ctrl %s: set_layout write %s: %v", r.RemoteAddr, absPath, err)
 				continue
 			}
-			payload, _ := json.Marshal(map[string]interface{}{
-				"type":     "pid_layout",
-				"filename": req.Filename,
-				"content":  req.Content,
-			})
+			// Re-publish through the same builder used at startup, preserving the
+			// panel's display name so the browser's layout picker keeps its label.
 			s.mu.Lock()
+			name := req.Filename
+			idx := -1
 			for i, pm := range s.panelMessages {
-				var p struct{ Filename string `json:"filename"` }
+				var p struct {
+					Filename string `json:"filename"`
+					Name     string `json:"name"`
+				}
 				if json.Unmarshal(pm, &p) == nil && p.Filename == req.Filename {
-					s.panelMessages[i] = payload
+					if p.Name != "" {
+						name = p.Name
+					}
+					idx = i
 					break
 				}
+			}
+			payload := PidLayoutJSON(name, req.Filename, req.Content)
+			if idx >= 0 {
+				s.panelMessages[idx] = payload
 			}
 			s.mu.Unlock()
 			s.b.Publish(payload)
@@ -351,40 +575,44 @@ func (s *Server) handleAuth(addr string, req authRequestMsg, authorized *bool) a
 	return authResponseMsg{Type: "auth_response", Approved: false, Reason: "Invalid credentials"}
 }
 
-// pushAlert appends an alert to the in-memory list and broadcasts it to all clients.
-func (s *Server) pushAlert(category, message string) {
-	rec := alertRecord{
-		ID:        fmt.Sprintf("%d", time.Now().UnixNano()),
-		Category:  category,
-		Message:   message,
-		Timestamp: time.Now().UnixMilli(),
+// handleStateMachineTarget routes a state machine target request (SM-<NAME>-TARGET)
+// to the engine.RequestTarget method.
+func (s *Server) handleStateMachineTarget(cmd broker.CmdMsg) {
+	if s.engine == nil {
+		s.pushAlert("warning", "State machine target rejected: no engine running")
+		return
 	}
-	s.mu.Lock()
-	s.alerts = append(s.alerts, rec)
-	s.mu.Unlock()
 
-	payload, _ := json.Marshal(map[string]interface{}{
-		"type":      "alert",
-		"id":        rec.ID,
-		"category":  rec.Category,
-		"message":   rec.Message,
-		"timestamp": rec.Timestamp,
-		"acked":     false,
-	})
-	s.b.Publish(payload)
+	// Extract machine name from refDes: SM-<NAME>-TARGET → <NAME>
+	machineName := cmd.RefDes[3 : len(cmd.RefDes)-7] // remove "SM-" and "-TARGET"
+
+	// Get the target state from the value (must be a string state name, not a number)
+	targetState, ok := cmd.Value.(string)
+	if !ok {
+		s.pushAlert("warning", fmt.Sprintf("SM-%s-TARGET: state name must be a string, not %T", machineName, cmd.Value))
+		return
+	}
+	if targetState == "" {
+		s.pushAlert("warning", fmt.Sprintf("SM-%s-TARGET: state name cannot be empty", machineName))
+		return
+	}
+
+	// Call engine.RequestTarget via the interface
+	if err := s.engine.RequestTarget(machineName, targetState); err != nil {
+		s.pushAlert("warning", fmt.Sprintf("SM-%s: %v", machineName, err))
+		return
+	}
+	log.Printf("webclient: state machine %q transitioned to %q", machineName, targetState)
+}
+
+// pushAlert raises a one-off server notice (layout saved, rejected operator
+// request) through the shared registry, which broadcasts it via PublishAlert.
+func (s *Server) pushAlert(category, message string) {
+	s.alerts.Push(category, message)
 }
 
 // alertSnapshot returns a single alert_snapshot JSON message containing all
 // current alerts, or nil if there are none.
 func (s *Server) alertSnapshot() []byte {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if len(s.alerts) == 0 {
-		return nil
-	}
-	payload, _ := json.Marshal(map[string]interface{}{
-		"type":   "alert_snapshot",
-		"alerts": s.alerts,
-	})
-	return payload
+	return AlertSnapshotJSON(s.alerts.Snapshot())
 }

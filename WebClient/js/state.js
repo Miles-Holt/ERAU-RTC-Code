@@ -28,6 +28,9 @@ let operatorName = '';
 // --- Config ---
 let configControls = [];
 let configApplied  = false;
+// Lookup indexes rebuilt from configControls on every config message (rebuildConfigIndex).
+const channelIndex = {};   // channel refDes -> { ctrl, ch }
+const controlIndex = {};   // control refDes -> ctrl
 
 // --- Tabs ---
 let tabs        = [];
@@ -49,12 +52,14 @@ const CHART_COLORS = [
 
 // --- Dev ---
 const devStats = {
-    connectedAt:     null,
-    msgCount:        0,
-    lastWindowCount: 0,
-    missedCycles:    0,
-    lastDataT:       null,
-    avgInterval:     null
+    connectedAt:   null,
+    msgCount:      0,
+    lastMsgCount:  0,     // message count at previous Dev-tab refresh (rate calc)
+    byteCount:     0,     // cumulative bytes of decoded WS payloads received
+    lastByteCount: 0,     // byte count at previous Dev-tab refresh (throughput calc)
+    missedCycles:  0,
+    lastDataT:     null,
+    avgInterval:   null
 };
 let devTabs = [];
 
@@ -66,9 +71,18 @@ let consoleTabs  = [];
 // Keyed by filename; value = { name, filename, content } (content is raw YAML string)
 const pidLayouts = {};
 
-// --- DAQ Control state machine config ---
-// Keyed by DAQ refDes; value = { daqNode, states: { stateName: { operatorControl, transitions } } }
-const daqControlConfig = {};
+// --- Machine state machine config ---
+// Populated from the server's state_config message (built by
+// controlnode/webclient BuildStateConfigJSON).
+// Keyed by machine name; value = { name, targetRefDes, states: [{name, index, operator}] }
+const machineStateConfig = {};
+
+// --- Current state per machine ---
+// Keyed by machine name; value = state NAME (string).
+// Authoritative source is the state_change message; the numeric
+// SM-<MACHINE>-STATE data channel resolves to the same name via the state
+// indexes in machineStateConfig.
+const machineCurrentState = {};
 
 // --- Soft channel config ---
 // Keyed by refDes; value = { refDes, description, units, role, default, min, max }

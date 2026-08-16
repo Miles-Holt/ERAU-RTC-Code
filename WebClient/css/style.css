@@ -159,6 +159,19 @@ header h1 {
     font-family: inherit;
 }
 #sim-btn:hover    { border-color: var(--text); color: var(--text); }
+
+/* Docs link — same pill shape as the Sim button; opens the control node's
+   generated configuration reference at /docs in a new tab. */
+#docs-link {
+    padding: 3px 10px;
+    font-size: 12px;
+    border: 1px solid var(--muted);
+    border-radius: 4px;
+    color: var(--muted);
+    text-decoration: none;
+    line-height: 1.4;
+}
+#docs-link:hover { border-color: var(--text); color: var(--text); }
 #sim-btn.sim-active { border-color: var(--status-connected); color: var(--status-connected); }
 
 .status-connected    { background: var(--status-connected); }
@@ -345,6 +358,10 @@ header h1 {
 .btn:hover:not(:disabled)  { background: var(--border); }
 .btn:active:not(:disabled) { transform: scale(0.97); }
 .btn:disabled              { opacity: 0.3; cursor: not-allowed; }
+
+/* Universal disabled styling for any auth-gated command widget (markCmdWidget).
+   Covers non-.btn controls too: valve-panel buttons, number inputs, selects. */
+.cmd-widget:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .btn-open  { border-color: var(--led-open);   color: var(--led-open); }
 .btn-close { border-color: var(--led-closed); color: var(--led-closed); }
@@ -950,7 +967,8 @@ header h1 {
 }
 
 .dv-row-input:focus { outline: none; border-color: var(--accent); }
-.dv-row-input.input-error { border-color: var(--color-ignition); }
+/* Invalid-input hint — command inputs and regex search boxes (invalid pattern). */
+.input-error { border-color: var(--color-ignition); }
 
 .dv-row .tab-close { color: transparent; }
 .dv-row:hover .tab-close { color: var(--muted); }
@@ -2316,6 +2334,26 @@ header h1 {
     font-family: 'Segoe UI', system-ui, sans-serif;
 }
 
+/* Graph editor title bar (SVG rect + text) */
+.pid-graph-titlebar-rect {
+    fill: var(--surface);
+}
+
+.pid-graph-titlebar-text {
+    font-size: 11px;
+    fill: var(--muted);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    dominant-baseline: auto;
+    pointer-events: none;
+}
+
+/* Subtle horizontal grid lines drawn in editor graph placeholder */
+.pid-graph-gridline {
+    stroke: var(--border);
+    stroke-width: 1;
+    pointer-events: none;
+}
+
 /* Graph object body (foreignObject content) */
 .pid-graph-body {
     background: var(--surface);
@@ -2585,7 +2623,15 @@ header h1 {
     stroke: var(--accent);
     stroke-width: 1.5;
     cursor: crosshair;
-    transition: fill 0.1s;
+    transition: fill 0.1s, opacity 0.1s;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.pid-obj:hover .pid-port,
+.pid-connecting .pid-port {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .pid-port:hover { fill: var(--accent); }

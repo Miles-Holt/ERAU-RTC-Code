@@ -1,7 +1,7 @@
-# softChannelValues.yaml — persisted runtime values for software channels.
-# This file is auto-written by the control node on every Set() call.
-#
-# Values here override the 'default' in softChannels.yaml on startup.
-# Safe to edit manually ONLY when the control node is not running.
-# Format: values: { <refDes>: <float>, ... }
-values: {}
+values:
+    LIM-CPT01-HIGH: 450
+    LIM-CPT01-LOW: 50
+    SEQ-BURN-DUR: 3000
+    SEQ-IGN-LEAD: 500
+    SM-fuelSeq-STATE: 0
+    SM-fuelSeq-TARGET: 0

@@ -15,21 +15,11 @@ Chart.Tooltip.positioners.datapoint = (elements, eventPosition) => {
 };
 
 function graphGetDesc(refDes) {
-    for (const ctrl of configControls) {
-        for (const ch of (ctrl.channels ?? [])) {
-            if (ch.refDes === refDes) return ctrl.description || '';
-        }
-    }
-    return '';
+    return lookupChannel(refDes)?.ctrl.description || '';
 }
 
 function graphGetUnits(refDes) {
-    for (const ctrl of configControls) {
-        for (const ch of (ctrl.channels ?? [])) {
-            if (ch.refDes === refDes) return ch.units || '';
-        }
-    }
-    return '';
+    return lookupChannel(refDes)?.ch.units || '';
 }
 
 // =============================================================================
@@ -284,6 +274,7 @@ function resizeGraphGrid(tabId, rows, cols) {
             cell.nowBtn.style.display = 'none';
         });
 
+        attachDragPan(canvas, cell);
         attachScrollZoom(canvas, cell);
         attachProximityTooltip(canvas, cell);
 
@@ -330,9 +321,15 @@ function buildGraphCell(tabId, cellIdx) {
 
     const handleSearch = debounce(() => {
         const q = searchInput.value.trim();
-        if (!q) { dropdown.style.display = 'none'; return; }
+        if (!q) { searchInput.classList.remove('input-error'); searchInput.title = ''; dropdown.style.display = 'none'; return; }
         let re;
-        try { re = new RegExp(q, 'i'); } catch { dropdown.style.display = 'none'; return; }
+        try {
+            re = new RegExp(q, 'i');
+            searchInput.classList.remove('input-error'); searchInput.title = '';
+        } catch {
+            searchInput.classList.add('input-error'); searchInput.title = 'Invalid regex';
+            dropdown.style.display = 'none'; return;
+        }
         const selected = new Set((graphState[tabId]?.cells[cellIdx]?.channels ?? []).map(c => c.refDes));
         const matches = [];
         for (const ctrl of configControls) {
@@ -770,6 +767,59 @@ function syncYAxisVisibility(cell) {
         cell.chart.options.scales['y' + i].display = active;
     }
     cell.chart.update('none');
+}
+
+function attachDragPan(canvas, cell) {
+    let dragging = false;
+    let startX = 0;
+    let startViewEnd = null;
+
+    canvas.style.cursor = 'grab';
+
+    canvas.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        dragging = true;
+        startX = e.clientX;
+        startViewEnd = cell.viewEnd ?? Date.now() / 1000;
+        canvas.style.cursor = 'grabbing';
+        canvas.setPointerCapture(e.pointerId);
+        // Hide tooltip immediately so it doesn't flicker during drag
+        cell.chart.tooltip.setActiveElements([], {});
+        cell.chart.update('none');
+        e.preventDefault();
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        const rect = canvas.getBoundingClientRect();
+        const dx = e.clientX - startX;             // px moved (positive = drag right = older data)
+        const secPerPx = cell.viewWindowSec / rect.width;
+        const dtSec = dx * secPerPx;               // seconds to shift (positive dx → pan backward in time)
+        const rawEnd = startViewEnd - dtSec;
+        const now = Date.now() / 1000;
+        cell.viewEnd = rawEnd >= now ? null : rawEnd;
+
+        const displayEnd = cell.viewEnd ?? now;
+        for (const ds of cell.chart.data.datasets) {
+            const buf = channelBuffers[ds.label];
+            ds.data = buf ? buildChartData(buf, displayEnd, cell.viewWindowSec) : [];
+        }
+        cell.chart.options._timeOffset = displayEnd - now;
+        cell.chart.options.scales.x.min = -cell.viewWindowSec;
+        cell.chart.options.scales.x.max = 0;
+        cell.chart.update('none');
+        if (cell.nowBtn) cell.nowBtn.style.display = cell.viewEnd !== null ? '' : 'none';
+    });
+
+    const endDrag = () => {
+        if (!dragging) return;
+        dragging = false;
+        canvas.style.cursor = 'grab';
+    };
+
+    canvas.addEventListener('pointerup',           endDrag);
+    canvas.addEventListener('pointercancel',        endDrag);
+    canvas.addEventListener('lostpointercapture',   endDrag);
 }
 
 function attachScrollZoom(canvas, cell) {

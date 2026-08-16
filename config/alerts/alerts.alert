@@ -1,0 +1,38 @@
+# =============================================================================
+# Alerts — the control node is the single source of operator alerts.
+#
+# Everything here is evaluated server-side; the browser only renders what the
+# server publishes (alert / alert_snapshot / alert_acked messages).
+#
+# Placeholders in messages are interpolated when the alert is raised:
+#   {node}    the daqNode refDes            (template events)
+#   {refDes}  the channel refDes            (template events; node name for
+#                                            node-level events)
+#   {value}   the value that tripped it     (bad_data)
+#   {ANY-CHANNEL}  any channel name — its current value
+#
+# Severities: info | warning | alarm
+# =============================================================================
+
+# The template is instantiated once per enabled daqNode in config/daqNodes/.
+# `stale` fires when a connected node stops delivering data; the optional
+# duration after the event name overrides the 2000 ms default.
+template every_daqnode
+    on disconnect -> alarm   "{node} disconnected"
+    on reconnect  -> info    "{node} reconnected"
+    on bad_data   -> warning "{refDes} out of range: {value}"
+    on stale 2s   -> warning "{node} data stale"
+
+# ── Example rule ─────────────────────────────────────────────────────────────
+# EXAMPLE ONLY — this is the reference for writing rule alerts, using channels
+# that already exist in this config (CPT-01 chamber pressure vs. the operator-
+# settable LIM-CPT01-HIGH abort threshold).  Rules are edge-triggered: they
+# raise on false → true.  `latch` keeps the alert raised after the condition
+# clears, until an operator acknowledges it — which is what you want for a
+# transient over-pressure that nobody may have been watching.  Remove `latch`
+# and the alert clears itself when the pressure comes back down.
+alert CHAMBER-HIGH
+    if CPT-01 > LIM-CPT01-HIGH
+    severity alarm
+    message "Chamber pressure high: {CPT-01} psia (limit {LIM-CPT01-HIGH})"
+    latch

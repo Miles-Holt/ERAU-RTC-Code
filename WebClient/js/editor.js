@@ -17,25 +17,9 @@
         document.documentElement.setAttribute('data-theme', 'light');
 })();
 
-// ── Constants (same as pid.js) ───────────────────────────────────────────────
-
-const PID = {
-    GRID:        20,
-    SENSOR_W:    120,
-    SENSOR_H:    50,
-    NODE_R:      5,
-    PORT_R:      6,
-    PORT_OFF:    20,
-    STUB:        40,
-    CANVAS_W:    2400,
-    CANVAS_H:    1800,
-    CORNER_R:    8,
-    OBS_MARGIN:  6,
-    VALVE_R:     18,
-    VALVE_PORT_OFF: 40,
-    DAQCTRL_W:   200,
-    DAQCTRL_H:   60,
-};
+// ── Constants ────────────────────────────────────────────────────────────────
+// PID now lives in pidRender.js (shared with the viewer) so both pages route and
+// attach pipes identically. It is loaded before this file via editor.html.
 
 // ── Editor state ─────────────────────────────────────────────────────────────
 
@@ -131,6 +115,7 @@ function pidToYaml(layout) {
             if (o.labelOffsetY)          y += '    labelOffsetY: ' + o.labelOffsetY   + '\n';
         } else if (o.type === 'daqControl') {
             if (o.daqRefDes)           y += '    daqRefDes: ' + q(o.daqRefDes) + '\n';
+            if (o.label)               y += '    label: '     + q(o.label)     + '\n';
             y +=                           '    gridX: ' + o.gridX + '\n';
             y +=                           '    gridY: ' + o.gridY + '\n';
             if (o.gridW && o.gridW !== 10) y += '    gridW: ' + o.gridW + '\n';
@@ -163,109 +148,11 @@ function pidToYaml(layout) {
 
 // ── YAML parser ──────────────────────────────────────────────────────────────
 
-function pidFromYaml(text) {
-    const out = { name: 'Untitled', version: 1, objects: [], connections: [] };
-    let section = null, cur = null, subSection = null, subCur = null;
-    function uq(s) { return s.trim().replace(/^["']|["']$/g, ''); }
-    function coerce(v) {
-        const u = uq(v);
-        if (u === 'true')  return true;
-        if (u === 'false') return false;
-        return (u !== '' && !isNaN(u)) ? Number(u) : u;
-    }
-    function kv(obj, str) {
-        const m = str.match(/^([\w]+):\s*(.*)/);
-        if (m) obj[m[1]] = coerce(m[2]);
-    }
-    for (const raw of text.split(/\r?\n/)) {
-        const t = raw.trim();
-        if (!t || t.startsWith('#')) continue;
-        const ind = raw.search(/\S/);
-        if (ind === 0) {
-            subSection = null; subCur = null;
-            const m = t.match(/^(\w+):\s*(.*)/);
-            if (!m) continue;
-            if      (m[1] === 'name')        out.name    = uq(m[2]);
-            else if (m[1] === 'version')     out.version = parseInt(m[2]) || 1;
-            else if (m[1] === 'objects')     { section = 'objects';     cur = null; }
-            else if (m[1] === 'connections') { section = 'connections'; cur = null; }
-        } else if (ind <= 3) {
-            subSection = null; subCur = null;
-            if (t.startsWith('- ')) {
-                cur = {};
-                if (section === 'objects')     out.objects.push(cur);
-                if (section === 'connections') out.connections.push(cur);
-                kv(cur, t.slice(2));
-            } else if (cur) {
-                kv(cur, t);
-            }
-        } else if (ind <= 5) {
-            if (cur) {
-                const m = t.match(/^([\w]+):\s*(.*)/);
-                if (m) {
-                    if (m[2] === '' || m[2].trim() === '') {
-                        subSection = m[1];
-                        if (!cur[subSection]) cur[subSection] = [];
-                        subCur = null;
-                    } else {
-                        subSection = null; subCur = null;
-                        cur[m[1]] = coerce(m[2]);
-                    }
-                }
-            }
-        } else {
-            if (t.startsWith('- ') && subSection && cur) {
-                subCur = {};
-                cur[subSection].push(subCur);
-                kv(subCur, t.slice(2));
-            } else if (subCur) {
-                kv(subCur, t);
-            }
-        }
-    }
-    return out;
-}
+// pidFromYaml moved to pidRender.js (shared with the viewer).
 
 // ── SVG helpers ──────────────────────────────────────────────────────────────
 
-function svgN(tag, attrs) {
-    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
-    if (attrs) for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
-    return el;
-}
-
-function portPos(obj, port) {
-    const x = obj.gridX * PID.GRID;
-    const y = obj.gridY * PID.GRID;
-    if (obj.type === 'sensor') {
-        if (port === 'bottom') return { x: x + PID.SENSOR_W / 2, y: y + PID.SENSOR_H };
-    }
-    if (obj.type === 'node') {
-        return { x, y };
-    }
-    if (obj.type === 'valve') {
-        const off = PID.VALVE_PORT_OFF;
-        if (port === 'top')    return { x,        y: y - off };
-        if (port === 'right')  return { x: x+off, y };
-        if (port === 'bottom') return { x,        y: y + off };
-        if (port === 'left')   return { x: x-off, y };
-    }
-    if (obj.type === 'daqControl') {
-        const w = (obj.gridW || 10) * PID.GRID;
-        const h = (obj.gridH || 3)  * PID.GRID;
-        if (port === 'top')    return { x: x + w / 2, y };
-        if (port === 'right')  return { x: x + w,     y: y + h / 2 };
-        if (port === 'bottom') return { x: x + w / 2, y: y + h };
-        if (port === 'left')   return { x,             y: y + h / 2 };
-    }
-    return { x, y };
-}
-
-function pidSvgPt(svgEl, e) {
-    const pt = svgEl.createSVGPoint();
-    pt.x = e.clientX; pt.y = e.clientY;
-    return pt.matrixTransform(svgEl.getScreenCTM().inverse());
-}
+// svgN, portPos, pidSvgPt moved to pidRender.js (shared with the viewer).
 
 function pidUid(prefix) {
     return prefix + '_' + Date.now() + '_' + Math.floor(Math.random() * 9999);
@@ -275,191 +162,8 @@ function pidEsc(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// ── Obstacle-aware orthogonal router ─────────────────────────────────────────
-
-function pidObstacleRects(objects, excludeIds) {
-    const M = PID.OBS_MARGIN;
-    return objects
-        .filter(o => !excludeIds.has(o.id) && (o.type === 'sensor' || o.type === 'graph' || o.type === 'valve' || o.type === 'daqControl'))
-        .map(o => {
-            if (o.type === 'graph') {
-                return {
-                    x1: o.gridX * PID.GRID - M,
-                    y1: o.gridY * PID.GRID - M,
-                    x2: o.gridX * PID.GRID + (o.gridW || 20) * PID.GRID + M,
-                    y2: o.gridY * PID.GRID + (o.gridH || 10) * PID.GRID + M,
-                };
-            }
-            if (o.type === 'valve') {
-                const x = o.gridX * PID.GRID, y = o.gridY * PID.GRID, R = PID.VALVE_R;
-                return { x1: x-R-M, y1: y-R-M, x2: x+R+M, y2: y+R+M };
-            }
-            if (o.type === 'daqControl') {
-                return {
-                    x1: o.gridX * PID.GRID - M,
-                    y1: o.gridY * PID.GRID - M,
-                    x2: o.gridX * PID.GRID + (o.gridW || 10) * PID.GRID + M,
-                    y2: o.gridY * PID.GRID + (o.gridH || 3) * PID.GRID + M,
-                };
-            }
-            return {
-                x1: o.gridX * PID.GRID - M,
-                y1: o.gridY * PID.GRID - M,
-                x2: o.gridX * PID.GRID + PID.SENSOR_W + M,
-                y2: o.gridY * PID.GRID + PID.SENSOR_H + M,
-            };
-        });
-}
-
-function pidSegClear(ax, ay, bx, by, rects) {
-    if (ax === bx && ay === by) return true;
-    for (const r of rects) {
-        if (ay === by) {
-            const lo = Math.min(ax, bx), hi = Math.max(ax, bx);
-            if (ay > r.y1 && ay < r.y2 && hi > r.x1 && lo < r.x2) return false;
-        } else if (ax === bx) {
-            const lo = Math.min(ay, by), hi = Math.max(ay, by);
-            if (ax > r.x1 && ax < r.x2 && hi > r.y1 && lo < r.y2) return false;
-        }
-    }
-    return true;
-}
-
-function pidRoundedPath(pts, r) {
-    const s = [pts[0]];
-    for (let i = 1; i < pts.length - 1; i++) {
-        const prev = s[s.length - 1], curr = pts[i], next = pts[i + 1];
-        const dx1 = Math.sign(curr.x - prev.x), dy1 = Math.sign(curr.y - prev.y);
-        const dx2 = Math.sign(next.x - curr.x), dy2 = Math.sign(next.y - curr.y);
-        if (dx1 !== dx2 || dy1 !== dy2) s.push(curr);
-    }
-    s.push(pts[pts.length - 1]);
-    if (s.length < 2) return '';
-
-    let d = 'M ' + s[0].x + ' ' + s[0].y;
-    for (let i = 1; i < s.length; i++) {
-        const prev = s[i - 1], curr = s[i], next = i < s.length - 1 ? s[i + 1] : null;
-        if (next) {
-            const dx1 = Math.sign(curr.x - prev.x), dy1 = Math.sign(curr.y - prev.y);
-            const dx2 = Math.sign(next.x - curr.x), dy2 = Math.sign(next.y - curr.y);
-            if (dx1 !== dx2 || dy1 !== dy2) {
-                const len1 = Math.abs(curr.x - prev.x) + Math.abs(curr.y - prev.y);
-                const len2 = Math.abs(next.x - curr.x) + Math.abs(next.y - curr.y);
-                const rr   = Math.min(r, len1 / 2, len2 / 2);
-                d += ' L ' + (curr.x - dx1 * rr) + ' ' + (curr.y - dy1 * rr);
-                d += ' Q ' + curr.x + ' ' + curr.y + ' ' + (curr.x + dx2 * rr) + ' ' + (curr.y + dy2 * rr);
-                continue;
-            }
-        }
-        d += ' L ' + curr.x + ' ' + curr.y;
-    }
-    return d;
-}
-
-function pidCandidateClear(pts, noFromRects, noToRects, allRects) {
-    const last = pts.length - 2;
-    for (let i = 0; i <= last; i++) {
-        const rects = i === 0 ? noFromRects : i === last ? noToRects : allRects;
-        if (!pidSegClear(pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y, rects)) return false;
-    }
-    return true;
-}
-
-function orthRouteAvoiding(p1, d1, p2, d2, objects, fromId, toId) {
-    function ext(p, d, dist) {
-        if (d === 'top')    return { x: p.x,         y: p.y - dist };
-        if (d === 'bottom') return { x: p.x,         y: p.y + dist };
-        if (d === 'right')  return { x: p.x + dist,  y: p.y };
-        return                      { x: p.x - dist,  y: p.y };
-    }
-    const G = PID.GRID, S = PID.STUB, R = PID.CORNER_R;
-    const s1 = ext(p1, d1, S), s2 = ext(p2, d2, S);
-
-    const allRects    = pidObstacleRects(objects, new Set());
-    const noFromRects = pidObstacleRects(objects, new Set([fromId]));
-    const noToRects   = pidObstacleRects(objects, new Set([toId]));
-
-    function zOk(my) {
-        if (d1 === 'bottom' && my < s1.y) return false;
-        if (d1 === 'top'    && my > s1.y) return false;
-        if (d2 === 'bottom' && my < s2.y) return false;
-        if (d2 === 'top'    && my > s2.y) return false;
-        return true;
-    }
-    function uOk(mx) {
-        if (d1 === 'right' && mx < s1.x) return false;
-        if (d1 === 'left'  && mx > s1.x) return false;
-        if (d2 === 'right' && mx < s2.x) return false;
-        if (d2 === 'left'  && mx > s2.x) return false;
-        return true;
-    }
-
-    const offsets = [0, G, -G, 2*G, -2*G, 3*G, -3*G, 4*G, -4*G, 6*G, -6*G, 8*G, -8*G, 10*G, -10*G];
-
-    if (Math.abs(s1.x - s2.x) < 1 || Math.abs(s1.y - s2.y) < 1) {
-        const pts = [p1, s1, s2, p2];
-        if (pidCandidateClear(pts, noFromRects, noToRects, allRects))
-            return { d: pidRoundedPath(pts, R), error: null };
-    }
-
-    // Try L-shapes: single corner after stubs — simpler than Z/U when unobstructed
-    function lOk1() { // corner at (s2.x, s1.y): s1 goes horizontal, then vertical to s2
-        if (d1 === 'right'  && s2.x < s1.x) return false;
-        if (d1 === 'left'   && s2.x > s1.x) return false;
-        if (d2 === 'bottom' && s1.y > s2.y) return false;
-        if (d2 === 'top'    && s1.y < s2.y) return false;
-        return true;
-    }
-    function lOk2() { // corner at (s1.x, s2.y): s1 goes vertical, then horizontal to s2
-        if (d1 === 'bottom' && s2.y < s1.y) return false;
-        if (d1 === 'top'    && s2.y > s1.y) return false;
-        if (d2 === 'right'  && s1.x < s2.x) return false;
-        if (d2 === 'left'   && s1.x > s2.x) return false;
-        return true;
-    }
-    if (lOk1()) {
-        const lPts = [p1, s1, { x: s2.x, y: s1.y }, s2, p2];
-        if (pidCandidateClear(lPts, noFromRects, noToRects, allRects))
-            return { d: pidRoundedPath(lPts, R), error: null };
-    }
-    if (lOk2()) {
-        const lPts = [p1, s1, { x: s1.x, y: s2.y }, s2, p2];
-        if (pidCandidateClear(lPts, noFromRects, noToRects, allRects))
-            return { d: pidRoundedPath(lPts, R), error: null };
-    }
-
-    for (const off of offsets) {
-        const my = Math.round((s1.y + s2.y) / 2 / G) * G + off;
-        if (zOk(my)) {
-            const zPts = [p1, s1, { x: s1.x, y: my }, { x: s2.x, y: my }, s2, p2];
-            if (pidCandidateClear(zPts, noFromRects, noToRects, allRects))
-                return { d: pidRoundedPath(zPts, R), error: null };
-        }
-
-        const mx = Math.round((s1.x + s2.x) / 2 / G) * G + off;
-        if (uOk(mx)) {
-            const uPts = [p1, s1, { x: mx, y: s1.y }, { x: mx, y: s2.y }, s2, p2];
-            if (pidCandidateClear(uPts, noFromRects, noToRects, allRects))
-                return { d: pidRoundedPath(uPts, R), error: null };
-        }
-    }
-
-    let fallPts = null;
-    for (const off of [0, G, -G, 2*G, -2*G, 4*G, -4*G, 6*G, -6*G]) {
-        const my = Math.round((s1.y + s2.y) / 2 / G) * G + off;
-        if (zOk(my)) {
-            fallPts = [p1, s1, { x: s1.x, y: my }, { x: s2.x, y: my }, s2, p2];
-            break;
-        }
-        const mx = Math.round((s1.x + s2.x) / 2 / G) * G + off;
-        if (uOk(mx)) {
-            fallPts = [p1, s1, { x: mx, y: s1.y }, { x: mx, y: s2.y }, s2, p2];
-            break;
-        }
-    }
-    if (!fallPts) fallPts = [p1, s1, s2, p2];
-    return { d: pidRoundedPath(fallPts, R), error: 'Could not route without crossing an object' };
-}
+// Valve symbol geometry helpers (_valveSubtypeInfo, _valveLineAttrs,
+// _valveArcPath, _valvePtrPos) moved to pidRender.js (shared with the viewer).
 
 // =============================================================================
 // Live WebSocket connection (read-only — data only)
@@ -902,7 +606,7 @@ function renderPidAll() {
 
     for (const obj of tab.pid.objects) renderPidObj(obj);
 
-    tab.pid.routingErrors = [];
+    tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
     for (const conn of tab.pid.connections) renderPidConn(conn);
     renderPidWarning();
 }
@@ -918,9 +622,11 @@ function renderPidObj(obj) {
 }
 
 function makeGraphGroup(obj) {
-    const sel = (tab.pid.selectedId === obj.id);
-    const W = (obj.gridW || 20) * PID.GRID;
-    const H = (obj.gridH || 10) * PID.GRID;
+    const sel     = (tab.pid.selectedId === obj.id);
+    const W       = (obj.gridW || 20) * PID.GRID;
+    const H       = (obj.gridH || 10) * PID.GRID;
+    const showTitle = obj.showName !== false && obj.name;
+    const TB      = showTitle ? 20 : 0;   // title bar height (matches .pid-graph-titlebar ~20px)
 
     const g = svgN('g', {
         class: 'pid-obj pid-graph' + (sel ? ' pid-selected' : ''),
@@ -929,16 +635,45 @@ function makeGraphGroup(obj) {
         cursor: 'grab',
     });
 
+    // Outer border (matches .pid-graph-body border)
     g.appendChild(svgN('rect', {
         x: 0, y: 0, width: W, height: H,
         rx: 4, class: 'pid-graph-rect',
     }));
 
-    const lbl = svgN('text', { class: 'pid-graph-label', x: W / 2, y: H / 2 - 8 });
-    lbl.textContent = obj.name || '(no name)';
-    g.appendChild(lbl);
+    // Title bar section (sits inside the outer rect)
+    if (showTitle) {
+        // Rounded-top only: draw rect + plain rect to square off the bottom corners
+        g.appendChild(svgN('rect', { x: 1, y: 1, width: W - 2, height: TB, rx: 3, class: 'pid-graph-titlebar-rect' }));
+        g.appendChild(svgN('rect', { x: 1, y: Math.ceil(TB / 2), width: W - 2, height: Math.ceil(TB / 2), class: 'pid-graph-titlebar-rect' }));
+        // Separator line between title bar and chart area
+        g.appendChild(svgN('line', { class: 'pid-graph-gridline', x1: 0, y1: TB, x2: W, y2: TB }));
+        const titleEl = svgN('text', { class: 'pid-graph-titlebar-text', x: 8, y: TB - 5 });
+        titleEl.textContent = obj.name;
+        g.appendChild(titleEl);
+    }
 
-    const sub = svgN('text', { class: 'pid-graph-sublabel', x: W / 2, y: H / 2 + 10 });
+    // Chart area: subtle horizontal grid lines
+    const chartTop  = TB;
+    const chartH    = H - TB;
+    const numLines  = 4;
+    for (let i = 1; i <= numLines; i++) {
+        const ly = chartTop + Math.round(chartH * i / (numLines + 1));
+        g.appendChild(svgN('line', {
+            class: 'pid-graph-gridline',
+            x1: 0, y1: ly, x2: W, y2: ly,
+        }));
+    }
+
+    // Centered sublabel (and name label only if no title bar)
+    const midY = chartTop + chartH / 2;
+    if (!showTitle) {
+        const lbl = svgN('text', { class: 'pid-graph-label', x: W / 2, y: midY - 8 });
+        lbl.textContent = obj.name || '(no name)';
+        g.appendChild(lbl);
+    }
+
+    const sub = svgN('text', { class: 'pid-graph-sublabel', x: W / 2, y: showTitle ? midY : midY + 10 });
     sub.textContent = 'Graph \u2022 ' + (obj.lines?.length || 0) + ' line' + (obj.lines?.length === 1 ? '' : 's');
     g.appendChild(sub);
 
@@ -981,6 +716,20 @@ function makeTankGroupEditor(obj) {
         g.appendChild(lblG);
     }
 
+    const tankPorts = {
+        top:    [W / 2, 0],
+        right:  [W,     H / 2],
+        bottom: [W / 2, H],
+        left:   [0,     H / 2],
+    };
+    for (const [pname, [px, py]] of Object.entries(tankPorts)) {
+        g.appendChild(svgN('circle', {
+            class: 'pid-port',
+            'data-obj-id': obj.id, 'data-port': pname,
+            cx: px, cy: py, r: PID.PORT_R,
+        }));
+    }
+
     return g;
 }
 
@@ -988,6 +737,7 @@ function makeSensorGroup(obj) {
     const sel        = (tab.pid.selectedId === obj.id);
     const showRefDes = obj.showRefDes !== false;
     const showUnits  = obj.showUnits  !== false;
+    const showName   = obj.showName   === true;
     const rot        = obj.rotation   || 0;
 
     const xf = 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')' +
@@ -1004,19 +754,28 @@ function makeSensorGroup(obj) {
         rx: 3, class: 'pid-sensor-rect',
     }));
 
-    // Dynamic layout matching view mode: value always shown; refDes and units optional
+    // Dynamic layout matching view mode: value always shown; other elements optional
     const items = [];
-    if (showRefDes) items.push('refdes');
-    items.push('value');
-    if (showUnits)  items.push('units');
+    if (showName) {
+        const desc = (edConfigControls.find(c => c.channels?.some(ch => ch.refDes === obj.refDes)))?.description || '';
+        items.push({ type: 'name', text: desc });
+    }
+    if (showRefDes) items.push({ type: 'refdes', text: obj.refDes || '(no refDes)' });
+    items.push({ type: 'value', text: '--' });
+    if (showUnits)  items.push({ type: 'units',  text: obj.units || '' });
+
     const step = PID.SENSOR_H / (items.length + 1);
     const lx = obj.labelOffsetX || 0;
     const ly = obj.labelOffsetY || 0;
 
     for (let i = 0; i < items.length; i++) {
-        const type = items[i];
+        const item = items[i];
         const y = Math.round(step * (i + 1));
-        if (type === 'refdes') {
+        if (item.type === 'name') {
+            const el = svgN('text', { class: 'pid-sensor-name', x: PID.SENSOR_W / 2, y });
+            el.textContent = item.text;
+            g.appendChild(el);
+        } else if (item.type === 'refdes') {
             // Moveable label group — cursor:move signals it can be dragged independently
             const lblG = svgN('g', {
                 'data-label-id': obj.id,
@@ -1024,16 +783,16 @@ function makeSensorGroup(obj) {
                 style: 'cursor:move',
             });
             const el = svgN('text', { class: 'pid-sensor-label', x: 0, y: 0 });
-            el.textContent = obj.refDes || '(no refDes)';
+            el.textContent = item.text;
             lblG.appendChild(el);
             g.appendChild(lblG);
-        } else if (type === 'value') {
-            const el = svgN('text', { class: 'pid-sensor-value', x: PID.SENSOR_W / 2, y });
-            el.textContent = '--';
+        } else if (item.type === 'value') {
+            const el = svgN('text', { class: 'pid-sensor-value stale', x: PID.SENSOR_W / 2, y });
+            el.textContent = item.text;
             g.appendChild(el);
         } else {
             const el = svgN('text', { class: 'pid-sensor-units', x: PID.SENSOR_W / 2, y });
-            el.textContent = obj.units || '';
+            el.textContent = item.text;
             g.appendChild(el);
         }
     }
@@ -1089,11 +848,40 @@ function makeValveGroupEditor(obj) {
     const rot = obj.rotation || 0;
     const vis = svgN('g', rot ? { transform: 'rotate(' + rot + ')' } : {});
     vis.appendChild(svgN('circle', { class: 'pid-valve-bg', r: PID.VALVE_R }));
-    vis.appendChild(svgN('circle', { class: 'pid-valve-ring', r: PID.VALVE_R }));
+    vis.appendChild(svgN('circle', { class: 'pid-valve-ring stale', r: PID.VALVE_R }));
     if (!ctrl) {
         vis.appendChild(svgN('line', { class: 'pid-valve-uncfg', x1: -L, y1: L, x2: L, y2: -L }));
     } else {
-        vis.appendChild(svgN('line', { class: 'pid-valve-line', x1: -L, y1: 0, x2: L, y2: 0 }));
+        const info = _valveSubtypeInfo(ctrl);
+        // POS-FB arc + pointer at default (closed) position
+        if (info.hasFb && info.fbIsPct) {
+            vis.appendChild(svgN('path',   { class: 'pid-valve-arc', d: _valveArcPath(0) }));
+            const pos = _valvePtrPos(0);
+            vis.appendChild(svgN('circle', { class: 'pid-valve-ptr', r: 4, cx: pos.cx, cy: pos.cy }));
+        }
+        // IO-CMD center line (default: closed = vertical)
+        if (info.hasCmd && info.cmdRole === 'cmd-bool') {
+            const la = _valveLineAttrs(false);
+            vis.appendChild(svgN('line', {
+                class: 'pid-valve-line',
+                x1: la.x1, y1: la.y1, x2: la.x2, y2: la.y2,
+            }));
+            // IO-FB: dots on line ends
+            if (info.hasFb && !info.fbIsPct) {
+                vis.appendChild(svgN('circle', { class: 'pid-valve-dot', r: 4, cx: 0, cy: -L }));
+                vis.appendChild(svgN('circle', { class: 'pid-valve-dot', r: 4, cx: 0, cy:  L }));
+            }
+        }
+        // POS-CMD: percentage text
+        if (info.hasCmd && info.cmdRole === 'cmd-pct') {
+            const t = svgN('text', { class: 'pid-valve-pct' });
+            t.textContent = '--';
+            vis.appendChild(t);
+        }
+        // Fallback for configured valve with no recognized cmd type
+        if (!info.hasCmd && !info.hasFb) {
+            vis.appendChild(svgN('line', { class: 'pid-valve-line', x1: -L, y1: 0, x2: L, y2: 0 }));
+        }
     }
     g.appendChild(vis);
 
@@ -1141,8 +929,12 @@ function makeDaqControlGroupEditor(obj) {
     }));
 
     const labelEl = svgN('text', { class: 'pid-daqctrl-label', x: 8, y: 18 });
-    labelEl.textContent = obj.daqRefDes || '(no DAQ)';
+    labelEl.textContent = obj.label || obj.daqRefDes || 'unbound';
     g.appendChild(labelEl);
+
+    const connEl = svgN('text', { class: 'pid-daqctrl-conn', x: W - 8, y: 18 });
+    connEl.textContent = '---';
+    g.appendChild(connEl);
 
     const stateEl = svgN('text', { class: 'pid-daqctrl-state', x: 8, y: H - 12 });
     stateEl.textContent = 'State: ---';
@@ -1178,12 +970,16 @@ function renderPidConn(conn) {
     const to   = tab.pid.objects.find(o => o.id === conn.toId);
     if (!from || !to) return;
 
+    if (!tab.pid._routedPaths) tab.pid._routedPaths = new Map();
+
     const p1 = portPos(from, conn.fromPort);
     const p2 = portPos(to,   conn.toPort);
-    const { d, error } = orthRouteAvoiding(
-        p1, conn.fromPort, p2, conn.toPort,
-        tab.pid.objects, conn.fromId, conn.toId
-    );
+    const pipeSegs = pidPipeSegs(tab.pid._routedPaths, conn.id);
+    const { d, error, pts } = pidRoute({
+        p1, d1: conn.fromPort, p2, d2: conn.toPort,
+        objects: tab.pid.objects, pipeSegs,
+    });
+    tab.pid._routedPaths.set(conn.id, pts);
 
     if (error) {
         tab.pid.routingErrors.push({
@@ -1213,7 +1009,7 @@ function renderPidConn(conn) {
 }
 
 function updateConnsTouching() {
-    tab.pid.routingErrors = [];
+    tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
     for (const conn of tab.pid.connections) renderPidConn(conn);
     renderPidWarning();
 }
@@ -1342,7 +1138,7 @@ function deletePidConn(id) {
         return true;
     });
     selectPidConn(null);
-    tab.pid.routingErrors = [];
+    tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
     for (const conn of tab.pid.connections) renderPidConn(conn);
     renderPidWarning();
 }
@@ -1617,7 +1413,7 @@ function renderPidRsb(objId) {
                 renderPidObj(obj);
                 const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
                 if (updated) updated.classList.add('pid-selected');
-                tab.pid.routingErrors = [];
+                tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
                 for (const conn of tab.pid.connections) renderPidConn(conn);
                 renderPidWarning();
             });
@@ -1675,7 +1471,7 @@ function renderPidRsb(objId) {
                 renderPidObj(obj);
                 const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
                 if (updated) updated.classList.add('pid-selected');
-                tab.pid.routingErrors = [];
+                tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
                 for (const conn of tab.pid.connections) renderPidConn(conn);
                 renderPidWarning();
             });
@@ -1729,29 +1525,23 @@ function renderPidRsb(objId) {
                 renderPidObj(obj);
                 const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
                 if (updated) updated.classList.add('pid-selected');
-                tab.pid.routingErrors = [];
+                tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
                 for (const conn of tab.pid.connections) renderPidConn(conn);
                 renderPidWarning();
             });
 
         } else if (obj.type === 'daqControl') {
-            // Build DAQ node options from daqControlConfig or provide text input
-            const daqNodes = Object.keys(daqControlConfig);
-            const daqOpts = daqNodes.length > 0
-                ? daqNodes.map(dn =>
-                    '<option value="' + pidEsc(dn) + '"' +
-                    (dn === obj.daqRefDes ? ' selected' : '') + '>' +
-                    pidEsc(dn) + '</option>'
-                  ).join('')
-                : null;
-
+            // daqRefDes holds the state MACHINE name (config/machines/<x>.sm,
+            // "machine <name>") — the widget binds to SM-<name>-STATE/-TARGET.
+            // The editor has no WebSocket, so the machine list is unknown here:
+            // it is always a free-text field.
             c.innerHTML =
-                '<div class="pid-sb-heading">DAQ Control</div>' +
-                '<div class="pid-sb-field"><label>DAQ Node</label>' +
-                (daqOpts
-                    ? '<select class="pid-daqctrl-sel"><option value="">-- pick --</option>' + daqOpts + '</select>'
-                    : '<input class="pid-daqctrl-inp" type="text" value="' + pidEsc(obj.daqRefDes || '') + '" placeholder="e.g. DAQ001">') +
+                '<div class="pid-sb-heading">State Machine Control</div>' +
+                '<div class="pid-sb-field"><label>Machine</label>' +
+                '<input class="pid-daqctrl-inp" type="text" value="' + pidEsc(obj.daqRefDes || '') + '" placeholder="e.g. fuelSeq">' +
                 '</div>' +
+                '<div class="pid-sb-field"><label>Label</label>' +
+                '<input class="pid-daqctrl-label" type="text" value="' + pidEsc(obj.label || '') + '" placeholder="(optional display name)"></div>' +
                 '<div class="pid-sb-field pid-sb-field--row">' +
                     '<div><label>Width (cells)</label>' +
                     '<input class="pid-daqctrl-w" type="number" min="4" max="100" value="' + (obj.gridW || 10) + '"></div>' +
@@ -1762,9 +1552,9 @@ function renderPidRsb(objId) {
                 '<button class="pid-delete-btn">Remove</button>';
 
             c.querySelector('.pid-apply-btn').addEventListener('click', () => {
-                const sel = c.querySelector('.pid-daqctrl-sel');
                 const inp = c.querySelector('.pid-daqctrl-inp');
-                obj.daqRefDes = sel ? sel.value : (inp ? inp.value.trim() : '');
+                obj.daqRefDes = inp ? inp.value.trim() : '';
+                obj.label     = c.querySelector('.pid-daqctrl-label').value.trim();
                 obj.gridW     = parseInt(c.querySelector('.pid-daqctrl-w').value) || 10;
                 obj.gridH     = parseInt(c.querySelector('.pid-daqctrl-h').value) || 3;
                 const existing = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
@@ -1772,7 +1562,7 @@ function renderPidRsb(objId) {
                 renderPidObj(obj);
                 const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
                 if (updated) updated.classList.add('pid-selected');
-                tab.pid.routingErrors = [];
+                tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
                 for (const conn of tab.pid.connections) renderPidConn(conn);
                 renderPidWarning();
             });
@@ -1803,10 +1593,10 @@ function createPidObj(type, gridX, gridY) {
     }
     if (type === 'valve') { obj.controlRefDes = ''; }
     if (type === 'tank')  { obj.gridW = 5; obj.gridH = 8; obj.rotation = 0; obj.label = ''; obj.showLabel = true; }
-    if (type === 'daqControl') { obj.daqRefDes = ''; obj.gridW = 10; obj.gridH = 3; }
+    if (type === 'daqControl') { obj.daqRefDes = ''; obj.label = ''; obj.gridW = 10; obj.gridH = 3; }
     tab.pid.objects.push(obj);
     renderPidObj(obj);
-    tab.pid.routingErrors = [];
+    tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
     for (const conn of tab.pid.connections) renderPidConn(conn);
     renderPidWarning();
     selectPidObject(obj.id);
@@ -1823,7 +1613,7 @@ function deletePidObj(id) {
     tab.pid.objects = tab.pid.objects.filter(o => o.id !== id);
     tab.pid.gObjs.querySelector('[data-pid-id="' + id + '"]')?.remove();
     selectPidObject(null);
-    tab.pid.routingErrors = [];
+    tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
     for (const conn of tab.pid.connections) renderPidConn(conn);
     renderPidWarning();
 }
@@ -1931,6 +1721,7 @@ function startLabelDrag(objId, e) {
 
 function startPidConnect(fromObjId, fromPort, e) {
     tab.pid.connecting = { objId: fromObjId, port: fromPort };
+    tab.pid.svgEl && tab.pid.svgEl.classList.add('pid-connecting');
     tab.pid.previewEl = svgN('line', {
         class: 'pid-preview-line', 'pointer-events': 'none',
         x1: 0, y1: 0, x2: 0, y2: 0,
@@ -1960,6 +1751,7 @@ function completePidConnect(toObjId, toPort) {
 
 function cancelPidConnect() {
     tab.pid.connecting = null;
+    tab.pid.svgEl && tab.pid.svgEl.classList.remove('pid-connecting');
     if (tab.pid.previewEl) { tab.pid.previewEl.remove(); tab.pid.previewEl = null; }
 }
 
