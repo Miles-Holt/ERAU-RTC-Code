@@ -840,6 +840,9 @@ function renderPidConn(tab, conn) {
     wrap.children[1].setAttribute('d', d);
     wrap.className.baseVal = wrap.className.baseVal.replace(/\bpid-conn-fluid-\S+/g, '').trim();
     if (conn.fluid) wrap.classList.add('pid-conn-fluid-' + conn.fluid);
+    // Explicit per-connection color (optional) overrides the fluid-type default;
+    // absent = current appearance (fluid class, or the plain default stroke).
+    wrap.children[1].style.stroke = conn.color || '';
 }
 
 // =============================================================================

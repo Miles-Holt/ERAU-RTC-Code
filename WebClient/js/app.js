@@ -66,6 +66,30 @@ function setLiveUpdateRate(hz) {
 connect();
 connectCtrl();
 
+// =============================================================================
+// Background-tab data collection
+// =============================================================================
+// Root cause of "data not collected when tab/window isn't focused": the redraw
+// timers (_graphInterval / _dvInterval, both setInterval) are throttled by the
+// browser once this tab/window loses focus — Chrome clamps setInterval to
+// >=1000ms while hidden, then to roughly once/minute ("intensive throttling")
+// after ~5 minutes hidden. That only delays REDRAWING though; the rolling data
+// buffer itself (channelBuffers, filled by bufferGraphData()) is populated
+// directly from the WebSocket 'onmessage' handler in ws.js on every 'data'
+// frame, completely independent of these timers or of requestAnimationFrame,
+// so it keeps collecting the whole time the tab is hidden. The user-visible
+// symptom is that the chart looks frozen/stale for up to a minute after
+// refocusing, which reads as "data wasn't collected" even though it was.
+// Force an immediate redraw the moment the page becomes visible again so the
+// chart (and data view) catch up right away instead of waiting for the next
+// throttled timer tick.
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        updateAllGraphs();
+        updateAllDataViews();
+    }
+});
+
 // One-time boot hint overlay
 (function showBootHint() {
     const overlay = document.createElement('div');

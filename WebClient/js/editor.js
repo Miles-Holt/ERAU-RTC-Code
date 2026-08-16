@@ -142,6 +142,7 @@ function pidToYaml(layout) {
         y += '    toId: '     + q(c.toId)     + '\n';
         y += '    toPort: '   + c.toPort       + '\n';
         if (c.fluid)          y += '    fluid: '    + c.fluid      + '\n';
+        if (c.color)          y += '    color: '    + q(c.color)   + '\n';
     }
     return y;
 }
@@ -1006,6 +1007,9 @@ function renderPidConn(conn) {
 
     grp.className.baseVal = grp.className.baseVal.replace(/\bpid-conn-fluid-\S+/g, '').trim();
     if (conn.fluid) grp.classList.add('pid-conn-fluid-' + conn.fluid);
+    // Explicit per-connection color (optional) overrides the fluid-type default;
+    // absent = current appearance (fluid class, or the plain default stroke).
+    visPath.style.stroke = conn.color || '';
 }
 
 function updateConnsTouching() {
@@ -1119,12 +1123,36 @@ function renderPidConnRsb(connId) {
         '<span class="pid-sb-value">' + pidEsc(toName) + ' : ' + pidEsc(conn.toPort) + '</span></div>' +
         '<div class="pid-sb-field"><label>Fluid</label>' +
         '<select class="pid-fluid-select">' + fluidOpts + '</select></div>' +
+        '<div class="pid-sb-field"><label>Color</label>' +
+        '<div class="pid-conn-color-row">' +
+            '<div class="color-swatch pid-conn-color-swatch" title="Click to set a custom pipe color"></div>' +
+            '<button class="pid-conn-color-clear" title="Clear — use default/fluid color">Default</button>' +
+        '</div></div>' +
         '<button class="pid-delete-btn">Remove</button>';
 
     c.querySelector('.pid-fluid-select').addEventListener('change', e => {
         conn.fluid = e.target.value || undefined;
         renderPidConn(conn);
     });
+
+    const colorSwatch = c.querySelector('.pid-conn-color-swatch');
+    const updateColorSwatch = () => {
+        colorSwatch.style.background = conn.color || 'repeating-linear-gradient(45deg, var(--surface), var(--surface) 4px, var(--border) 4px, var(--border) 8px)';
+    };
+    updateColorSwatch();
+    colorSwatch.addEventListener('click', () => {
+        openColorPalette(colorSwatch, conn.color || PID_COLOR_PALETTE[0], PID_COLOR_PALETTE, (newColor) => {
+            conn.color = newColor;
+            updateColorSwatch();
+            renderPidConn(conn);
+        });
+    });
+    c.querySelector('.pid-conn-color-clear').addEventListener('click', () => {
+        conn.color = undefined;
+        updateColorSwatch();
+        renderPidConn(conn);
+    });
+
     c.querySelector('.pid-delete-btn').addEventListener('click', () => deletePidConn(connId));
     rsb.appendChild(c);
 }

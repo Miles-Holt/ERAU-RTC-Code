@@ -261,6 +261,7 @@ function resizeGraphGrid(tabId, rows, cols) {
         const cell = state.cells[i];
         if (!('viewWindowSec' in cell)) cell.viewWindowSec = 60;
         if (!('viewEnd'       in cell)) cell.viewEnd       = null;
+        if (!('axisLocks'     in cell)) cell.axisLocks     = {};   // { [axisId]: { min, max } }, values are numbers or absent (=auto)
 
         const cellEl = buildGraphCell(tabId, i);
         gridEl.appendChild(cellEl);
@@ -268,6 +269,7 @@ function resizeGraphGrid(tabId, rows, cols) {
 
         const canvas = cellEl.querySelector('canvas');
         cell.chart   = createCellChart(canvas);
+        applyAllAxisLocks(cell);
         cell.nowBtn  = cellEl._nowBtn;
         cell.nowBtn.addEventListener('click', () => {
             cell.viewEnd = null;
@@ -315,6 +317,23 @@ function buildGraphCell(tabId, cellIdx) {
     nowBtn.style.display = 'none';
     chartArea.appendChild(nowBtn);
     cellEl._nowBtn = nowBtn;
+
+    // Y-axis lock overlay labels: one min/max pair per possible axis (1-6),
+    // shown/positioned/hidden by updateAxisLockLabels() based on which axes
+    // are currently active. Click a label to lock that end of the axis to a
+    // custom value; clearing the popup input restores auto-scaling.
+    cellEl._axisLabels = {};
+    for (let i = 1; i <= 6; i++) {
+        const minEl = mkEl('div', 'axis-lock-label axis-lock-label--min');
+        const maxEl = mkEl('div', 'axis-lock-label axis-lock-label--max');
+        minEl.style.display = 'none';
+        maxEl.style.display = 'none';
+        minEl.title = 'Click to lock this axis minimum';
+        maxEl.title = 'Click to lock this axis maximum';
+        chartArea.appendChild(minEl);
+        chartArea.appendChild(maxEl);
+        cellEl._axisLabels[i] = { minEl, maxEl };
+    }
 
     cellEl.appendChild(panel);
     cellEl.appendChild(chartArea);
@@ -575,7 +594,7 @@ function updateCellPanel(tabId, cellIdx) {
         swatch.style.background = ch.color;
         swatch.title = 'Click to change color';
         swatch.addEventListener('click', () => {
-            openColorPalette(swatch, ch.color, (newColor) => {
+            openColorPalette(swatch, ch.color, CHART_COLORS, (newColor) => {
                 ch.color = newColor;
                 swatch.style.background = newColor;
                 const ds = cell.chart.data.datasets.find(d => d.label === ch.refDes);
@@ -662,6 +681,16 @@ function rebuildActivePidChannels() {
     }
 }
 
+// bufferGraphData appends one sample per active channel into channelBuffers.
+// IMPORTANT: this is called synchronously from ws.js's onDataMessage/applyData
+// on every incoming 'data' frame — i.e. driven by WebSocket message arrival,
+// NOT by a render loop (setInterval/requestAnimationFrame). That decoupling is
+// deliberate: rAF is fully suspended and setInterval is heavily throttled in a
+// backgrounded tab/window, but WebSocket message delivery is not, so the
+// rolling buffer keeps filling while the tab/window is unfocused or another
+// in-app tab is active. Only the chart REDRAW (updateAllGraphs, on a
+// setInterval) is allowed to lag/skip when not visible — see the
+// visibilitychange handler in app.js that forces a catch-up redraw on refocus.
 function bufferGraphData(data) {
     const now         = Date.now() / 1000;
     const graphCutoff = now - CONFIG.graphBufferMinutes * 60;
@@ -693,27 +722,44 @@ function bufferGraphData(data) {
     }
 }
 
+// buildChartData slices the rolling buffer down to the currently-viewed
+// [displayEnd - viewWindowSec, displayEnd] window, translated to axis-relative
+// seconds (x in [-viewWindowSec, 0]).
+//
+// One extra sample is deliberately kept on each side of the window (an
+// off-screen anchor point beyond the axis's fixed x.min/x.max) rather than
+// hard-clipping exactly at the edge. Chart.js clips the LINE DRAWING to the
+// chart area by default, but it only draws a segment between two points it
+// actually has — if we hand it only in-window points, the segment connecting
+// to whatever is just outside the window is never drawn at all, so the line
+// visibly snaps/pops in and out right at the edge instead of entering or
+// leaving continuously. Handing it one real off-screen point on each side
+// gives Chart.js the endpoint it needs to draw (and clip) that boundary
+// segment smoothly. This only changes what's rendered — the underlying
+// rolling-buffer window (channelBuffers / bufferGraphData) is untouched.
 function buildChartData(buf, displayEnd, viewWindowSec) {
     const { ts, vals } = buf;
     if (!ts.length) return [];
     const absMin = displayEnd - viewWindowSec;
     const absMax = displayEnd;
-    const out = [];
-    for (let i = 0; i < ts.length; i++) {
-        const t = ts[i], v = vals[i];
-        // Interpolate entry at left boundary
-        if (i > 0 && ts[i - 1] < absMin && t >= absMin) {
-            const frac = (absMin - ts[i - 1]) / (t - ts[i - 1]);
-            out.push({ x: -viewWindowSec, y: vals[i - 1] + frac * (v - vals[i - 1]) });
-        }
-        if (t >= absMin && t <= absMax) out.push({ x: t - displayEnd, y: v });
-        // Interpolate exit at right boundary
-        if (i + 1 < ts.length && t <= absMax && ts[i + 1] > absMax) {
-            const frac = (absMax - t) / (ts[i + 1] - t);
-            out.push({ x: 0, y: v + frac * (vals[i + 1] - v) });
-            break;
-        }
+
+    // First index within the window; step back one for the left-edge anchor.
+    let startIdx = ts.findIndex(t => t >= absMin);
+    if (startIdx === -1) startIdx = ts.length - 1;      // everything is before the window
+    else if (startIdx > 0) startIdx--;
+
+    // Last index within the window; step forward one for the right-edge anchor.
+    let endIdx = -1;
+    for (let i = ts.length - 1; i >= 0; i--) {
+        if (ts[i] <= absMax) { endIdx = i; break; }
     }
+    if (endIdx === -1) endIdx = 0;                       // everything is after the window (shouldn't happen)
+    else if (endIdx < ts.length - 1) endIdx++;
+
+    if (endIdx < startIdx) return [];
+
+    const out = new Array(endIdx - startIdx + 1);
+    for (let i = startIdx; i <= endIdx; i++) out[i - startIdx] = { x: ts[i] - displayEnd, y: vals[i] };
     return out;
 }
 
@@ -751,6 +797,7 @@ function updateAllGraphs() {
             cell.chart.options.scales.x.max = 0;
             cell.chart.update('none');
             if (cell.nowBtn) cell.nowBtn.style.display = cell.viewEnd !== null ? '' : 'none';
+            updateAxisLockLabels(cell);
         }
     }
 }
@@ -767,6 +814,144 @@ function syncYAxisVisibility(cell) {
         cell.chart.options.scales['y' + i].display = active;
     }
     cell.chart.update('none');
+    updateAxisLockLabels(cell);
+}
+
+// =============================================================================
+// Y-axis lock (per graph-cell, per-axis min/max)
+// =============================================================================
+
+// applyAxisLock pushes cell.axisLocks[axisId] into the chart's scale options.
+// Chart.js re-reads options.scales[...].min/max on every update, so once set
+// these persist across live data updates, drag-pan and scroll-zoom without
+// needing to be re-applied each tick — only when the chart instance itself is
+// recreated (grid resize) does this need to be called again.
+function applyAxisLock(cell, axisId) {
+    const scale = cell.chart?.options.scales['y' + axisId];
+    if (!scale) return;
+    const lock = cell.axisLocks?.[axisId] || {};
+    if (lock.min != null) scale.min = lock.min; else delete scale.min;
+    if (lock.max != null) scale.max = lock.max; else delete scale.max;
+}
+
+function applyAllAxisLocks(cell) {
+    for (let i = 1; i <= 6; i++) applyAxisLock(cell, i);
+}
+
+// setAxisLock sets (value is a finite number) or clears (value is null) one
+// end ('min'|'max') of one axis's lock, then re-renders.
+function setAxisLock(cell, axisId, which, value) {
+    if (!cell.axisLocks) cell.axisLocks = {};
+    if (!cell.axisLocks[axisId]) cell.axisLocks[axisId] = {};
+    if (value == null) delete cell.axisLocks[axisId][which];
+    else cell.axisLocks[axisId][which] = value;
+    applyAxisLock(cell, axisId);
+    cell.chart.update('none');
+    updateAxisLockLabels(cell);
+}
+
+function fmtAxisVal(v) {
+    if (typeof v !== 'number' || !isFinite(v)) return '';
+    const abs = Math.abs(v);
+    if (abs !== 0 && (abs < 0.01 || abs >= 100000)) return v.toExponential(2);
+    return (Math.round(v * 100) / 100).toString();
+}
+
+// updateAxisLockLabels positions/shows/hides the clickable min/max overlay for
+// every active axis on this cell, reading pixel geometry straight from the
+// live Chart.js scale objects (so it tracks whatever the chart just drew,
+// whether that came from live data, a lock, a pan or a zoom).
+function updateAxisLockLabels(cell) {
+    const labels = cell.cellEl?._axisLabels;
+    const chart  = cell.chart;
+    if (!labels || !chart || !chart.canvas) return;
+    const canvas = chart.canvas;
+    for (let i = 1; i <= 6; i++) {
+        const { minEl, maxEl } = labels[i];
+        const optAxis = chart.options.scales['y' + i];
+        const axis    = chart.scales['y' + i];
+        if (!optAxis?.display || !axis) {
+            minEl.style.display = 'none';
+            maxEl.style.display = 'none';
+            continue;
+        }
+        const lock   = cell.axisLocks?.[i] || {};
+        const isLeft = i % 2 === 1;
+        const xPos   = isLeft ? axis.right : axis.left;
+
+        minEl.style.display = '';
+        maxEl.style.display = '';
+        maxEl.style.top  = (canvas.offsetTop + axis.top) + 'px';
+        minEl.style.top  = (canvas.offsetTop + axis.bottom - 12) + 'px';
+        const leftPx = canvas.offsetLeft + xPos;
+        maxEl.style.left = leftPx + 'px';
+        minEl.style.left = leftPx + 'px';
+        maxEl.style.transform = isLeft ? 'translateX(-100%)' : 'translateX(0)';
+        minEl.style.transform = maxEl.style.transform;
+
+        const maxVal = lock.max != null ? lock.max : axis.max;
+        const minVal = lock.min != null ? lock.min : axis.min;
+        maxEl.textContent = fmtAxisVal(maxVal);
+        minEl.textContent = fmtAxisVal(minVal);
+        maxEl.classList.toggle('axis-lock-label--locked', lock.max != null);
+        minEl.classList.toggle('axis-lock-label--locked', lock.min != null);
+
+        maxEl.onclick = () => openAxisLockPopup(maxEl, lock.max ?? null, (v) => setAxisLock(cell, i, 'max', v));
+        minEl.onclick = () => openAxisLockPopup(minEl, lock.min ?? null, (v) => setAxisLock(cell, i, 'min', v));
+    }
+}
+
+// openAxisLockPopup — themed popup matching openColorPalette's look/behaviour
+// (fixed-position card anchored under the clicked label, dismissed on outside
+// click or Escape) but with a numeric input instead of color swatches.
+// onSet(value) is called with a finite number to lock, or null to clear
+// (restore auto-scaling) — clearing the input and hitting "Auto" is the
+// unlock path.
+function openAxisLockPopup(anchorEl, currentValue, onSet) {
+    document.querySelector('.axis-lock-popup')?.remove();
+
+    const popup = mkEl('div', 'axis-lock-popup');
+    const input = document.createElement('input');
+    input.type  = 'number';
+    input.step  = 'any';
+    input.placeholder = 'auto';
+    if (currentValue != null) input.value = currentValue;
+    popup.appendChild(input);
+
+    const actions  = mkEl('div', 'axis-lock-popup-actions');
+    const applyBtn = mkEl('button', '', 'Lock');
+    const clearBtn = mkEl('button', '', 'Auto');
+    actions.appendChild(applyBtn);
+    actions.appendChild(clearBtn);
+    popup.appendChild(actions);
+
+    const commit = () => {
+        const v = parseFloat(input.value);
+        if (input.value.trim() === '' || isNaN(v)) return;
+        popup.remove();
+        onSet(v);
+    };
+    applyBtn.addEventListener('mousedown', (e) => { e.preventDefault(); commit(); });
+    clearBtn.addEventListener('mousedown', (e) => { e.preventDefault(); popup.remove(); onSet(null); });
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') commit();
+        if (e.key === 'Escape') { popup.remove(); }
+    });
+
+    document.body.appendChild(popup);
+    const rect = anchorEl.getBoundingClientRect();
+    popup.style.top  = (rect.bottom + 4) + 'px';
+    popup.style.left = rect.left + 'px';
+    input.focus();
+    input.select();
+
+    const dismiss = (e) => {
+        if (!popup.contains(e.target) && e.target !== anchorEl) {
+            popup.remove();
+            document.removeEventListener('mousedown', dismiss);
+        }
+    };
+    setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
 }
 
 function attachDragPan(canvas, cell) {
@@ -809,6 +994,7 @@ function attachDragPan(canvas, cell) {
         cell.chart.options.scales.x.max = 0;
         cell.chart.update('none');
         if (cell.nowBtn) cell.nowBtn.style.display = cell.viewEnd !== null ? '' : 'none';
+        updateAxisLockLabels(cell);
     });
 
     const endDrag = () => {
@@ -855,6 +1041,7 @@ function attachScrollZoom(canvas, cell) {
                 cell.chart.options.scales.x.max = 0;
                 cell.chart.update('none');
                 if (cell.nowBtn) cell.nowBtn.style.display = cell.viewEnd !== null ? '' : 'none';
+                updateAxisLockLabels(cell);
             });
         }
     }, { passive: false });
@@ -901,50 +1088,8 @@ function attachProximityTooltip(canvas, cell) {
     });
 }
 
-function openColorPalette(anchorEl, currentColor, onSelect) {
-    const existing = document.querySelector('.color-palette-popup');
-    if (existing) existing.remove();
-
-    const popup = mkEl('div', 'color-palette-popup');
-
-    for (const c of CHART_COLORS) {
-        const opt = mkEl('div', `color-palette-option${c === currentColor ? ' active' : ''}`);
-        opt.style.background = c;
-        opt.title = c;
-        opt.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            popup.remove();
-            onSelect(c);
-        });
-        popup.appendChild(opt);
-    }
-
-    // Custom color option
-    const customBtn  = mkEl('div', 'color-palette-custom');
-    customBtn.title  = 'Custom color';
-    customBtn.textContent = '✎';
-    const hiddenInput = document.createElement('input');
-    hiddenInput.type  = 'color';
-    hiddenInput.value = currentColor;
-    hiddenInput.style.cssText = 'position:absolute;width:0;height:0;opacity:0;pointer-events:none';
-    hiddenInput.addEventListener('input', () => { popup.remove(); onSelect(hiddenInput.value); });
-    customBtn.appendChild(hiddenInput);
-    customBtn.addEventListener('mousedown', (e) => { e.preventDefault(); hiddenInput.click(); });
-    popup.appendChild(customBtn);
-
-    document.body.appendChild(popup);
-    const rect = anchorEl.getBoundingClientRect();
-    popup.style.top  = (rect.bottom + 4) + 'px';
-    popup.style.left = rect.left + 'px';
-
-    const dismiss = (e) => {
-        if (!popup.contains(e.target) && e.target !== anchorEl) {
-            popup.remove();
-            document.removeEventListener('mousedown', dismiss);
-        }
-    };
-    setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
-}
+// openColorPalette moved to pidRender.js (shared with editor.js so the P&ID
+// editor's pipe-color picker can reuse the same themed popup).
 
 function cleanupGraphTab(tabId) {
     const state = graphState[tabId];

@@ -43,6 +43,67 @@ const PID = {
     DAQCTRL_H:   60,    // daqControl widget default height px (3 cells)
 };
 
+// ── Themed color-picker popup (shared by graph.js and editor.js) ────────────
+// Default swatch palette for callers that don't have their own (e.g. the P&ID
+// editor's pipe color picker). Matches the style used for graph line colors.
+const PID_COLOR_PALETTE = [
+    '#58a6ff', '#3fb950', '#f78166', '#e3b341',
+    '#bc8cff', '#56d364', '#79c0ff', '#ffa657',
+    '#ff7b72', '#d2a8ff'
+];
+
+// openColorPalette opens the themed swatch-grid + custom-color popup used
+// throughout the app (graph line colors, P&ID pipe colors, ...). `palette` is
+// the array of preset swatch colors to show; `onSelect(color)` fires with a
+// '#rrggbb' string when the user picks a preset or a custom color.
+function openColorPalette(anchorEl, currentColor, palette, onSelect) {
+    const existing = document.querySelector('.color-palette-popup');
+    if (existing) existing.remove();
+
+    const popup = document.createElement('div');
+    popup.className = 'color-palette-popup';
+
+    for (const c of (palette && palette.length ? palette : PID_COLOR_PALETTE)) {
+        const opt = document.createElement('div');
+        opt.className = 'color-palette-option' + (c === currentColor ? ' active' : '');
+        opt.style.background = c;
+        opt.title = c;
+        opt.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            popup.remove();
+            onSelect(c);
+        });
+        popup.appendChild(opt);
+    }
+
+    // Custom color option
+    const customBtn  = document.createElement('div');
+    customBtn.className = 'color-palette-custom';
+    customBtn.title  = 'Custom color';
+    customBtn.textContent = '✎';
+    const hiddenInput = document.createElement('input');
+    hiddenInput.type  = 'color';
+    hiddenInput.value = currentColor || '#000000';
+    hiddenInput.style.cssText = 'position:absolute;width:0;height:0;opacity:0;pointer-events:none';
+    hiddenInput.addEventListener('input', () => { popup.remove(); onSelect(hiddenInput.value); });
+    customBtn.appendChild(hiddenInput);
+    customBtn.addEventListener('mousedown', (e) => { e.preventDefault(); hiddenInput.click(); });
+    popup.appendChild(customBtn);
+
+    document.body.appendChild(popup);
+    const rect = anchorEl.getBoundingClientRect();
+    popup.style.top  = (rect.bottom + 4) + 'px';
+    popup.style.left = rect.left + 'px';
+
+    const dismiss = (e) => {
+        if (!popup.contains(e.target) && e.target !== anchorEl) {
+            popup.remove();
+            document.removeEventListener('mousedown', dismiss);
+        }
+    };
+    setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
+}
+
 // ── SVG namespace helper ─────────────────────────────────────────────────────
 
 function svgN(tag, attrs) {

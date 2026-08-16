@@ -1298,6 +1298,80 @@ header h1 {
 }
 .graph-now-btn:hover { opacity: 1; }
 
+/* ── Y-axis lock labels ──────────────────────────────────────────────────── */
+/* Small clickable overlays drawn over the min/max of each active y-axis;
+   click to type a custom bound (locks that end of the axis) or clear it to
+   restore auto-scaling. Positioned in JS from the Chart.js scale geometry. */
+
+.axis-lock-label {
+    position: absolute;
+    z-index: 5;
+    font-size: 10px;
+    font-family: monospace;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    white-space: nowrap;
+    line-height: 1.3;
+    user-select: none;
+}
+.axis-lock-label:hover {
+    background: var(--card-bg);
+    color: var(--accent);
+}
+.axis-lock-label--locked {
+    color: var(--accent);
+}
+.axis-lock-label--locked::after {
+    content: ' \1F512';   /* small lock glyph */
+    font-size: 8px;
+}
+
+.axis-lock-popup {
+    position: fixed;
+    z-index: 1000;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.55);
+}
+
+.axis-lock-popup input {
+    width: 110px;
+    box-sizing: border-box;
+    padding: 3px 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 12px;
+    font-family: monospace;
+}
+.axis-lock-popup input:focus { outline: none; border-color: var(--accent); }
+
+.axis-lock-popup-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.axis-lock-popup button {
+    flex: 1;
+    padding: 3px 8px;
+    font-size: 11px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    cursor: pointer;
+}
+.axis-lock-popup button:hover { border-color: var(--accent); color: var(--accent); }
+
 /* ── Column layout variant (used in object sidebar) ─────────────────────── */
 
 .graph-cell--column {
@@ -1997,6 +2071,30 @@ header h1 {
 .pid-sb-check input[type="checkbox"] {
     accent-color: var(--accent);
 }
+
+/* Pipe color row (color-swatch + "Default" clear button) in the pipe RSB */
+.pid-conn-color-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.pid-conn-color-swatch {
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+}
+.pid-conn-color-clear {
+    flex: 1;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-family: inherit;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--muted);
+    cursor: pointer;
+}
+.pid-conn-color-clear:hover { border-color: var(--accent); color: var(--accent); }
 
 /* Side-by-side field layout */
 .pid-sb-field--row {

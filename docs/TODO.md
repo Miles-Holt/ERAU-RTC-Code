@@ -81,7 +81,7 @@ See `CONTEXT.md` for full project/architecture context.
 ### Front Panel Tab
 - [X] **P&ID background** — load a P&ID image or SVG as the canvas background; support multiple P&ID views selectable per tab (e.g. LOX panel, fuel panel, engine)
 - [X] **Redo edit mode entry** — rethink how the user enters edit mode; current UX is not acceptable
-- [ ] **Pipe colors** — add color support to pipe/connection segments on the P&ID canvas
+- [x] **Pipe colors** — optional `color` property per connection (P&ID YAML `connections[].color`), rendered by both the viewer (`pid.js`) and the standalone editor (`WebClient/js/editor.js`) as an inline stroke override on top of the existing fluid-type CSS classes; absent = unchanged default appearance. The editor's pipe sidebar gets a swatch (reusing the shared themed color-picker popup, now in `pidRender.js`) + a "Default" clear button. Round-trips through `pidToYaml`/`pidFromYaml`; layouts without colors still load unchanged (verified via smoke test against `config/test_panel.yaml`, which has none). The control node writes `set_layout` content through as opaque YAML text (`controlnode/webclient/server.go`), so no Go change was needed.
 - [ ] **Objects reference controls, not channels** — P&ID objects should bind to a control's `refDes` (all channels under that valve/control are implicitly included), not individual channels
 - [ ] **Rework sensor P&ID object** — current sensor object design is not working well; needs a full rethink
 
@@ -93,10 +93,10 @@ See `CONTEXT.md` for full project/architecture context.
 ---
 
 ### Graph Tab
-- [ ] **data not collected when tab/window isnt focused**
-- [ ] **data lines snap at chart boundary** — rather than smoothly entering/exiting the viewable x-range, line segments snap in/out at the chart edges; likely a Chart.js clipping issue with explicit `x.min`/`x.max` bounds
+- [x] **data not collected when tab/window isnt focused** — root cause: the rolling buffer was never actually coupled to rendering (`bufferGraphData()` is called straight from the WebSocket `onmessage` handler in `ws.js`, independent of `requestAnimationFrame`/`setInterval`), so it keeps filling while backgrounded. The user-visible bug was that the chart *redraw* runs on a plain `setInterval` (`_graphInterval` in `app.js`), which the browser throttles once the tab/window loses focus (clamped to ≥1s, then ~1/min after 5 min hidden) — so the chart looked frozen/stale for up to a minute after refocusing, reading as "data wasn't collected". Fixed with a `visibilitychange` listener in `app.js` that forces an immediate `updateAllGraphs()`/`updateAllDataViews()` redraw the instant the page becomes visible again, so the catch-up is instant instead of waiting for the next throttled tick.
+- [x] **data lines snap at chart boundary** — `buildChartData()` in `graph.js` rewritten to keep one real datapoint beyond each edge of the rendered slice (instead of hard-clipping/interpolating exactly at the edge), so Chart.js's own chart-area clipping draws the boundary-crossing segment smoothly rather than dropping it. The rolling-buffer window itself (`channelBuffers`/`bufferGraphData`) is unchanged — this only changes what's sliced out for rendering.
 - [x] **Data tooltip position** — tooltip is not rendering next to the user mouse correctly
-- [ ] **Y-axis lock** — add feature to lock y-axis min or max and input custom min or max by clicking the min or max value on a specific y-axis
+- [x] **Y-axis lock** — clicking a y-axis's min/max overlay label (shown live over each active axis in the chart area) opens the themed popup (matching the existing color-picker popup style) to type a custom bound, which locks that end of that axis for that graph cell; clicking "Auto" restores auto-scaling. Per-axis, per-graph-cell (`cell.axisLocks`), and survives live updates/pan/zoom since it's applied via the Chart.js scale's `min`/`max` options, which persist across `chart.update()` calls. Implemented in `graph.js` (`applyAxisLock`, `setAxisLock`, `updateAxisLockLabels`, `openAxisLockPopup`).
 - **data tool top line** add a vertical line and data point on the channel data points that are getting displayed on the tooltip
 
 ---
