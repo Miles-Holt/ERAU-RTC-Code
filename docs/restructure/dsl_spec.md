@@ -139,7 +139,19 @@ state abort
   `state_req`. On node reconnect the controlnode does **not** re-send a running
   `daq_local` state (re-entry would re-fire the sequence from t=0); instead, a
   reconnect while the machine is in a `daq_local` state is treated as
-  state-uncertain and the engine fires the abort destination with an alarm. Abort trigger rules for DAQ-local monitoring are declared:
+  state-uncertain and the engine fires the abort destination with an alarm.
+  The same refusal applies to a node's very first-ever connection completing
+  while the machine is already believed to be running a `daq_local` state on
+  it — there is no prior connection to have gone "uncertain" about, but the
+  controlnode still cannot know how much of the sequence has elapsed on a
+  node it has never talked to before, so it is refused the same way, under a
+  distinct message/alarm that never says "reconnect" for a connection that
+  never previously existed (`daqnode.Client.hasConnected` /
+  `NotifyDaqFirstConnect`). Separately, if the engine enters a `daq_local`
+  state while the node is not currently connected at all, `SendStateUpdate`
+  refuses to queue the payload and raises a visible alert instead of leaving
+  it silently buffered for a socket that does not exist — see
+  `docs/websocket-protocol.md`'s "Reconnect behaviour" section. Abort trigger rules for DAQ-local monitoring are declared:
 
 ```
     abort_rule CPT-01 > 850 from 0ms to 20000ms

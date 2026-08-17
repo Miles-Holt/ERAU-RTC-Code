@@ -102,6 +102,30 @@ all of them are things a future run should close.
   currently fires the abort destination with an alarm (state-uncertain). If the
   node ever gains a "report your current schedule position" message, this could
   become a real resync instead.
+- [x] **First connection was indistinguishable from a reconnect** — done.
+  `daqnode.Client.connect()` called the state-uncertain/reconnect path
+  (`handleReconnectState`) after *every* successful handshake, including a
+  node's very first-ever connection. A machine already parked in a
+  `daq_local` state when a node connected for the first time would fire the
+  abort destination and report a "reconnect" that had never happened.
+  `Client` now tracks `hasConnected` and only reconnects take
+  `handleReconnectState`; the first-ever handshake takes a distinct
+  `handleFirstConnectState` / `statemachine.Engine.NotifyDaqFirstConnect`
+  path — same corrective action, clearly distinguishable wording. Fixed
+  alongside it: `SendStateUpdate` used to queue an undeliverable
+  `state_update` (node not connected) with only a log line, no alarm; it now
+  refuses and reports through the broker error path, and `connect()` drains
+  any payload left queued from a previous connection before it can be
+  forwarded stale. See `docs/websocket-protocol.md` ("Reconnect behaviour"),
+  `docs/restructure/dsl_spec.md`, and `docs/daqsim.md` ("Protocol
+  ambiguities" #4). Tests: `controlnode/daqnode/engine_test.go`
+  (`TestClient_ReconnectWhileRunningIsStateUncertain`) and
+  `controlnode/integration/daqsim_e2e_test.go`
+  (`TestFirstConnectWhileAlreadyRunningIsDistinctFromReconnect`,
+  `TestStateUpdateUndeliverableWhileDisconnected`).
+- [ ] **generate syntax highlighting** - for custom code, it is difficult to identify if how the code is scructured and spot errors. it would be useful to have some syntax highlighting for our custom code
+- [ ] **calc channels** - enable software calc'd channels rather than just set numbers, allowing for logic and advanced algebra
+- [ ] **global finctions** - there are some things in the future that would be very useful to have as global functions, low prio, but please implement these. im envisitioning them defined seperatly, then called within statemachines, please think critically and change as nessisary for the best funcationality
 
 ## Open
 

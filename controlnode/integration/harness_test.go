@@ -92,6 +92,7 @@ type harness struct {
 	client *daqnode.Client
 	sim    *daqsim.Simulator
 
+	ctx    context.Context
 	cancel context.CancelFunc
 }
 
@@ -137,6 +138,22 @@ func (w *engineWriter) Set(refDes string, value float64) error {
 // RealClock (reconnect/stale — needs a genuine in-flight window; pair with
 // shrinkBurnTiming).
 func newHarness(t *testing.T, simClock daqsim.Clock, sensors map[string]daqsim.SensorSpec) *harness {
+	t.Helper()
+	h := newHarnessDeferredConnect(t, simClock, sensors)
+	h.connectClient()
+	return h
+}
+
+// newHarnessDeferredConnect builds the same harness as newHarness (real
+// config, real engine, real daqsim standing in for DAQ001) but does NOT start
+// the daqnode.Client's Run() loop — the WebSocket connection to daqsim is not
+// even attempted until the caller invokes h.connectClient(). This lets a test
+// drive the engine (e.g. RequestTarget into a daq_local state) BEFORE the
+// node's very first connection completes, which is exactly the ordering
+// needed to exercise the first-connect-while-already-running and
+// undeliverable-state_update cases: see TestFirstConnectWhileAlreadyRunning
+// and TestStateUpdateUndeliverableWhileDisconnected in daqsim_e2e_test.go.
+func newHarnessDeferredConnect(t *testing.T, simClock daqsim.Clock, sensors map[string]daqsim.SensorSpec) *harness {
 	t.Helper()
 
 	cfg, err := config.ParseDir(configDir)
@@ -257,14 +274,22 @@ func newHarness(t *testing.T, simClock daqsim.Clock, sensors map[string]daqsim.S
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go eng.Run(ctx)
-	go client.Run(ctx)
 
-	h := &harness{t: t, b: b, sc: sc, eng: eng, client: client, sim: sim, cancel: cancel}
+	h := &harness{t: t, b: b, sc: sc, eng: eng, client: client, sim: sim, ctx: ctx, cancel: cancel}
 	t.Cleanup(func() {
 		cancel()
 		sim.Close()
 	})
 	return h
+}
+
+// connectClient starts the daqnode.Client's Run() loop, i.e. attempts the
+// node's very first connection to daqsim. newHarness calls this immediately;
+// newHarnessDeferredConnect callers call it explicitly once they've set up
+// whatever pre-connection state they need.
+func (h *harness) connectClient() {
+	h.t.Helper()
+	go h.client.Run(h.ctx)
 }
 
 // waitFor polls cond until true or timeout, matching the convention already

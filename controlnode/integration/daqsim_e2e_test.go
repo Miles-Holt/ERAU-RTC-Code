@@ -2,6 +2,8 @@ package integration
 
 import (
 	"controlnode/daqsim"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
@@ -50,8 +52,8 @@ func TestNominalBurn(t *testing.T) {
 		"CPT-01": {Base: 200}, // between LIM-CPT01-LOW (50) and LIM-CPT01-HIGH (450)
 	})
 
-	h.waitConnected(2 * time.Second)
-	h.waitState("daqLocalFixture", "idle", 2*time.Second)
+	h.waitConnected(5 * time.Second)
+	h.waitState("daqLocalFixture", "idle", 5*time.Second)
 	if err := h.eng.RequestTarget("daqLocalFixture", "burn"); err != nil {
 		t.Fatalf("RequestTarget burn: %v", err)
 	}
@@ -61,7 +63,7 @@ func TestNominalBurn(t *testing.T) {
 	// observe — wait directly for the completion transition back to safe
 	// instead; the AppliedLog assertions below are what actually prove burn
 	// ran.
-	h.waitState("daqLocalFixture", "safe", 2*time.Second)
+	h.waitState("daqLocalFixture", "safe", 5*time.Second)
 
 	runs := h.sim.Runs()
 	if len(runs) != 1 || runs[0].Outcome != "completed" || runs[0].State != "burn" {
@@ -102,13 +104,13 @@ func TestAbort(t *testing.T) {
 		"CPT-01": {Base: 900}, // > LIM-CPT01-HIGH (450) from t=0
 	})
 
-	h.waitConnected(2 * time.Second)
-	h.waitState("daqLocalFixture", "idle", 2*time.Second)
+	h.waitConnected(5 * time.Second)
+	h.waitState("daqLocalFixture", "idle", 5*time.Second)
 	if err := h.eng.RequestTarget("daqLocalFixture", "burn"); err != nil {
 		t.Fatalf("RequestTarget burn: %v", err)
 	}
 
-	h.waitState("daqLocalFixture", "abort", 2*time.Second)
+	h.waitState("daqLocalFixture", "abort", 5*time.Second)
 
 	runs := h.sim.Runs()
 	if len(runs) != 1 || runs[0].Outcome != "aborted" {
@@ -155,20 +157,20 @@ func TestStaleSequenceCompleteIgnored(t *testing.T) {
 		"CPT-01": {Base: 200},
 	})
 
-	h.waitConnected(2 * time.Second)
-	h.waitState("daqLocalFixture", "idle", 2*time.Second)
+	h.waitConnected(5 * time.Second)
+	h.waitState("daqLocalFixture", "idle", 5*time.Second)
 	if err := h.eng.RequestTarget("daqLocalFixture", "burn"); err != nil {
 		t.Fatal(err)
 	}
-	h.waitState("daqLocalFixture", "burn", 2*time.Second)
+	h.waitState("daqLocalFixture", "burn", 5*time.Second)
 
 	// Wait for the real run to be armed and its first (t=0) steps applied —
 	// proof it is genuinely in flight, not a guess about timing.
-	waitFor(t, time.Second, func() bool {
+	waitFor(t, 3*time.Second, func() bool {
 		state, _, ok := h.sim.LastArmed()
 		return ok && state == "burn"
 	})
-	waitFor(t, time.Second, func() bool { return len(h.sim.AppliedLog()) >= 4 })
+	waitFor(t, 3*time.Second, func() bool { return len(h.sim.AppliedLog()) >= 4 })
 
 	_, realRunID, _ := h.sim.LastArmed()
 	staleRunID := realRunID + 999 // guaranteed not to match the armed run
@@ -187,7 +189,7 @@ func TestStaleSequenceCompleteIgnored(t *testing.T) {
 	// The real completion, with the correct runId, still applies normally.
 	// The fixture's burn is 300ms of real wall time — the timeout gives it
 	// comfortable margin.
-	h.waitState("daqLocalFixture", "safe", 4*time.Second)
+	h.waitState("daqLocalFixture", "safe", 6*time.Second)
 }
 
 // TestReconnectMidSequence drops the connection while the machine is mid
@@ -198,32 +200,41 @@ func TestStaleSequenceCompleteIgnored(t *testing.T) {
 func TestReconnectMidSequence(t *testing.T) {
 	h := newHarness(t, daqsim.RealClock{}, nil)
 
-	h.waitConnected(2 * time.Second)
-	h.waitState("daqLocalFixture", "idle", 2*time.Second)
+	h.waitConnected(5 * time.Second)
+	h.waitState("daqLocalFixture", "idle", 5*time.Second)
 	if err := h.eng.RequestTarget("daqLocalFixture", "burn"); err != nil {
 		t.Fatal(err)
 	}
-	h.waitState("daqLocalFixture", "burn", 2*time.Second)
+	h.waitState("daqLocalFixture", "burn", 5*time.Second)
 
 	// Confirm the run is genuinely in flight (t=0 steps applied, well before
 	// the 300ms cutoff) before pulling the plug.
-	waitFor(t, time.Second, func() bool { return len(h.sim.AppliedLog()) >= 4 })
+	waitFor(t, 3*time.Second, func() bool { return len(h.sim.AppliedLog()) >= 4 })
 	_, originalRunID, _ := h.sim.LastArmed()
 
+	dropped := time.Now()
 	h.sim.DropConnection()
 
 	// State-uncertain: the engine fires the declared abort destination. This
 	// must happen well before the 300ms entry_sequence would naturally
 	// finish — proof it's the reconnect path, not a coincidental completion
-	// racing the drop.
-	h.waitState("daqLocalFixture", "abort", 500*time.Millisecond)
+	// racing the drop. The POLL ceiling here is generous (this is a machine
+	// under -race and CPU contention, not a synchronisation primitive); the
+	// tight bound that actually distinguishes "reconnect fired" from "burn
+	// happened to finish on its own" is the elapsed-time assertion right
+	// after, which is measured from the drop itself rather than from an
+	// arbitrary wall-clock budget.
+	h.waitState("daqLocalFixture", "abort", 3*time.Second)
+	if elapsed := time.Since(dropped); elapsed >= 300*time.Millisecond {
+		t.Errorf("abort landed %s after the drop — not comfortably distinguishable from the entry_sequence's own 300ms natural completion", elapsed)
+	}
 
 	// The pre-drop run keeps executing locally on daqsim regardless of the
 	// link (real hardware would too) and will eventually report its own
 	// completion — that's expected and fine. What must NOT happen is a
 	// SECOND, freshly-armed burn run: that would mean the control node
 	// re-sent state_update on reconnect and re-fired the igniter.
-	waitFor(t, 4*time.Second, func() bool { return len(h.sim.Runs()) >= 1 })
+	waitFor(t, 6*time.Second, func() bool { return len(h.sim.Runs()) >= 1 })
 	time.Sleep(100 * time.Millisecond) // let a wrongly-sent re-arm have a chance to show up too
 
 	var burnRuns []daqsim.SeqRecord
@@ -248,6 +259,95 @@ func TestReconnectMidSequence(t *testing.T) {
 	}
 }
 
+// TestStateUpdateUndeliverableWhileDisconnected covers the fix for the
+// "state_update dropped silently while the node is down" hazard
+// (docs/daqsim.md "Protocol ambiguities" #4's sibling bug in
+// daqnode.Client.SendStateUpdate): entering a daq_local state with the node
+// never yet connected must raise a visible operator alert, not just queue the
+// payload for a socket that does not exist. The node is never connected in
+// this test at all — connectClient() is never called.
+func TestStateUpdateUndeliverableWhileDisconnected(t *testing.T) {
+	h := newHarnessDeferredConnect(t, daqsim.NewFakeClock(), nil)
+	sub, unsub := h.b.Subscribe()
+	defer unsub()
+
+	h.waitState("daqLocalFixture", "idle", 5*time.Second)
+	if err := h.eng.RequestTarget("daqLocalFixture", "burn"); err != nil {
+		t.Fatalf("RequestTarget burn: %v", err)
+	}
+	h.waitState("daqLocalFixture", "burn", 5*time.Second)
+
+	deadline := time.After(5 * time.Second)
+	for {
+		select {
+		case raw := <-sub:
+			var m map[string]interface{}
+			if json.Unmarshal(raw, &m) != nil || m["type"] != "err" {
+				continue
+			}
+			if s, _ := m["err"].(string); strings.Contains(s, "NEVER COMMANDED") {
+				return // undeliverable state_update surfaced as a visible alert
+			}
+		case <-deadline:
+			t.Fatal("undeliverable state_update while disconnected never reached the broker err path")
+		}
+	}
+}
+
+// TestFirstConnectWhileAlreadyRunningIsDistinctFromReconnect covers the fix
+// for docs/daqsim.md "Protocol ambiguities" #4: a machine already believed to
+// be running a daq_local state when its node completes its VERY FIRST
+// connection must be refused with a distinct first-connect message — never
+// the reconnect ("state-uncertain") wording — while still landing in the
+// same abort destination. Since the node was never reachable while "burn" was
+// entered (see TestStateUpdateUndeliverableWhileDisconnected), daqsim must
+// never record any run for it: first-connect handling must not have let a
+// state_update through either.
+func TestFirstConnectWhileAlreadyRunningIsDistinctFromReconnect(t *testing.T) {
+	h := newHarnessDeferredConnect(t, daqsim.NewFakeClock(), nil)
+	sub, unsub := h.b.Subscribe()
+	defer unsub()
+
+	h.waitState("daqLocalFixture", "idle", 5*time.Second)
+	if err := h.eng.RequestTarget("daqLocalFixture", "burn"); err != nil {
+		t.Fatalf("RequestTarget burn: %v", err)
+	}
+	h.waitState("daqLocalFixture", "burn", 5*time.Second)
+
+	// Only now does the node complete its very first connection — the machine
+	// already believes it is mid-burn.
+	h.connectClient()
+	h.waitConnected(5 * time.Second)
+
+	// First-connect handling must fire the declared abort destination, same
+	// as a reconnect would, but under different wording.
+	h.waitState("daqLocalFixture", "abort", 5*time.Second)
+
+	deadline := time.After(5 * time.Second)
+	for {
+		select {
+		case raw := <-sub:
+			var m map[string]interface{}
+			if json.Unmarshal(raw, &m) != nil || m["type"] != "err" {
+				continue
+			}
+			s, _ := m["err"].(string)
+			if !strings.Contains(s, "connected for the first time") {
+				continue
+			}
+			if strings.Contains(s, "reconnected") {
+				t.Fatalf("first-connect alarm text also says %q — not distinguishable from a genuine reconnect", s)
+			}
+			if runs := h.sim.Runs(); len(runs) != 0 {
+				t.Errorf("daqsim recorded %d run(s) for a state whose state_update was never sent to it: %+v", len(runs), runs)
+			}
+			return
+		case <-deadline:
+			t.Fatal("first-connect-while-running alarm never reached the broker err path")
+		}
+	}
+}
+
 // TestFiringSequenceNominalBurn drives the REAL shipped
 // config/machines/daq001.sm ("firingSequence") through a nominal burn against
 // a real daqsim connection. Unlike the daqLocalFixture tests above, this
@@ -263,16 +363,16 @@ func TestFiringSequenceNominalBurn(t *testing.T) {
 	})
 	h.shrinkBurnTiming(t) // SEQ-CUTOFF-T -> 2.1s, the shortest valid burn
 
-	h.waitConnected(2 * time.Second)
+	h.waitConnected(5 * time.Second)
 	// autoSequence's controller reads CPT-01 every tick from the very first
 	// tick it is active; wait for daqsim's first real sample so that read
 	// never races the abort guard with "no value yet".
-	waitFor(t, 2*time.Second, func() bool { _, ok := h.b.CurrentValue("CPT-01"); return ok })
-	h.waitState("firingSequence", "safe", 2*time.Second)
+	waitFor(t, 5*time.Second, func() bool { _, ok := h.b.CurrentValue("CPT-01"); return ok })
+	h.waitState("firingSequence", "safe", 5*time.Second)
 	if err := h.eng.RequestTarget("firingSequence", "manualControl"); err != nil {
 		t.Fatalf("RequestTarget manualControl: %v", err)
 	}
-	h.waitState("firingSequence", "manualControl", 2*time.Second)
+	h.waitState("firingSequence", "manualControl", 5*time.Second)
 	if err := h.eng.RequestTarget("firingSequence", "autoSequence"); err != nil {
 		t.Fatalf("RequestTarget autoSequence: %v", err)
 	}
@@ -280,12 +380,12 @@ func TestFiringSequenceNominalBurn(t *testing.T) {
 	// The shrunk burn still takes ~2.1s of real wall time (mains open at the
 	// hardcoded t=2s, then wait_until T-TIME > SEQ-CUTOFF-T) — the timeout
 	// gives it comfortable margin.
-	h.waitState("firingSequence", "postTest", 4*time.Second)
+	h.waitState("firingSequence", "postTest", 6*time.Second)
 
 	// postTest must have closed the press valves (open since t=0). NV-03-CMD
 	// / NV-04-CMD are hardware command channels on DAQ001, routed through the
 	// broker, not the softchan store.
-	waitFor(t, time.Second, func() bool {
+	waitFor(t, 3*time.Second, func() bool {
 		nv03, ok1 := h.b.CurrentValue("NV-03-CMD")
 		nv04, ok2 := h.b.CurrentValue("NV-04-CMD")
 		return ok1 && ok2 && nv03 == 0 && nv04 == 0

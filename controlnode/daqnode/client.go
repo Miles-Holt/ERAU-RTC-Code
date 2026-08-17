@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -50,6 +51,14 @@ type EngineController interface {
 	// NotifyDaqReconnect handles a reconnect while the machine is mid-flight in
 	// a daq_local state on node (state-uncertain → abort destination + alarm).
 	NotifyDaqReconnect(machine, node string) error
+	// NotifyDaqFirstConnect handles a node's very first-ever handshake
+	// completing while the machine is already believed to be running a
+	// daq_local state on it. Distinct from NotifyDaqReconnect: there is no
+	// prior connection to this node to have gone uncertain, but the control
+	// node still cannot know how much of the sequence has elapsed, so it takes
+	// the same corrective action (fire the abort destination) under a
+	// distinct, clearly-worded error/alarm.
+	NotifyDaqFirstConnect(machine, node string) error
 }
 
 // Client connects to a single DAQ node and bridges its data/commands to the broker.
@@ -64,6 +73,22 @@ type Client struct {
 
 	agg         *ConnectAggregator // optional; see SetAggregator
 	loggedFirst bool               // true once the first connect attempt has been logged
+
+	// hasConnected is true once this Client has completed at least one
+	// successful handshake with the node. It is only ever read/written from
+	// the Run() goroutine (connect() is called sequentially, never
+	// concurrently with itself), so it needs no synchronisation. It is what
+	// lets connect() tell a genuine reconnect apart from the very first
+	// connection this process has ever made to the node — see
+	// handleReconnectState vs handleFirstConnectState.
+	hasConnected bool
+
+	// connected reports whether the node is live RIGHT NOW (handshake
+	// complete, read/write loops running). Unlike hasConnected it goes back
+	// to false on every disconnect. SendStateUpdate reads it from whatever
+	// goroutine the engine calls it on, so it is an atomic.Bool rather than a
+	// plain bool guarded by hasConnected's single-goroutine assumption.
+	connected atomic.Bool
 
 	// retryDelay overrides reconnectDelay between reconnect attempts; zero
 	// means "use reconnectDelay".  Settable via SetRetryDelay so tests can
@@ -110,7 +135,20 @@ func (c *Client) SetRetryDelay(d time.Duration) {
 // called from the engine loop (OnDaqStateEnter) and must never block; if the
 // queue is somehow full the payload is dropped with a loud error rather than
 // stalling the engine.
+//
+// The node must be connected right now. Before this check existed, a
+// daq_local state entered while the node was down would sit in outCh
+// (capacity 64) with nothing ever consuming it — no error, no alarm, just a
+// "queued" log line — while the engine and the HMI both showed the machine
+// believing it was running that sequence on a node it had never reached.
+// That is exactly the controlNode/DAQ disagreement the runId/state-uncertain
+// design exists to prevent, so it is refused loudly instead.
 func (c *Client) SendStateUpdate(payload *statemachine.DaqStateUpdate) {
+	if !c.connected.Load() {
+		c.reportErr(fmt.Errorf("cannot deliver state_update: node %s is not connected — state %q (machine %q) was entered locally but was NEVER COMMANDED on the node",
+			c.refDes, payload.State, payload.Machine))
+		return
+	}
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		c.reportErr(fmt.Errorf("marshal state_update for %q: %w", payload.State, err))
@@ -232,6 +270,8 @@ func (c *Client) connect() (connected bool, err error) {
 	if c.agg != nil {
 		c.agg.Connected(c.refDes)
 	}
+	c.connected.Store(true)
+	defer c.connected.Store(false)
 
 	// ── Post-connect state handling ───────────────────────────────────────
 	// We deliberately do NOT push a state_update here.  `state_update` means
@@ -241,7 +281,37 @@ func (c *Client) connect() (connected bool, err error) {
 	// after a reconnect, so that is treated as state-uncertain: the engine
 	// fires the state's declared abort destination and raises an alarm.  If no
 	// machine is in a daq_local state here, nothing is sent at all.
-	c.handleReconnectState()
+	//
+	// A first-ever connection to this node gets a DIFFERENT rule, not the
+	// reconnect one: there is no prior connection whose timeline could have
+	// gone uncertain, so reporting it as a "reconnect" would tell the operator
+	// a link dropped that never existed. But it is not safe to just enter the
+	// state either — the control node still has no idea how much of the
+	// sequence, if any, has already elapsed on a node it has never exchanged a
+	// message with, so silently sending state_update now could fire a
+	// sequence partway through a timeline the engine already believes is
+	// under way. Both cases refuse to continue and fire the abort
+	// destination; only the reported message differs, so logs and alarms
+	// never conflate the two failure modes.
+	if !c.hasConnected {
+		c.handleFirstConnectState()
+		c.hasConnected = true
+	} else {
+		c.handleReconnectState()
+	}
+
+	// Drain any state_update left over from a previous connection: it was
+	// queued (outCh, capacity 64) but never delivered before the socket that
+	// would have carried it went away. Forwarding it now, on a fresh
+	// connection, would be exactly the silent-re-fire hazard the reconnect/
+	// first-connect handling above just finished refusing.
+	for drained := false; !drained; {
+		select {
+		case <-c.outCh:
+		default:
+			drained = true
+		}
+	}
 
 	// ── Run read and write concurrently ───────────────────────────────────
 	errCh := make(chan error, 2)
@@ -262,6 +332,23 @@ func (c *Client) handleReconnectState() {
 		}
 		if err := c.engine.NotifyDaqReconnect(machine, c.refDes); err != nil {
 			c.reportErr(fmt.Errorf("machine %s: reconnected with uncertain state: %v", machine, err))
+		}
+	}
+}
+
+// handleFirstConnectState applies the first-connect rule (distinct from
+// handleReconnectState — see the comment in connect()) to every machine that
+// has daq_local states on this node.
+func (c *Client) handleFirstConnectState() {
+	if c.engine == nil {
+		return
+	}
+	for _, machine := range c.engine.MachinesForNode(c.refDes) {
+		if !c.engine.IsRunningOnNode(machine, c.refDes) {
+			continue // not in a daq_local state here — send nothing
+		}
+		if err := c.engine.NotifyDaqFirstConnect(machine, c.refDes); err != nil {
+			c.reportErr(fmt.Errorf("machine %s: node connected for the first time while a sequence was already believed to be running: %v", machine, err))
 		}
 	}
 }

@@ -125,23 +125,41 @@ worked around:
    read as the less defensible choice, but this is a judgement call in the
    absence of a spec answer, not a wire-format fact.
 
-4. **A first-ever connection can be mistaken for a reconnect.**
-   `daqnode.Client.connect()` calls `handleReconnectState()` — the
+4. **A first-ever connection could be mistaken for a reconnect. FIXED.**
+   `daqnode.Client.connect()` used to call `handleReconnectState()` — the
    state-uncertain/abort-destination path — after *every* successful
    handshake, with no way to distinguish "this daqNode has never connected
    before" from "this connection just replaced one that dropped." If a
-   machine enters a `daq_local` state before that node's very first
-   connection completes (plausible during a fast/automated startup sequence,
+   machine entered a `daq_local` state before that node's very first
+   connection completed (plausible during a fast/automated startup sequence,
    or exactly the race `controlnode/integration`'s test harness had to work
    around — see `harness.waitConnected`'s doc comment), the first-ever
-   `state_update` is silently never delivered (it was queued for a socket
-   that didn't exist yet) and the first successful connect immediately fires
+   `state_update` was silently never delivered (it was queued for a socket
+   that didn't exist yet) and the first successful connect immediately fired
    the abort destination for a sequence that was never actually armed on the
-   node. This is not exercised by any existing daqnode test because every
-   prior test used a fake DAQ server that was already listening before the
-   client's very first dial. Worth a follow-up: track whether a node has
-   *ever* completed a handshake, and only take the state-uncertain path when
-   it has.
+   node, reported as a "reconnect" that had never happened.
+
+   Fixed: `Client` now tracks `hasConnected` and only takes the reconnect
+   path (`handleReconnectState` / `EngineController.NotifyDaqReconnect`) once
+   a handshake has genuinely succeeded before. The very first handshake takes
+   a distinct `handleFirstConnectState` / `NotifyDaqFirstConnect` path — same
+   corrective action (fire the state's declared abort destination), worded
+   differently so operators and logs never conflate "this node just dropped
+   and came back" with "this node has never been talked to before and a
+   sequence was already believed to be running on it." The sibling bug this
+   surfaced — `SendStateUpdate` queueing a payload with no visible error when
+   the node isn't connected at all — is fixed alongside it: see
+   `docs/websocket-protocol.md`'s "Reconnect behaviour" section. Covered by
+   `controlnode/daqnode/engine_test.go`'s
+   `TestClient_ReconnectWhileRunningIsStateUncertain` (drives a genuine first
+   connect then a genuine reconnect through `Client.Run` against
+   `dropAfterOneServer` and asserts each takes its own path) and
+   `controlnode/integration/daqsim_e2e_test.go`'s
+   `TestFirstConnectWhileAlreadyRunningIsDistinctFromReconnect` /
+   `TestStateUpdateUndeliverableWhileDisconnected` (both against a real
+   daqsim connection, using `newHarnessDeferredConnect` to hold the node's
+   first connection back until after the machine is already in a `daq_local`
+   state).
 
 ## What the end-to-end tests prove (`controlnode/integration`)
 

@@ -719,6 +719,45 @@ func (e *Engine) NotifyDaqReconnect(machine, node string) error {
 	return err
 }
 
+// NotifyDaqFirstConnect is the first-connect analogue of NotifyDaqReconnect
+// (F-A6b): a node completes its very first handshake ever while a machine is
+// already believed to be running a daq_local state on it. This is NOT a
+// reconnect — the node has no prior timeline on this control node to have
+// gone uncertain about — but it is no safer to treat as "just enter the
+// state": the control node has no way to know how much of the sequence, if
+// any, has already elapsed on a node it has never exchanged a single message
+// with. Silently sending state_update now would fire the sequence from t=0
+// into a timeline the engine already considers under way — the same
+// double-command hazard state-uncertain handling exists to prevent, just
+// arriving from the opposite direction (node showing up late instead of
+// dropping and coming back).
+//
+// The corrective action is the same as a reconnect — fire the state's
+// declared abort destination — but the reported error is deliberately
+// worded differently so operators, logs and alarms never conflate "this
+// node just dropped and came back" with "this node has never been talked to
+// before and a sequence was already believed to be running on it."
+func (e *Engine) NotifyDaqFirstConnect(machine, node string) error {
+	m, ok := e.machines[machine]
+	if !ok {
+		return fmt.Errorf("unknown machine %q", machine)
+	}
+	cur := m.current()
+	if cur == nil || cur.DaqLocal != node {
+		return nil // not running on that node — nothing to refuse
+	}
+	err := fmt.Errorf("node %s connected for the first time while state %q was already believed to be running on it (no prior connection to this node exists, so how much of the sequence has elapsed cannot be known): firing abort destination",
+		node, cur.Name)
+	e.onError(machine, err)
+
+	if cur.AbortTarget == "" {
+		return fmt.Errorf("machine %q: state %q has no abort destination to fall back to after %s's first connection arrived mid-state",
+			machine, cur.Name, node)
+	}
+	e.enqueuePriority(transitionReq{machine: machine, target: cur.AbortTarget, epoch: 0})
+	return err
+}
+
 func stateName(st *State) string {
 	if st == nil {
 		return ""

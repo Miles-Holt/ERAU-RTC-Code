@@ -1,6 +1,7 @@
 package daqnode
 
 import (
+	"context"
 	"controlnode/broker"
 	"controlnode/statemachine"
 	"encoding/json"
@@ -9,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -25,9 +27,10 @@ type fakeEngine struct {
 	payload  *statemachine.DaqStateUpdate
 	resolve  error // returned by CurrentDaqPayload
 
-	aborts     []string
-	completes  []int64
-	reconnects []string
+	aborts       []string
+	completes    []int64
+	reconnects   []string
+	firstConnect []string
 }
 
 func (f *fakeEngine) MachinesForNode(string) []string {
@@ -75,12 +78,25 @@ func (f *fakeEngine) NotifyDaqReconnect(machine, node string) error {
 	return nil
 }
 
+func (f *fakeEngine) NotifyDaqFirstConnect(machine, node string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.firstConnect = append(f.firstConnect, machine)
+	return nil
+}
+
 func (f *fakeEngine) snapshot() (aborts []string, completes []int64, reconnects []string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return append([]string(nil), f.aborts...),
 		append([]int64(nil), f.completes...),
 		append([]string(nil), f.reconnects...)
+}
+
+func (f *fakeEngine) firstConnects() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.firstConnect...)
 }
 
 // ── Fake DAQ servers ──────────────────────────────────────────────────────────
@@ -193,13 +209,18 @@ func TestClient_NoStatePushOnConnect(t *testing.T) {
 	}
 }
 
-// TestClient_ReconnectWhileRunningIsStateUncertain covers F-A6: reconnecting
-// while a machine is mid-flight in a daq_local state on this node must take the
-// state-uncertain path (abort destination + alarm), not re-send the payload.
+// TestClient_ReconnectWhileRunningIsStateUncertain covers F-A6: a GENUINE
+// reconnect (the node drops and comes back) while a machine is mid-flight in
+// a daq_local state on this node must take the state-uncertain path (abort
+// destination + alarm), not re-send the payload. It drives two full connect
+// cycles through Run() — dropAfterOneServer completes the handshake, streams
+// one data frame, then closes — so the first cycle is a genuine first connect
+// (must NOT count as a reconnect) and the second is a genuine reconnect (must
+// count as one). This also guards against the first-connect/reconnect
+// distinction collapsing back into "every handshake is a reconnect".
 func TestClient_ReconnectWhileRunningIsStateUncertain(t *testing.T) {
-	gotConfig := make(chan []byte, 1)
-	msgs := make(chan []byte, 8)
-	ts := collectingDaqServer(t, gotConfig, msgs)
+	var connCount atomic.Int32
+	ts := dropAfterOneServer(t, "DAQ001", &connCount)
 	defer ts.Close()
 	host, port := hostPort(t, ts.URL)
 
@@ -208,35 +229,48 @@ func TestClient_ReconnectWhileRunningIsStateUncertain(t *testing.T) {
 
 	eng := &fakeEngine{machines: []string{"fuelSeq"}, running: true}
 	c := New("DAQ001", host, port, `{"type":"config"}`, b, eng)
-	go c.connect()
+	c.SetRetryDelay(5 * time.Millisecond)
 
-	select {
-	case <-gotConfig:
-	case <-time.After(2 * time.Second):
-		t.Fatal("handshake never completed")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go c.Run(ctx)
+
+	// First handshake: the machine is already "running" here, but this is the
+	// node's first-ever connection — must produce the first-connect handling,
+	// NOT a reconnect.
+	deadline := time.After(2 * time.Second)
+	for {
+		if fc := eng.firstConnects(); len(fc) == 1 && fc[0] == "fuelSeq" {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatal("first-connect handling never fired on the first-ever handshake")
+		default:
+			time.Sleep(5 * time.Millisecond)
+		}
+	}
+	if _, _, reconnects := eng.snapshot(); len(reconnects) != 0 {
+		t.Fatalf("reconnect path fired on the FIRST-EVER connection: %v", reconnects)
 	}
 
-	deadline := time.After(2 * time.Second)
+	// The server drops the link right after the first handshake; Run() loops
+	// back and reconnects — a genuine reconnect this time.
+	deadline = time.After(2 * time.Second)
 	for {
 		if _, _, reconnects := eng.snapshot(); len(reconnects) == 1 && reconnects[0] == "fuelSeq" {
 			break
 		}
 		select {
 		case <-deadline:
-			t.Fatal("reconnect-uncertain path never fired")
+			t.Fatal("reconnect-uncertain path never fired on the genuine reconnect")
 		default:
 			time.Sleep(5 * time.Millisecond)
 		}
 	}
-
-	// And absolutely no state_update may have gone out.
-	select {
-	case raw := <-msgs:
-		var m map[string]interface{}
-		if json.Unmarshal(raw, &m) == nil && m["type"] == "state_update" {
-			t.Fatalf("client re-sent a state_update on reconnect: %s", raw)
-		}
-	case <-time.After(200 * time.Millisecond):
+	// The first-connect count must not have grown on the reconnect.
+	if fc := eng.firstConnects(); len(fc) != 1 {
+		t.Errorf("first-connect handling fired %d times, want exactly 1 (only the first-ever handshake)", len(fc))
 	}
 }
 

@@ -595,15 +595,62 @@ which cannot distinguish two runs of the same state.
 
 ## Reconnect behaviour
 
-On reconnect, for every machine with `daq_local` states on this node:
+The control node tracks, per `daqnode.Client`, whether it has EVER completed a
+handshake with that node before. This matters because a first-ever connection
+and a reconnect are different situations that must be reported differently —
+see "First connection vs. reconnect" below. On any handshake completing
+(first or repeat), for every machine with `daq_local` states on this node:
 
 - **Machine not in a `daq_local` state here** → nothing is sent. The node holds
   no armed sequence.
-- **Machine *is* in a `daq_local` state here** → the state is treated as
-  **uncertain**. The node's timeline after a drop is unknowable (did the burn
-  finish? did the abort rule trip while the link was down?), so the control node
-  does *not* re-send `state_update`. It fires the state's declared **abort
-  destination** and raises an alarm.
+- **Machine *is* in a `daq_local` state here, and this is a genuine
+  reconnect** (the client has completed a handshake with this node before) →
+  the state is treated as **uncertain**. The node's timeline after a drop is
+  unknowable (did the burn finish? did the abort rule trip while the link was
+  down?), so the control node does *not* re-send `state_update`. It fires the
+  state's declared **abort destination** and raises an alarm reporting a
+  reconnect.
+- **Machine *is* in a `daq_local` state here, and this is the node's
+  first-ever connection** → also refused, also fires the state's declared
+  **abort destination**, but the alarm text is deliberately different: it
+  says the node connected for the first time while a sequence was already
+  believed to be running, not that it reconnected. There is no prior
+  connection to this node whose timeline could have gone uncertain, but the
+  control node still has no way to know how much of the sequence, if any, has
+  already elapsed on a node it has never exchanged a message with — silently
+  entering the state would risk firing it from t=0 into a timeline already
+  believed under way, so it is refused the same way a reconnect is, just
+  under distinguishable wording.
 
 This is why `state_update` is an imperative ("enter now") rather than a cache
-sync: re-sending it after a drop would restart a burn.
+sync: re-sending it after a drop (or after a late first connection) would
+restart a burn.
+
+### First connection vs. reconnect
+
+Before this distinction existed, `connect()` treated every completed
+handshake — including the very first one a process ever makes to a node —
+as a reconnect. A machine parked in a `daq_local` state before that node's
+first connection completed would see the abort destination fire and an alarm
+citing a reconnect that never happened. `daqnode.Client` now records
+`hasConnected` and only takes the reconnect path once a handshake has
+actually succeeded before; the first one always takes the first-connect path
+described above.
+
+### Undeliverable `state_update`
+
+`OnDaqStateEnter` calls `Client.SendStateUpdate` the moment a machine enters a
+`daq_local` state — regardless of whether the node is currently connected.
+`SendStateUpdate` now checks the live connection state before queueing
+anything: if the node is not connected right now, the payload is refused and
+reported through the broker error path (the same path DAQ-side faults use,
+surfaced to the operator as an alarm) instead of being silently queued for a
+socket that does not exist. Previously an undeliverable `state_update` sat in
+the client's internal 64-entry outbound queue with only a log line — no
+alarm — while the engine and the web client both showed the machine believing
+it was running a sequence that had never reached any node.
+
+A connection is also never allowed to forward a `state_update` left over from
+a *previous* connection: `connect()` drains any stale queued payload before
+starting its write loop, so a payload queued right before a drop cannot be
+delivered — and silently re-fire a sequence — on the next connection.

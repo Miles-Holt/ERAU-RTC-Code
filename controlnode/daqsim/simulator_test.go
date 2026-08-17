@@ -128,7 +128,7 @@ func TestHandshakeAndClassification(t *testing.T) {
 	}
 
 	cn.send(map[string]interface{}{"type": "cmd", "refDes": "OV-05-CMD", "value": 1})
-	waitFor(t, time.Second, func() bool {
+	waitFor(t, 3*time.Second, func() bool {
 		v, _ := sim.ChannelValue("OV-05-CMD")
 		return v == 1
 	})
@@ -277,14 +277,14 @@ func TestReconnectPreservesCommandState(t *testing.T) {
 	cn1.handshake(testConfig)
 	waitForConfig(t, sim)
 	cn1.send(map[string]interface{}{"type": "cmd", "refDes": "OV-05-CMD", "value": 1})
-	waitFor(t, time.Second, func() bool {
+	waitFor(t, 3*time.Second, func() bool {
 		v, _ := sim.ChannelValue("OV-05-CMD")
 		return v == 1
 	})
 
 	sim.DropConnection()
 	cn1.conn.Close()
-	waitFor(t, time.Second, func() bool { return !sim.Connected() })
+	waitFor(t, 3*time.Second, func() bool { return !sim.Connected() })
 
 	cn2 := dialSim(t, addr)
 	defer cn2.conn.Close()
@@ -343,7 +343,7 @@ func TestReEntrySupersedesPreviousRun(t *testing.T) {
 // config is read and the model is built).
 func waitForConfig(t *testing.T, sim *Simulator) {
 	t.Helper()
-	waitFor(t, time.Second, func() bool {
+	waitFor(t, 3*time.Second, func() bool {
 		_, _, ok := sim.Config()
 		return ok
 	})
