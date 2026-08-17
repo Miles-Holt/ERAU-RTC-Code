@@ -9,13 +9,30 @@ all of them are things a future run should close.
   monotonic `runId` into every `state_update` and the correlation logic already
   prefers it (`NotifySequenceCompleteRun`). Until LabVIEW echoes it, completions
   fall back to state+epoch matching, which cannot tell two runs of the same state
-  apart. This is the last correlation gap in the protocol.
+  apart. This is the last correlation gap in the protocol. **Now demonstrated
+  end to end**: `controlnode/daqsim` (a non-LabVIEW daqNode) echoes `runId` on
+  every `sequence_complete`, and `controlnode/integration/TestStaleSequenceCompleteIgnored`
+  proves against a real node connection that a stale `runId` is rejected. LabVIEW
+  still owes the same echo — daqsim is the reference for what that should look
+  like on the wire.
 - [ ] **LabVIEW: new `state_update` lifecycle** — `state_update` now means
   "enter this state now", not "here is your cached config". It arrives on state
   entry (not at connect), `exit_sequence` must be run locally the moment an
   `abort_rule` trips, and `state_req` is answered only while a machine is
   actually in a `daq_local` state on that node. The node side needs to be
-  reviewed against `docs/websocket-protocol.md` Part 2.
+  reviewed against `docs/websocket-protocol.md` Part 2. `controlnode/daqsim`
+  implements this lifecycle correctly (see `docs/daqsim.md`) and can serve as
+  a reference implementation while LabVIEW catches up.
+- [x] **non-LabVIEW daqNode for CI, builds, and tests** — done.
+  `controlnode/daqsim` is a Go daqNode simulator (library + `controlnode/cmd/daqsim`
+  standalone binary) that speaks the real protocol: config-driven channel model
+  (no hardcoded channel names), timed entry/exit sequences, live `abort_rule`
+  scanning, and `runId`-echoing `sequence_complete`. `controlnode/integration`
+  wires it against the real broker/softchan/statemachine engine and the real
+  `config/machines/daq001.sm` over an actual localhost WebSocket — the first
+  tests in this repo that run the protocol against something that executes it,
+  rather than a hand-written fake. See `docs/daqsim.md`, including a short list
+  of genuine protocol ambiguities found while building it.
 - [x] **`operator from X,Y` transition gating** — done. `operator from a, b`
   restricts operator-commanded entry to that state to the listed current
   states; bare `operator` stays commandable from anywhere. Gating is
