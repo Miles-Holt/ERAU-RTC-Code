@@ -295,12 +295,19 @@ function makeSensorGroup(obj) {
         rx: 3, class: 'pid-sensor-rect',
     }));
 
-    if (obj.refDes) {
+    // Objects reference controls, not channels: obj.controlRefDes (+ optional
+    // obj.channelRefDes to pick one of several readable channels) is the
+    // preferred binding; obj.refDes (a bare channel refDes) is the legacy
+    // form kept for layouts saved before controls existed. Both resolve
+    // through the same helper so display + live data agree.
+    const binding = resolveSensorBinding(obj, configControls);
+
+    if (binding) {
         g.style.cursor = 'context-menu';
         g.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            openObjectSidebar(obj.refDes);
+            openObjectSidebar(binding.ch.refDes);
         });
     }
 
@@ -308,12 +315,12 @@ function makeSensorGroup(obj) {
     // Box height = 50px. Layout items from top: name(opt), refDes(opt), value, units(opt)
     const items = [];
     if (showName) {
-        const desc = (configControls.find(c => c.channels?.some(ch => ch.refDes === obj.refDes)))?.description || '';
-        items.push({ type: 'name', text: desc });
+        items.push({ type: 'name', text: binding?.ctrl.description || '' });
     }
-    if (showRefDes) items.push({ type: 'refdes', text: obj.refDes || '(no refDes)' });
+    const refDesText = binding?.ch.refDes || obj.refDes || obj.controlRefDes || '(no refDes)';
+    if (showRefDes) items.push({ type: 'refdes', text: refDesText });
     items.push({ type: 'value', text: '--' });
-    if (showUnits)  items.push({ type: 'units',  text: obj.units || '' });
+    if (showUnits)  items.push({ type: 'units',  text: obj.units || binding?.ch.units || '' });
 
     const step = PID.SENSOR_H / (items.length + 1);
     const lx = obj.labelOffsetX || 0;
@@ -672,63 +679,14 @@ function makeGraphGroup(obj, tab) {
         searchInput.type        = 'text';
         searchInput.placeholder = 'Add channel (regex)...';
         searchInput.className   = 'graph-search';
-        const dropdown = document.createElement('div');
-        dropdown.className   = 'graph-dropdown';
-        dropdown.style.display = 'none';
-        document.body.appendChild(dropdown);
         searchWrap.appendChild(searchInput);
         panel.appendChild(searchWrap);
 
-        const handlePidSearch = debounce(() => {
-            const q = searchInput.value.trim();
-            if (!q) { dropdown.style.display = 'none'; return; }
-            let re;
-            try { re = new RegExp(q, 'i'); } catch { dropdown.style.display = 'none'; return; }
-            const selected = new Set(cell.channels.map(c => c.refDes));
-            const matches = [];
-            for (const ctrl of configControls) {
-                for (const ch of (ctrl.channels ?? [])) {
-                    if (!selected.has(ch.refDes) && (re.test(ch.refDes) || re.test(ctrl.description || ''))) {
-                        matches.push({ refDes: ch.refDes, desc: ctrl.description || '' });
-                    }
-                }
-            }
-            const trimmed = matches.slice(0, 20);
-            dropdown.innerHTML = '';
-            if (!trimmed.length) { dropdown.style.display = 'none'; return; }
-            for (const { refDes, desc } of trimmed) {
-                const item = document.createElement('div');
-                item.className = 'graph-dropdown-item';
-                const rdSpan = document.createElement('span');
-                rdSpan.className = 'graph-dropdown-refdes';
-                rdSpan.textContent = refDes;
-                item.appendChild(rdSpan);
-                if (desc) {
-                    const dsSpan = document.createElement('span');
-                    dsSpan.className = 'graph-dropdown-desc';
-                    dsSpan.textContent = desc;
-                    item.appendChild(dsSpan);
-                }
-                item.addEventListener('mousedown', (e) => {
-                    e.preventDefault();
-                    addChannelToCell(GRAPH_TAB_ID, 0, refDes);
-                    searchInput.focus();
-                    handlePidSearch();
-                });
-                dropdown.appendChild(item);
-            }
-            const r = searchInput.getBoundingClientRect();
-            dropdown.style.left    = r.left + 'px';
-            dropdown.style.width   = r.width + 'px';
-            dropdown.style.top     = '-9999px';
-            dropdown.style.bottom  = '';
-            dropdown.style.display = '';
-            const h = dropdown.offsetHeight;
-            dropdown.style.top = Math.max(4, r.top - h) + 'px';
-        }, 150);
-
-        searchInput.addEventListener('input', handlePidSearch);
-        searchInput.addEventListener('blur', () => setTimeout(() => { dropdown.style.display = 'none'; }, 150));
+        createChannelSearchDropdown(searchInput, {
+            getExcluded: () => new Set(cell.channels.map(c => c.refDes)),
+            onPick:      (refDes) => addChannelToCell(GRAPH_TAB_ID, 0, refDes),
+            position:    'above',
+        });
 
         cellWrap.appendChild(panel);
     }
@@ -928,19 +886,22 @@ function _updateDaqControlState(svgEl, id, machineName, stateValue) {
 function rebindPidLiveData(tab) {
     tab.channelUpdaters = {};
     for (const obj of tab.pid.objects) {
-        if (obj.type === 'sensor' && obj.refDes) {
-            const id = obj.id;
-            let staleTimer = null;
-            tab.channelUpdaters[obj.refDes] = value => {
-                const el = tab.pid.svgEl.querySelector('[data-pid-id="' + id + '"] .pid-sensor-value');
-                if (!el) return;
-                el.textContent = typeof value === 'number'
-                    ? (Number.isInteger(value) ? String(value) : value.toFixed(2))
-                    : String(value);
-                el.classList.remove('stale');
-                clearTimeout(staleTimer);
-                staleTimer = setTimeout(() => el.classList.add('stale'), CONFIG.channelStaleMs);
-            };
+        if (obj.type === 'sensor') {
+            const binding = resolveSensorBinding(obj, configControls);
+            if (binding) {
+                const id = obj.id;
+                const el = () => tab.pid.svgEl.querySelector('[data-pid-id="' + id + '"] .pid-sensor-value');
+                const stale = makeStaleTimer(CONFIG.channelStaleMs, () => el()?.classList.add('stale'));
+                tab.channelUpdaters[binding.ch.refDes] = value => {
+                    const valEl = el();
+                    if (!valEl) return;
+                    valEl.textContent = typeof value === 'number'
+                        ? (Number.isInteger(value) ? String(value) : value.toFixed(2))
+                        : String(value);
+                    valEl.classList.remove('stale');
+                    stale.bump();
+                };
+            }
         }
         if (obj.type === 'valve' && obj.controlRefDes) {
             const ctrl = configControls.find(c => c.refDes === obj.controlRefDes);
@@ -948,7 +909,10 @@ function rebindPidLiveData(tab) {
             const cmdCh = ctrl.channels?.find(c => c.role === 'cmd-bool' || c.role === 'cmd-pct');
             const fbCh  = ctrl.channels?.find(c => c.role === '' || c.role === 'sensor');
             const id = obj.id;
-            let fbStaleTimer = null;
+            const fbStale = makeStaleTimer(CONFIG.channelStaleMs, () => {
+                const r = tab.pid.svgEl.querySelector('[data-pid-id="' + id + '"] .pid-valve-ring');
+                if (r && !r.classList.contains('bad')) r.classList.add('stale');
+            });
 
             if (cmdCh) {
                 tab.channelUpdaters[cmdCh.refDes] = value => {
@@ -968,11 +932,7 @@ function rebindPidLiveData(tab) {
                         ring.classList.toggle('bad', bad);
                         ring.classList.remove('stale');
                     }
-                    clearTimeout(fbStaleTimer);
-                    fbStaleTimer = setTimeout(() => {
-                        const r = tab.pid.svgEl.querySelector('[data-pid-id="' + id + '"] .pid-valve-ring');
-                        if (r && !r.classList.contains('bad')) r.classList.add('stale');
-                    }, CONFIG.channelStaleMs);
+                    fbStale.bump();
                 };
             }
         }
@@ -982,7 +942,10 @@ function rebindPidLiveData(tab) {
             const id = obj.id;
             const machineName = obj.daqRefDes;  // daqRefDes now holds the machine name
             const smStateRefDes = 'SM-' + machineName + '-STATE';
-            let connStaleTimer = null;
+            const connStale = makeStaleTimer(CONFIG.channelStaleMs, () => {
+                const connEl = tab.pid.svgEl.querySelector('[data-pid-id="' + id + '"] .pid-daqctrl-conn');
+                if (connEl) connEl.textContent = 'Stale';
+            });
 
             // Listen for SM-<MACHINE>-STATE (numeric index) to update current
             // state + dropdown.  state_change (state NAME) drives the same
@@ -1002,10 +965,7 @@ function rebindPidLiveData(tab) {
                 const connEl = tab.pid.svgEl.querySelector('[data-pid-id="' + id + '"] .pid-daqctrl-conn');
                 if (!connEl) return;
                 connEl.textContent = value >= 1 ? 'Connected' : 'Disconnected';
-                clearTimeout(connStaleTimer);
-                connStaleTimer = setTimeout(() => {
-                    if (connEl) connEl.textContent = 'Stale';
-                }, CONFIG.channelStaleMs);
+                connStale.bump();
             };
         }
     }

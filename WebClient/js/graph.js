@@ -301,9 +301,6 @@ function buildGraphCell(tabId, cellIdx) {
     searchInput.type        = 'text';
     searchInput.placeholder = 'Add channel (regex)...';
     searchInput.className   = 'graph-search';
-    const dropdown = mkEl('div', 'graph-dropdown');
-    dropdown.style.display = 'none';
-    document.body.appendChild(dropdown);   // appended to body so fixed positioning is unambiguous
     searchWrap.appendChild(searchInput);
     panel.appendChild(searchWrap);
 
@@ -338,56 +335,14 @@ function buildGraphCell(tabId, cellIdx) {
     cellEl.appendChild(panel);
     cellEl.appendChild(chartArea);
 
-    const handleSearch = debounce(() => {
-        const q = searchInput.value.trim();
-        if (!q) { searchInput.classList.remove('input-error'); searchInput.title = ''; dropdown.style.display = 'none'; return; }
-        let re;
-        try {
-            re = new RegExp(q, 'i');
-            searchInput.classList.remove('input-error'); searchInput.title = '';
-        } catch {
-            searchInput.classList.add('input-error'); searchInput.title = 'Invalid regex';
-            dropdown.style.display = 'none'; return;
-        }
-        const selected = new Set((graphState[tabId]?.cells[cellIdx]?.channels ?? []).map(c => c.refDes));
-        const matches = [];
-        for (const ctrl of configControls) {
-            for (const ch of (ctrl.channels ?? [])) {
-                if (!selected.has(ch.refDes) && (re.test(ch.refDes) || re.test(ctrl.description || ''))) {
-                    matches.push({ refDes: ch.refDes, desc: ctrl.description || '' });
-                }
-            }
-        }
-        const trimmed = matches.slice(0, 20);
-        dropdown.innerHTML = '';
-        if (!trimmed.length) { dropdown.style.display = 'none'; return; }
-        for (const { refDes, desc } of trimmed) {
-            const item = mkEl('div', 'graph-dropdown-item');
-            item.appendChild(mkEl('span', 'graph-dropdown-refdes', refDes));
-            if (desc) item.appendChild(mkEl('span', 'graph-dropdown-desc', desc));
-            item.addEventListener('mousedown', (e) => {
-                e.preventDefault();
-                addChannelToCell(tabId, cellIdx, refDes);
-                searchInput.focus();
-                handleSearch();
-            });
-            dropdown.appendChild(item);
-        }
-        // Position dropdown above the search bar
-        const r = searchInput.getBoundingClientRect();
-        dropdown.style.left       = r.left + 'px';
-        dropdown.style.width      = r.width + 'px';
-        dropdown.style.top        = '-9999px';   // off-screen while measuring
-        dropdown.style.bottom     = '';
-        dropdown.style.display    = '';
-        const h = dropdown.offsetHeight;
-        dropdown.style.top        = Math.max(4, r.top - h) + 'px';
-    }, 150);
+    const searchDropdown = createChannelSearchDropdown(searchInput, {
+        getExcluded:     () => new Set((graphState[tabId]?.cells[cellIdx]?.channels ?? []).map(c => c.refDes)),
+        onPick:          (refDes) => addChannelToCell(tabId, cellIdx, refDes),
+        position:        'above',
+        styleInputError: true,
+    });
 
-    searchInput.addEventListener('input', handleSearch);
-    searchInput.addEventListener('blur', () => setTimeout(() => { dropdown.style.display = 'none' }, 150));
-
-    cellEl._dropdown = dropdown;  // track for cleanup on grid rebuild
+    cellEl._dropdown = searchDropdown.dropdownEl;  // track for cleanup on grid rebuild
     return cellEl;
 }
 
@@ -653,10 +608,14 @@ function rebuildActivePidChannels() {
     for (const t of tabs) {
         if (t.type !== 'frontPanel' || !t.pid) continue;
         for (const obj of t.pid.objects) {
-            // Sensors: buffer the sensor's refDes
-            if (obj.type === 'sensor' && obj.refDes) {
-                activePidChannels.add(obj.refDes);
-                if (!channelBuffers[obj.refDes]) channelBuffers[obj.refDes] = { ts: [], vals: [] };
+            // Sensors: buffer the resolved channel's refDes (controlRefDes
+            // binding, or legacy refDes — see resolveSensorBinding)
+            if (obj.type === 'sensor') {
+                const binding = resolveSensorBinding(obj, configControls);
+                if (binding) {
+                    activePidChannels.add(binding.ch.refDes);
+                    if (!channelBuffers[binding.ch.refDes]) channelBuffers[binding.ch.refDes] = { ts: [], vals: [] };
+                }
             }
             // Valves: buffer the actual sub-channel refDes values (cmd + feedback),
             // not the control-level refDes which is never a data key.

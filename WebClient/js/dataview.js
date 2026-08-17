@@ -58,70 +58,18 @@ function rebuildDataView(tab) {
 // ---------------------------------------------------------------------------
 
 function _renderDvSearchDropdown(tab, input) {
-    const dropdown = mkEl('div', 'graph-dropdown');
-    document.body.appendChild(dropdown);
-
-    const closeDropdown = () => { dropdown.style.display = 'none'; };
-
-    const openDropdown = () => {
-        const rect = input.getBoundingClientRect();
-        dropdown.style.top   = `${rect.bottom + window.scrollY + 2}px`;
-        dropdown.style.left  = `${rect.left   + window.scrollX}px`;
-        dropdown.style.width = `${rect.width}px`;
-        dropdown.style.display = '';
-    };
-
-    const populateDropdown = debounce(() => {
-        dropdown.innerHTML = '';
-        const q = input.value.trim();
-        if (!q) { input.classList.remove('input-error'); input.title = ''; closeDropdown(); return; }
-
-        let re;
-        try {
-            re = new RegExp(q, 'i');
-            input.classList.remove('input-error'); input.title = '';
-        } catch {
-            input.classList.add('input-error'); input.title = 'Invalid regex';
-            closeDropdown(); return;
-        }
-
-        const matches = [];
-        for (const ctrl of configControls) {
-            for (const ch of (ctrl.channels ?? [])) {
-                if (re.test(ch.refDes) || re.test(ctrl.description || '')) {
-                    if (!tab.dvRows.includes(ch.refDes)) {
-                        matches.push({ refDes: ch.refDes, desc: ctrl.description || '' });
-                    }
-                }
-            }
-            if (matches.length >= 20) break;
-        }
-
-        if (!matches.length) { closeDropdown(); return; }
-
-        for (const m of matches) {
-            const item = mkEl('div', 'graph-dropdown-item');
-            item.appendChild(mkEl('span', 'graph-dropdown-refdes', m.refDes));
-            if (m.desc) item.appendChild(mkEl('span', 'graph-dropdown-desc', m.desc));
-            item.addEventListener('mousedown', (e) => {
-                e.preventDefault();
-                _addDvRow(tab, m.refDes);
-                input.focus();
-                populateDropdown();
-            });
-            dropdown.appendChild(item);
-        }
-        openDropdown();
-    }, 150);
-
-    input.addEventListener('input', populateDropdown);
-    input.addEventListener('blur', () => setTimeout(closeDropdown, 150));
+    const searchDropdown = createChannelSearchDropdown(input, {
+        getExcluded:     () => new Set(tab.dvRows),
+        onPick:          (refDes) => _addDvRow(tab, refDes),
+        position:        'below',
+        styleInputError: true,
+    });
 
     // Remove the body-appended dropdown when this tab's content is replaced.
     // Observe only tab.contentEl (not the whole body) to keep the callback cheap.
     const observer = new MutationObserver(() => {
         if (!tab.contentEl.contains(input)) {
-            dropdown.remove();
+            searchDropdown.destroy();
             observer.disconnect();
         }
     });
@@ -247,7 +195,11 @@ function _buildDvRowEl(tab, ctrl, ch) {
     const vMin = ch.validMin ?? null;
     const vMax = ch.validMax ?? null;
 
-    let staleTimer = null;
+    const stale = makeStaleTimer(CONFIG.channelStaleMs, () => {
+        led.className = 'dv-led dv-led-stale';
+        valEl?.classList.remove('bad');
+        valEl?.classList.add('stale');
+    });
     tab.channelUpdaters[refDes] = (v) => {
         const now    = Date.now() / 1000;
         const buf    = tab.dvBuffers[refDes];
@@ -266,12 +218,7 @@ function _buildDvRowEl(tab, ctrl, ch) {
         }
 
         led.className = bad ? 'dv-led dv-led-bad' : 'dv-led dv-led-online';
-        clearTimeout(staleTimer);
-        staleTimer = setTimeout(() => {
-            led.className = 'dv-led dv-led-stale';
-            valEl?.classList.remove('bad');
-            valEl?.classList.add('stale');
-        }, CONFIG.channelStaleMs);
+        stale.bump();
     };
 
     return row;

@@ -74,56 +74,12 @@ const SIDEBAR_CELL_IDX = 0;
     attachProximityTooltip(canvas, cell);
 
     // ── Search dropdown (appended to body for unambiguous fixed positioning) ──
-    const dropdown = mkEl('div', 'graph-dropdown');
-    dropdown.style.display = 'none';
-    document.body.appendChild(dropdown);
-    cellEl._dropdown = dropdown;   // tracked for potential future cleanup
-
-    const handleSearch = debounce(() => {
-        const q = searchInput.value.trim();
-        if (!q) { dropdown.style.display = 'none'; return; }
-        let re;
-        try { re = new RegExp(q, 'i'); } catch { dropdown.style.display = 'none'; return; }
-        const selected = new Set(cell.channels.map(c => c.refDes));
-        const matches  = [];
-        for (const ctrl of configControls) {
-            for (const ch of (ctrl.channels ?? [])) {
-                if (!selected.has(ch.refDes) &&
-                    (re.test(ch.refDes) || re.test(ctrl.description || ''))) {
-                    matches.push({ refDes: ch.refDes, desc: ctrl.description || '' });
-                }
-            }
-        }
-        const trimmed = matches.slice(0, 20);
-        dropdown.innerHTML = '';
-        if (!trimmed.length) { dropdown.style.display = 'none'; return; }
-        for (const { refDes, desc } of trimmed) {
-            const item = mkEl('div', 'graph-dropdown-item');
-            item.appendChild(mkEl('span', 'graph-dropdown-refdes', refDes));
-            if (desc) item.appendChild(mkEl('span', 'graph-dropdown-desc', desc));
-            item.addEventListener('mousedown', (ev) => {
-                ev.preventDefault();
-                addChannelToCell(SIDEBAR_TAB_ID, SIDEBAR_CELL_IDX, refDes);
-                searchInput.focus();
-                handleSearch();
-            });
-            dropdown.appendChild(item);
-        }
-        // Position dropdown above the search input
-        const r = searchInput.getBoundingClientRect();
-        dropdown.style.left    = r.left + 'px';
-        dropdown.style.width   = r.width + 'px';
-        dropdown.style.top     = '-9999px';
-        dropdown.style.bottom  = '';
-        dropdown.style.display = '';
-        const h = dropdown.offsetHeight;
-        dropdown.style.top     = Math.max(4, r.top - h) + 'px';
-    }, 150);
-
-    searchInput.addEventListener('input', handleSearch);
-    searchInput.addEventListener('blur', () => {
-        setTimeout(() => { dropdown.style.display = 'none'; }, 150);
+    const searchDropdown = createChannelSearchDropdown(searchInput, {
+        getExcluded: () => new Set(cell.channels.map(c => c.refDes)),
+        onPick:      (refDes) => addChannelToCell(SIDEBAR_TAB_ID, SIDEBAR_CELL_IDX, refDes),
+        position:    'above',
     });
+    cellEl._dropdown = searchDropdown.dropdownEl;   // tracked for potential future cleanup
 
     // ── Store header element refs on the container for openObjectSidebar ──────
     el._refdesEl = refdesEl;

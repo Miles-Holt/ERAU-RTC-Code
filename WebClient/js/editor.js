@@ -37,7 +37,7 @@ let edWsStatusEl       = null;          // dot in header
 const edLiveValues     = {};            // refDes → latest value
 let edLiveRefDes       = null;          // refDes of the currently selected sensor
 let edLiveEl           = null;          // <span> in right sidebar to update
-let edLiveStaleTimer   = null;
+const edLiveStale      = makeStaleTimer(2000, () => { if (edLiveEl) edLiveEl.classList.add('stale'); });
 
 // Control WebSocket (/ws/ctrl) — authenticated, used for set_layout
 let edWsCtrl               = null;
@@ -124,6 +124,7 @@ function pidToYaml(layout) {
             if (o.refDes)              y += '    refDes: '        + q(o.refDes)        + '\n';
             if (o.units)               y += '    units: '         + q(o.units)         + '\n';
             if (o.controlRefDes)       y += '    controlRefDes: ' + q(o.controlRefDes) + '\n';
+            if (o.channelRefDes)       y += '    channelRefDes: ' + q(o.channelRefDes) + '\n';
             if (o.showRefDes === false) y += '    showRefDes: false\n';
             if (o.showUnits  === false) y += '    showUnits: false\n';
             if (o.showName   === true)  y += '    showName: true\n';
@@ -343,8 +344,7 @@ function edApplyData(msg) {
             ? (Number.isInteger(v) ? String(v) : v.toFixed(3))
             : String(v);
         edLiveEl.classList.remove('stale');
-        clearTimeout(edLiveStaleTimer);
-        edLiveStaleTimer = setTimeout(() => { if (edLiveEl) edLiveEl.classList.add('stale'); }, 2000);
+        edLiveStale.bump();
     }
 }
 
@@ -756,14 +756,15 @@ function makeSensorGroup(obj) {
     }));
 
     // Dynamic layout matching view mode: value always shown; other elements optional
+    const binding = resolveSensorBinding(obj, edConfigControls);
     const items = [];
     if (showName) {
-        const desc = (edConfigControls.find(c => c.channels?.some(ch => ch.refDes === obj.refDes)))?.description || '';
-        items.push({ type: 'name', text: desc });
+        items.push({ type: 'name', text: binding?.ctrl.description || '' });
     }
-    if (showRefDes) items.push({ type: 'refdes', text: obj.refDes || '(no refDes)' });
+    const refDesText = binding?.ch.refDes || obj.refDes || obj.controlRefDes || '(no refDes)';
+    if (showRefDes) items.push({ type: 'refdes', text: refDesText });
     items.push({ type: 'value', text: '--' });
-    if (showUnits)  items.push({ type: 'units',  text: obj.units || '' });
+    if (showUnits)  items.push({ type: 'units',  text: obj.units || binding?.ch.units || '' });
 
     const step = PID.SENSOR_H / (items.length + 1);
     const lx = obj.labelOffsetX || 0;
@@ -1091,7 +1092,7 @@ function selectPidConn(connId) {
 function renderPidConnRsb(connId) {
     edLiveRefDes = null;
     edLiveEl = null;
-    clearTimeout(edLiveStaleTimer);
+    edLiveStale.cancel();
 
     const rsb = tab.pid.rsbEl;
     rsb.innerHTML = '';
@@ -1175,7 +1176,7 @@ function renderPidRsb(objId) {
     // Clear live tracking whenever the sidebar is rebuilt
     edLiveRefDes = null;
     edLiveEl = null;
-    clearTimeout(edLiveStaleTimer);
+    edLiveStale.cancel();
 
     const rsb = tab.pid.rsbEl;
     rsb.innerHTML = '';
@@ -1196,34 +1197,40 @@ function renderPidRsb(objId) {
         if (!obj) { rsb.appendChild(c); return; }
 
         if (obj.type === 'sensor') {
-            const chs = [];
-            for (const ctrl of edConfigControls) {
-                for (const ch of ctrl.channels) {
-                    if (ch.role === 'sensor' || ch.role === '') {
-                        chs.push({ refDes: ch.refDes, units: ch.units, desc: ctrl.description });
-                    }
-                }
-            }
+            // Objects reference controls, not channels: the primary picker is
+            // a control (like the valve object's picker below); a channel
+            // sub-picker only appears when that control has more than one
+            // readable channel (obj.channelRefDes picks among them — see
+            // resolveSensorBinding in pidRender.js). obj.refDes (a bare
+            // channel, no owning control field) is the legacy binding form;
+            // editing and re-applying a legacy object here migrates it to
+            // controlRefDes, which is fine — it's an explicit user edit, not
+            // a silent rewrite of untouched layout files.
+            const curBinding = resolveSensorBinding(obj, edConfigControls);
+            const sensorControls = edConfigControls.filter(ctrl => (ctrl.channels || []).some(pidIsReadableChannel));
+            const selectedCtrlRefDes = obj.controlRefDes || curBinding?.ctrl.refDes || '';
 
-            const opts = chs.length > 0
-                ? chs.map(ch =>
-                    '<option value="' + pidEsc(ch.refDes) + '"' +
-                    ' data-units="' + pidEsc(ch.units || '') + '"' +
-                    (ch.refDes === obj.refDes ? ' selected' : '') + '>' +
-                    pidEsc(ch.refDes) + (ch.desc ? ' — ' + pidEsc(ch.desc) : '') + '</option>'
+            const ctrlOpts = sensorControls.length > 0
+                ? sensorControls.map(ctrl =>
+                    '<option value="' + pidEsc(ctrl.refDes) + '"' +
+                    (ctrl.refDes === selectedCtrlRefDes ? ' selected' : '') + '>' +
+                    pidEsc(ctrl.refDes) + (ctrl.description ? ' — ' + pidEsc(ctrl.description) : '') +
+                    '</option>'
                   ).join('')
                 : null;
 
             const curRot = obj.rotation || 0;
             c.innerHTML =
                 '<div class="pid-sb-heading">Sensor</div>' +
-                '<div class="pid-sb-field"><label>Channel refDes</label>' +
-                (opts
-                    ? '<select class="pid-refdes-sel"><option value="">-- pick --</option>' + opts + '</select>'
-                    : '<input class="pid-refdes-inp" type="text" value="' + pidEsc(obj.refDes || '') + '" placeholder="e.g. OPT-01">') +
+                '<div class="pid-sb-field"><label>Control</label>' +
+                (ctrlOpts
+                    ? '<select class="pid-sensor-ctrl-sel"><option value="">-- pick --</option>' + ctrlOpts + '</select>'
+                    : '<input class="pid-sensor-ctrl-inp" type="text" value="' + pidEsc(selectedCtrlRefDes) + '" placeholder="e.g. PT-01">') +
                 '</div>' +
+                '<div class="pid-sb-field pid-sensor-channel-field" style="display:none"><label>Channel</label>' +
+                '<select class="pid-sensor-channel-sel"></select></div>' +
                 '<div class="pid-sb-field"><label>Units</label>' +
-                '<input class="pid-units-inp" type="text" value="' + pidEsc(obj.units || '') + '" placeholder="psi"></div>' +
+                '<input class="pid-units-inp" type="text" value="' + pidEsc(obj.units || '') + '" placeholder="(auto from channel)"></div>' +
                 '<div class="pid-sb-heading pid-sb-heading--sm">Front Panel Display</div>' +
                 '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-refdes"' + (obj.showRefDes !== false ? ' checked' : '') + '> Show refDes</label></div>' +
                 '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-units"'  + (obj.showUnits  !== false ? ' checked' : '') + '> Show units</label></div>' +
@@ -1239,14 +1246,35 @@ function renderPidRsb(objId) {
                 '<button class="pid-apply-btn">Apply</button>' +
                 '<button class="pid-delete-btn">Remove</button>';
 
-            const sel  = c.querySelector('.pid-refdes-sel');
-            const inp  = c.querySelector('.pid-refdes-inp');
-            const uinp = c.querySelector('.pid-units-inp');
+            const ctrlSel = c.querySelector('.pid-sensor-ctrl-sel');
+            const ctrlInp = c.querySelector('.pid-sensor-ctrl-inp');
+            const chField = c.querySelector('.pid-sensor-channel-field');
+            const chSel   = c.querySelector('.pid-sensor-channel-sel');
+            const uinp    = c.querySelector('.pid-units-inp');
 
-            if (sel) sel.addEventListener('change', () => {
-                const opt = sel.options[sel.selectedIndex];
-                if (opt && opt.dataset.units && !uinp.value) uinp.value = opt.dataset.units;
-            });
+            // Rebuild the channel sub-picker for whichever control is
+            // currently chosen; shown only when there's a real choice to make
+            // (a control with exactly one readable channel needs no picker —
+            // that channel is used implicitly).
+            function refreshSensorChannelSel() {
+                const ctrlRefDes = ctrlSel ? ctrlSel.value : (ctrlInp ? ctrlInp.value.trim() : '');
+                const ctrl = edConfigControls.find(cc => cc.refDes === ctrlRefDes);
+                const readable = ctrl ? (ctrl.channels || []).filter(pidIsReadableChannel) : [];
+                if (readable.length > 1) {
+                    chField.style.display = '';
+                    chSel.innerHTML = readable.map(ch =>
+                        '<option value="' + pidEsc(ch.refDes) + '"' +
+                        (ch.refDes === obj.channelRefDes ? ' selected' : '') + '>' +
+                        pidEsc(ch.refDes) + '</option>'
+                    ).join('');
+                } else {
+                    chField.style.display = 'none';
+                    chSel.innerHTML = '';
+                }
+            }
+            refreshSensorChannelSel();
+            if (ctrlSel) ctrlSel.addEventListener('change', refreshSensorChannelSel);
+            if (ctrlInp) ctrlInp.addEventListener('input', refreshSensorChannelSel);
 
             c.querySelector('.pid-reset-label-btn').addEventListener('click', () => {
                 obj.labelOffsetX = 0;
@@ -1259,8 +1287,17 @@ function renderPidRsb(objId) {
             });
 
             c.querySelector('.pid-apply-btn').addEventListener('click', () => {
-                obj.refDes    = sel ? sel.value : (inp ? inp.value.trim() : '');
-                obj.units     = uinp ? uinp.value.trim() : '';
+                const ctrlRefDes = ctrlSel ? ctrlSel.value : (ctrlInp ? ctrlInp.value.trim() : '');
+                if (ctrlRefDes) {
+                    obj.controlRefDes = ctrlRefDes;
+                    delete obj.refDes;   // migrate away from the legacy channel-only form
+                    const chVal = (chField.style.display !== 'none') ? chSel.value : '';
+                    if (chVal) obj.channelRefDes = chVal; else delete obj.channelRefDes;
+                } else {
+                    delete obj.controlRefDes;
+                    delete obj.channelRefDes;
+                }
+                obj.units      = uinp.value.trim();
                 obj.showRefDes = c.querySelector('.pid-show-refdes').checked;
                 obj.showUnits  = c.querySelector('.pid-show-units').checked;
                 obj.showName   = c.querySelector('.pid-show-name').checked;
@@ -1272,8 +1309,9 @@ function renderPidRsb(objId) {
                 // Re-apply selection highlight
                 const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
                 if (updated) updated.classList.add('pid-selected');
-                // Re-bind live display to the new refDes
-                edLiveRefDes = obj.refDes || null;
+                // Re-bind live display to the new binding
+                const binding = resolveSensorBinding(obj, edConfigControls);
+                edLiveRefDes = binding?.ch.refDes || null;
                 if (edLiveEl && edLiveRefDes && edLiveValues[edLiveRefDes] !== undefined) {
                     const v = edLiveValues[edLiveRefDes];
                     edLiveEl.textContent = typeof v === 'number'
@@ -1292,7 +1330,8 @@ function renderPidRsb(objId) {
             liveLabel.textContent = 'Live';
             const liveVal = document.createElement('span');
             liveVal.className = 'ed-live-value';
-            const initVal = obj.refDes ? edLiveValues[obj.refDes] : undefined;
+            const initRefDes = curBinding?.ch.refDes || null;
+            const initVal = initRefDes ? edLiveValues[initRefDes] : undefined;
             liveVal.textContent = initVal !== undefined
                 ? (typeof initVal === 'number'
                     ? (Number.isInteger(initVal) ? String(initVal) : initVal.toFixed(3))
@@ -1302,7 +1341,7 @@ function renderPidRsb(objId) {
             c.appendChild(liveRow);
 
             // Register for live updates
-            edLiveRefDes = obj.refDes || null;
+            edLiveRefDes = initRefDes;
             edLiveEl     = liveVal;
 
         } else if (obj.type === 'graph') {
@@ -1614,7 +1653,10 @@ function renderPidRsb(objId) {
 
 function createPidObj(type, gridX, gridY) {
     const obj = { id: pidUid(type), type, gridX, gridY };
-    if (type === 'sensor') { obj.refDes = ''; obj.units = ''; }
+    // New sensors bind to a control (controlRefDes), consistent with valve
+    // objects — obj.refDes (bare channel) is the legacy form, kept only for
+    // layouts that already use it (see resolveSensorBinding in pidRender.js).
+    if (type === 'sensor') { obj.controlRefDes = ''; obj.units = ''; }
     if (type === 'graph')  {
         obj.name = ''; obj.gridW = 20; obj.gridH = 10;
         obj.showName = true; obj.showLeftSidebar = false; obj.lines = [];

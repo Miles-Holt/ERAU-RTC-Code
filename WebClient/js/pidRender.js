@@ -120,6 +120,66 @@ function pidSvgPt(svgEl, e) {
     return pt.matrixTransform(svgEl.getScreenCTM().inverse());
 }
 
+// ── Sensor object binding resolution (shared by viewer + editor) ────────────
+// Sensor P&ID objects can bind either to a control (preferred — "objects
+// reference controls, not channels") or, for backward compatibility, directly
+// to a channel refDes (the legacy form). Both pages need the exact same
+// resolution logic so a layout renders/edits identically either place.
+
+// pidIsReadableChannel reports whether a channel is safe to display as a
+// sensor value (i.e. not a command channel). Duplicates utils.js's isCmd
+// check locally because pidRender.js is also loaded on editor.html, which has
+// no utils.js.
+function pidIsReadableChannel(ch) {
+    return ch.role !== 'cmd-bool' && ch.role !== 'cmd-pct' && ch.role !== 'cmd-float';
+}
+
+// resolveSensorBinding resolves a sensor object to the { ctrl, ch } pair that
+// supplies its live value, or null if nothing resolves. `controls` is the
+// config-controls array (configControls in the viewer, edConfigControls in
+// the editor — the two pages don't share globals).
+//
+//   - obj.controlRefDes (preferred): binds to a control. The channel shown is
+//     obj.channelRefDes if it names one of that control's readable channels,
+//     else the control's first readable (non-command) channel — this is what
+//     keeps "all channels under the control are implicitly included" true
+//     without a multi-value widget.
+//   - obj.refDes (legacy): binds directly to a channel; the owning control is
+//     found by scanning `controls`. Existing layouts saved before controls
+//     existed use this form and must keep resolving exactly as before.
+function resolveSensorBinding(obj, controls) {
+    if (obj.controlRefDes) {
+        const ctrl = controls.find(c => c.refDes === obj.controlRefDes);
+        if (!ctrl) return null;
+        const readable = (ctrl.channels ?? []).filter(pidIsReadableChannel);
+        const ch = (obj.channelRefDes && readable.find(c => c.refDes === obj.channelRefDes)) || readable[0];
+        return ch ? { ctrl, ch } : null;
+    }
+    if (obj.refDes) {
+        for (const ctrl of controls) {
+            const ch = ctrl.channels?.find(c => c.refDes === obj.refDes);
+            if (ch) return { ctrl, ch };
+        }
+    }
+    return null;
+}
+
+// ── Stale-timer helper (shared by every live-data updater on both pages) ────
+// Consolidates the repeated `clearTimeout(timer); timer = setTimeout(markStale,
+// ms)` idiom used by the card/pid/dataview builders. Call bump() every time
+// fresh data arrives for the thing being tracked (cancels any pending stale
+// callback and reschedules it after `ms`); call cancel() to stop tracking
+// without scheduling a new callback (e.g. when the UI element being tracked is
+// torn down/replaced). `ms` is passed explicitly (rather than read from
+// CONFIG) since the editor page has no CONFIG global.
+function makeStaleTimer(ms, onStale) {
+    let timer = null;
+    return {
+        bump()   { clearTimeout(timer); timer = setTimeout(onStale, ms); },
+        cancel() { clearTimeout(timer); timer = null; },
+    };
+}
+
 // ── Port positions (reads shared PID, incl. PID.VALVE_PORT_OFF) ──────────────
 
 function portPos(obj, port) {
