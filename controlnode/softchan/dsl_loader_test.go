@@ -297,3 +297,76 @@ channel PT-AVG
 		t.Error("computed channel PT-AVG not found in config")
 	}
 }
+
+// TestLoadFromDir_PersistedValueOutOfRange covers the migration hazard that
+// bit this repo when the DSL's time base moved from milliseconds to seconds:
+// softChannelValues.yaml stores bare numbers by refDes and survives config
+// changes, so a stale entry ("SEQ-CUTOFF-T: 3000", meaning 3000 ms) silently
+// became a 3000-SECOND cutoff against a max of 10. Persisted values must be
+// bounds-checked like any operator write and fall back to the default.
+func TestLoadFromDir_PersistedValueOutOfRange(t *testing.T) {
+	dir := t.TempDir()
+	chanFile := filepath.Join(dir, "test.chan")
+	content := `channel SEQ-CUTOFF-T
+    type float
+    description "Cutoff time"
+    units s
+    default 3.0
+    min 0.5
+    max 10.0
+
+channel NO-BOUNDS
+    type float
+    description "Unbounded"
+    default 1
+`
+	if err := os.WriteFile(chanFile, []byte(content), 0644); err != nil {
+		t.Fatalf("write .chan file: %v", err)
+	}
+
+	valuesPath := filepath.Join(dir, "values.yaml")
+	persisted := "values:\n    SEQ-CUTOFF-T: 3000\n    NO-BOUNDS: 12345\n"
+	if err := os.WriteFile(valuesPath, []byte(persisted), 0644); err != nil {
+		t.Fatalf("write values file: %v", err)
+	}
+
+	store, err := LoadFromDir(dir, valuesPath)
+	if err != nil {
+		t.Fatalf("LoadFromDir: %v", err)
+	}
+
+	// Out of range: the default wins, not the stale value.
+	if got, _ := store.Get("SEQ-CUTOFF-T"); got != 3.0 {
+		t.Errorf("SEQ-CUTOFF-T = %v, want the default 3.0 (the persisted 3000 is above max 10)", got)
+	}
+	// A channel with no declared bounds keeps whatever was persisted.
+	if got, _ := store.Get("NO-BOUNDS"); got != 12345 {
+		t.Errorf("NO-BOUNDS = %v, want the persisted 12345 (no min/max declared)", got)
+	}
+}
+
+// TestLoadFromDir_PersistedValueBelowMin is the lower-bound half of the same guard.
+func TestLoadFromDir_PersistedValueBelowMin(t *testing.T) {
+	dir := t.TempDir()
+	content := `channel SEQ-IGN-LEAD
+    type float
+    default 0.5
+    min 0.1
+    max 5.0
+`
+	if err := os.WriteFile(filepath.Join(dir, "t.chan"), []byte(content), 0644); err != nil {
+		t.Fatalf("write .chan file: %v", err)
+	}
+	valuesPath := filepath.Join(dir, "values.yaml")
+	if err := os.WriteFile(valuesPath, []byte("values:\n    SEQ-IGN-LEAD: 0.0001\n"), 0644); err != nil {
+		t.Fatalf("write values file: %v", err)
+	}
+
+	store, err := LoadFromDir(dir, valuesPath)
+	if err != nil {
+		t.Fatalf("LoadFromDir: %v", err)
+	}
+	if got, _ := store.Get("SEQ-IGN-LEAD"); got != 0.5 {
+		t.Errorf("SEQ-IGN-LEAD = %v, want the default 0.5 (the persisted 0.0001 is below min 0.1)", got)
+	}
+}

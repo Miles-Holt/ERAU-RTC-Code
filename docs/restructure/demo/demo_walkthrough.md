@@ -58,7 +58,7 @@ it's only reachable through `pressurize`'s sequence.
 |---|---|
 | startup | machine enters `safe`; sequence safes both valves, opens vent |
 | operator → `pressurize` | vent closes, `OV-05` opens; sequence parks on `wait_until` tank pressure ≥ `SEQ-TARGET-PRESS` (30 s timeout falls back to `safe`) |
-| pressure reached | sequence transitions to `fire`: `FV-02` opens, burns for `SEQ-CUTOFF-T` ms while the controller re-checks abort guards every tick |
+| pressure reached | sequence transitions to `fire`: `FV-02` opens, burns for `SEQ-CUTOFF-T` seconds while the controller re-checks abort guards every tick |
 | burn done | `fire` → `vent`: main valve closed, vent opened, waits for pressure < 50 |
 | vented | back to `safe`, ready for the next run |
 
@@ -71,7 +71,10 @@ Network latency is too slow for T-0 aborts, so `abort` is flagged `daq_local DAQ
 At compile time its sequence — restricted to literal assignments and sleeps — is
 serialized into the **existing** DAQ payload format. The payload is resolved and sent
 when the engine *enters* the state (`state_update` means "enter this state now"), and
-re-sent on a node `state_req`:
+re-sent on a node `state_req`. The DSL itself speaks seconds throughout (`sleep 100ms`
+above means 0.1 s) — the conversion to milliseconds happens only here, at the moment a
+`daq_local` payload is serialized for the wire; the wire format (`t_ms`, `t_ms_on`,
+`t_ms_off`) is unchanged:
 
 ```json
 {

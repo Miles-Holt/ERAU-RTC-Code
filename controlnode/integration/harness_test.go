@@ -20,10 +20,61 @@ import (
 	"controlnode/softchan"
 	"controlnode/statemachine"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
 )
+
+// daqLocalFixtureSrc is a small daq_local machine kept ONLY so this suite can
+// still exercise the daq_local / abort_rule / abort_sequence wire protocol
+// against a real daqsim connection now that config/machines/daq001.sm's
+// autoSequence runs entirely control-node side (no daq_local in that machine
+// any more — see docs/restructure/dsl_spec.md). It is compiled ALONGSIDE the
+// real shipped config, not in place of it: newHarness still loads the actual
+// config/machines/daq001.sm too, so production config keeps being exercised
+// as-is. Timings are independent of daq001.sm's SEQ-IGN-LEAD/SEQ-CUTOFF-T
+// channels (deliberately hardcoded) so the two machines' schedules can never
+// interact through a shared channel.
+const daqLocalFixtureSrc = "" +
+	"machine daqLocalFixture\n" +
+	"\n" +
+	"state idle\n" +
+	"    operator\n" +
+	"\n" +
+	"state burn\n" +
+	"    operator from idle\n" +
+	"    daq_local DAQ001\n" +
+	"    abort_rule CPT-01 > LIM-CPT01-HIGH from 0ms to 2000ms\n" +
+	"    abort_rule CPT-01 < LIM-CPT01-LOW from 50ms to 300ms\n" +
+	"    sequence\n" +
+	"        OV-01-CMD = 0\n" +
+	"        FV-01-CMD = 0\n" +
+	"        NV-03-CMD = 1\n" +
+	"        NV-04-CMD = 1\n" +
+	"        sleep 50ms\n" +
+	"        IG-01-CMD = 1\n" +
+	"        sleep 100ms\n" +
+	"        OV-05-CMD = 1\n" +
+	"        FV-03-CMD = 1\n" +
+	"        sleep 150ms\n" +
+	"        OV-05-CMD = 0\n" +
+	"        FV-03-CMD = 0\n" +
+	"        IG-01-CMD = 0\n" +
+	"        transition safe\n" +
+	"    abort_sequence\n" +
+	"        OV-05-CMD = 0\n" +
+	"        FV-03-CMD = 0\n" +
+	"        IG-01-CMD = 0\n" +
+	"        NV-03-CMD = 0\n" +
+	"        NV-04-CMD = 0\n" +
+	"        transition abort\n" +
+	"\n" +
+	"state safe\n" +
+	"    operator from burn, abort\n" +
+	"\n" +
+	"state abort\n" +
+	"    operator from burn\n"
 
 // configDir is the real, shipped configuration — the same one main.go loads
 // in production. Using anything else would defeat the point: this is the
@@ -102,7 +153,9 @@ func newHarness(t *testing.T, simClock daqsim.Clock, sensors map[string]daqsim.S
 	if err != nil {
 		t.Fatalf("ScanMachineNames: %v", err)
 	}
+	machineNames = append(machineNames, "daqLocalFixture")
 	sc.RegisterStateMachineChannels(machineNames)
+	sc.RegisterCycleTimeChannel(200) // must match TickHz below
 	for k, v := range sc.RefDesMap() {
 		refDesMap[k] = v
 	}
@@ -112,9 +165,26 @@ func newHarness(t *testing.T, simClock daqsim.Clock, sensors map[string]daqsim.S
 		knownChannels = append(knownChannels, refDes)
 	}
 
-	prog, err := statemachine.LoadDir(configDir+"/machines", statemachine.Options{KnownChannels: knownChannels})
+	// Compile the REAL shipped config (config/machines/*.sm, including
+	// daq001.sm/firingSequence) plus the daq_local fixture above, as one
+	// program — proving the real config still boots while giving this suite
+	// something with daq_local to drive against daqsim.
+	smPaths, err := statemachine.SMFiles(configDir + "/machines")
 	if err != nil {
-		t.Fatalf("statemachine.LoadDir: %v", err)
+		t.Fatalf("SMFiles: %v", err)
+	}
+	sources := make([]statemachine.Source, 0, len(smPaths)+1)
+	for _, p := range smPaths {
+		data, rerr := os.ReadFile(p)
+		if rerr != nil {
+			t.Fatalf("read %s: %v", p, rerr)
+		}
+		sources = append(sources, statemachine.Source{Name: p, Text: string(data)})
+	}
+	sources = append(sources, statemachine.Source{Name: "daqlocal_fixture.sm", Text: daqLocalFixtureSrc})
+	prog, err := statemachine.Compile(sources, statemachine.Options{KnownChannels: knownChannels})
+	if err != nil {
+		t.Fatalf("statemachine.Compile: %v", err)
 	}
 
 	b := broker.New(refDesMap, nil, nil)
@@ -239,19 +309,14 @@ func (h *harness) waitState(machine, want string, timeout time.Duration) {
 	})
 }
 
-// shrinkBurnTiming lowers SEQ-CUTOFF-T to the shortest valid burn so a
-// RealClock-timed daqsim run finishes as quickly as the shipped machine
-// allows. It cannot go below ~2000ms: daq001.sm opens the mains at a
-// hardcoded absolute t=2000 ("sleep 2000 - SEQ-IGN-LEAD" then
-// "sleep SEQ-CUTOFF-T - 2000"), which is not itself soft-channel-tunable, and
-// statemachine.TestShippedConfig_CutoffBeforeMainsRefused pins that a cutoff
-// at or before 2000 is refused as a negative sleep. So the two RealClock
-// tests that need a genuine in-flight window (reconnect, stale completion)
-// cost ~2.1s of real wall time each — an intrinsic property of the shipped
-// config, not a shortcut taken here.
+// shrinkBurnTiming lowers SEQ-CUTOFF-T (seconds) to the shortest valid burn so
+// a RealClock-timed daqsim run of the real firingSequence machine finishes
+// quickly. It cannot go below 2s: daq001.sm opens the mains at a hardcoded
+// absolute t=2s ("sleep 2 - SEQ-IGN-LEAD" then
+// "wait_until T-TIME > SEQ-CUTOFF-T"), which is not itself soft-channel-tunable.
 func (h *harness) shrinkBurnTiming(t *testing.T) {
 	t.Helper()
-	if err := h.sc.Set("SEQ-CUTOFF-T", 2100); err != nil {
+	if err := h.sc.Set("SEQ-CUTOFF-T", 2.1); err != nil {
 		t.Fatalf("shrink SEQ-CUTOFF-T: %v", err)
 	}
 }

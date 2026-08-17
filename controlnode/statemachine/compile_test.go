@@ -115,8 +115,8 @@ func TestCompile_Coldflow(t *testing.T) {
 	if !ok {
 		t.Fatalf("pressurize wait_until timeout: got %T, expected LiteralExpr", wu.Timeout)
 	}
-	if to, err := literalNumber(lit); err != nil || to != 30000 {
-		t.Errorf("pressurize wait_until timeout: got %v (%v), want 30000", to, err)
+	if to, err := literalNumber(lit); err != nil || to != 30 {
+		t.Errorf("pressurize wait_until timeout: got %v (%v), want 30 (seconds)", to, err)
 	}
 
 	// fire: sleep driven by a soft channel, not a literal.

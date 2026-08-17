@@ -128,15 +128,15 @@ func (e *Engine) execSequence(m *machineRT, r *seqRun, stmts []dsl.Stmt) error {
 	return nil
 }
 
-// execSleep waits out a duration in engine time.  Cancellation (a transition
-// from the controller or the operator) returns immediately.
+// execSleep waits out a duration (seconds) in engine time.  Cancellation (a
+// transition from the controller or the operator) returns immediately.
 func (e *Engine) execSleep(r *seqRun, s *dsl.SleepStmt) error {
-	ms, err := e.evalNumber(e.reader, s.Duration)
+	sec, err := e.evalNumber(e.reader, s.Duration)
 	if err != nil {
 		return err
 	}
-	start := e.nowMs()
-	for float64(e.nowMs()-start) < ms {
+	start := e.nowSec()
+	for e.nowSec()-start < sec {
 		if err := r.await(); err != nil {
 			return err
 		}
@@ -145,18 +145,19 @@ func (e *Engine) execSleep(r *seqRun, s *dsl.SleepStmt) error {
 }
 
 // execWaitUntil polls the condition once per tick until it holds, the optional
-// timeout expires (transitioning to the fallback state) or the run is canceled.
+// timeout (seconds) expires (transitioning to the fallback state) or the run
+// is canceled.
 func (e *Engine) execWaitUntil(m *machineRT, r *seqRun, s *dsl.WaitUntilStmt) error {
-	var timeoutMs float64
+	var timeoutSec float64
 	if s.Timeout != nil {
 		v, err := e.evalNumber(e.reader, s.Timeout)
 		if err != nil {
 			return err
 		}
-		timeoutMs = v
+		timeoutSec = v
 	}
 
-	start := e.nowMs()
+	start := e.nowSec()
 	for {
 		ok, err := e.evalBool(e.reader, s.Condition)
 		if err != nil {
@@ -165,7 +166,7 @@ func (e *Engine) execWaitUntil(m *machineRT, r *seqRun, s *dsl.WaitUntilStmt) er
 		if ok {
 			return nil
 		}
-		if s.Timeout != nil && float64(e.nowMs()-start) >= timeoutMs {
+		if s.Timeout != nil && e.nowSec()-start >= timeoutSec {
 			return e.requestTransition(m, r, s.TimeoutState)
 		}
 		if err := r.await(); err != nil {

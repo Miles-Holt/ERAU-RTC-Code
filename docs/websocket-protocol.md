@@ -547,10 +547,11 @@ Abort rule object:
 
 **Send-time resolution:** thresholds, sleep durations and window bounds may be
 written in the `.sm` file as soft-channel names or constant arithmetic over them
-(`sleep 2000 - SEQ-IGN-LEAD`). They are folded to numbers each time the payload
-is built, so operator-tuned values are always current. An unresolvable
-reference, or a sleep that resolves negative, **refuses the payload** and raises
-an alarm — it is never silently sent as 0.
+(`sleep 2 - SEQ-IGN-LEAD`, in the DSL's base unit of seconds). They are folded to
+numbers each time the payload is built, so operator-tuned values are always
+current, and only then converted to the milliseconds this payload carries on the
+wire. An unresolvable reference, or a sleep that resolves negative, **refuses
+the payload** and raises an alarm — it is never silently sent as 0.
 
 ## `state_req` — DAQ → CTR
 

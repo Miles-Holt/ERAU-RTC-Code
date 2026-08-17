@@ -19,9 +19,34 @@ with `file:line: message`.
   (`a - b`); `PT-01` is always an identifier. Dots access members (`OV-05.inPosition`,
   `machine.fuelSeq.state`).
 - Literals: ints, floats, `true`/`false`, double-quoted strings, durations (`100ms`, `5s`,
-  `2m` — compile to ms).
+  `2m`).
 - Operators: `+ - * / %`, comparisons `== != < <= > >=`, boolean `and or not`,
   assignment `=`, increment/decrement `++ --` (numeric channels only).
+
+## Time: the base unit is SECONDS
+
+The DSL's canonical time unit is **seconds**, everywhere a duration appears: `sleep`,
+`wait_until … timeout`, `abort_rule … from … to …`, and a soft channel used to carry a
+duration (`SEQ-IGN-LEAD`, `SEQ-CUTOFF-T`, …).
+
+- A **bare number** in a time position means seconds: `sleep 5` sleeps 5 seconds,
+  `timeout 30` is a 30-second timeout.
+- A **suffixed literal** normalises to seconds at lex time: `100ms` -> `0.1`, `5s` -> `5`,
+  `2m` -> `120`. After that normalisation a suffixed literal and a bare number are the
+  same kind of value — `sleep 100ms` and `sleep 0.1` are identical.
+- Durations are `float64` end to end (seconds need fractions: `100ms` is `0.1`, not `0`).
+- A mixed comparison stays coherent because both sides are already in seconds: a channel
+  holding seconds compared against a suffixed literal (`T-TIME < 20000ms`) compares
+  like-for-like (`T-TIME < 20`), never seconds against raw milliseconds.
+
+**The DAQ wire protocol is unaffected and still speaks milliseconds.** `daq_local`
+payload fields — `DaqStep.TMs` (`t_ms`), `DaqAbortRule.TMsOn`/`TMsOff`
+(`t_ms_on`/`t_ms_off`) — are milliseconds on the wire, exactly as before, because that is
+what the DAQ node (LabVIEW or daqsim) expects. The seconds-to-milliseconds conversion
+happens at exactly one place: `statemachine.resolveDaqLocalState`/`resolveSteps`, the
+moment a payload is serialized for sending. Every other stage of compilation and
+evaluation — the lexer, the parser, expression evaluation, the engine's `sleep`/
+`wait_until` clock — works in seconds only. No other component converts units.
 
 ## Expressions
 
@@ -127,10 +152,10 @@ state abort
 channel SEQ-CUTOFF-T
     description "Main-valve cutoff time, absolute from sequence start (burn length = this minus valve-open time)"  # optional, shown in the HMI
     type float
-    default 3000
-    min 500
-    max 10000
-    units ms
+    default 3.0
+    min 0.5
+    max 10.0
+    units s
 
 # computed every tick (read-only; may reference any channel incl. other computed)
 channel PT-FUEL-AVG
@@ -182,9 +207,13 @@ alert CHAMBER-HIGH
   remain absent everywhere.
 - `wait_until … timeout <d>` **requires** the `-> <state>` clause (timeout behavior
   must be explicit).
-- Engine time is tick-derived, not wall-clock: each tick advances 1000/TickHz ms and
+- Engine time is tick-derived, not wall-clock: each tick advances 1/TickHz seconds and
   `sleep`/`timeout` measure against that (deterministic tests, timing consistent with
-  controller reaction).
+  controller reaction). The tick period is also published as the read-only,
+  engine-provided software channel `CYCLE_TIME` (seconds), auto-registered like the
+  `SM-<NAME>-STATE` channels before machines compile — not a `.chan` entry, so an
+  operator write is rejected rather than silently corrupting every sequence clock that
+  accumulates it (e.g. `T-TIME = T-TIME + CYCLE_TIME`).
 - `daq_local` states: the controlnode does **not** re-run the sequence (the DAQ runs
   its cached copy; re-running would double-command valves). Therefore a `daq_local`
   state may not have a `controller` block (compile error) — guards belong on

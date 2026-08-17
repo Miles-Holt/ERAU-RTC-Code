@@ -140,7 +140,7 @@ objects:
     gridY: 16
   - id: daqControl_1775676987239_5195
     type: daqControl
-    daqRefDes: fuelSeq
+    daqRefDes: firingSequence
     gridX: 24
     gridY: 17
   - id: valve_1785101083871_7686

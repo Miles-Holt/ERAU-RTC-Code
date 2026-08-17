@@ -1,19 +1,25 @@
 # Sequence Timings
+channel T-TIME
+    type float
+    description "T-Time of test sequence"
+    units seconds
+    default 0
+
 channel SEQ-CUTOFF-T
     type float
     description "Main-valve cutoff time, absolute from sequence start (burn length = this minus valve-open time)"
-    units ms
-    default 3000
-    min 500
-    max 10000
+    units s
+    default 3.0
+    min 0.5
+    max 10.0
 
 channel SEQ-IGN-LEAD
     type float
     description "Igniter lead time (before main valves open)"
-    units ms
-    default 500
+    units s
+    default 0.5
     min 0
-    max 5000
+    max 5.0
 
 # Abort Limits
 channel LIM-CPT01-HIGH

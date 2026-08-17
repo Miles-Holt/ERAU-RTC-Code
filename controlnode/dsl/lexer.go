@@ -2,6 +2,7 @@ package dsl
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -419,12 +420,14 @@ func (l *Lexer) readNumber() error {
 		default:
 			return fmt.Errorf("lexer: line %d: unknown duration suffix %q in %q", l.line, suffix, value)
 		}
-		// Parse duration and convert to milliseconds
-		msValue, err := l.parseDuration(value)
+		// Parse duration and convert to SECONDS: the DSL's base time unit.
+		// (The DAQ wire protocol still speaks milliseconds — that conversion
+		// happens only at daq_local payload serialization, never here.)
+		secValue, err := l.parseDuration(value)
 		if err != nil {
 			return err
 		}
-		l.tokens = append(l.tokens, Token{Type: TOK_DURATION, Value: fmt.Sprintf("%d", msValue), Line: l.line})
+		l.tokens = append(l.tokens, Token{Type: TOK_DURATION, Value: formatSeconds(secValue), Line: l.line})
 		return nil
 	}
 
@@ -437,8 +440,9 @@ func (l *Lexer) readNumber() error {
 	return nil
 }
 
-func (l *Lexer) parseDuration(s string) (int64, error) {
-	// Durations: 100ms, 5s, 2m -> convert to milliseconds
+// parseDuration parses a suffixed duration literal (100ms, 5s, 2m) and
+// normalises it to SECONDS, the DSL's base time unit.
+func (l *Lexer) parseDuration(s string) (float64, error) {
 	s = strings.TrimSpace(s)
 
 	// Extract numeric part and unit
@@ -458,34 +462,27 @@ func (l *Lexer) parseDuration(s string) (int64, error) {
 		return 0, fmt.Errorf("lexer: line %d: invalid duration %q", l.line, s)
 	}
 
-	// Parse the numeric part using strconv to handle both int and float
-	if strings.Contains(numStr, ".") {
-		var num float64
-		_, _ = fmt.Sscanf(numStr, "%f", &num)
-		// Convert to milliseconds
-		switch unit {
-		case "ms":
-			return int64(num), nil
-		case "s":
-			return int64(num * 1000), nil
-		case "m":
-			return int64(num * 60 * 1000), nil
-		}
-	} else {
-		var num int64
-		_, _ = fmt.Sscanf(numStr, "%d", &num)
-		// Convert to milliseconds
-		switch unit {
-		case "ms":
-			return num, nil
-		case "s":
-			return num * 1000, nil
-		case "m":
-			return num * 60 * 1000, nil
-		}
+	var num float64
+	if _, err := fmt.Sscanf(numStr, "%f", &num); err != nil {
+		return 0, fmt.Errorf("lexer: line %d: invalid duration %q", l.line, s)
+	}
+
+	switch unit {
+	case "ms":
+		return num / 1000, nil
+	case "s":
+		return num, nil
+	case "m":
+		return num * 60, nil
 	}
 
 	return 0, fmt.Errorf("lexer: line %d: invalid duration unit %q", l.line, unit)
+}
+
+// formatSeconds renders a duration literal's normalised value the way the
+// parser expects to read it back: the shortest round-trippable decimal.
+func formatSeconds(f float64) string {
+	return strconv.FormatFloat(f, 'f', -1, 64)
 }
 
 func (l *Lexer) readString() error {

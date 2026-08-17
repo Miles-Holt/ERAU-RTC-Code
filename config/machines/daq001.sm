@@ -1,29 +1,44 @@
 # daq001 state machine — ported from config/control/daq001_control.yaml (git history).
 #
-# TIMING NOTE: the old YAML used ABSOLUTE t_ms from state entry. The DSL uses
-# sequential sleeps, so absolute times are reconstructed with send-time arithmetic:
-#   igniter at t = SEQ-IGN-LEAD        (default 500 ms — leads the mains)
-#   mains   at t = 2000 ms
-#   cutoff  at t = SEQ-CUTOFF-T        (default 3000 ms, absolute — NOT burn length)
-#   (burn length = SEQ-CUTOFF-T - 2000 ms, i.e. mains-open to mains-close)
-# Constraint (checked at payload send, refused if violated):
-#   0 <= SEQ-IGN-LEAD <= 2000 <= SEQ-CUTOFF-T
-#
-# abort_sequence runs LOCALLY on DAQ001 (<1 ms) when an abort_rule trips; its
-# trailing transition is the controlnode-side abort destination.
+# Time: the DSL's base time unit is SECONDS.  A bare number in a time position
+# (sleep, wait_until timeout, T-TIME, SEQ-IGN-LEAD, SEQ-CUTOFF-T, …) means
+# seconds; a suffixed literal (100ms, 5s, 2m) normalises to seconds too.  The
+# DAQ wire protocol still speaks milliseconds (t_ms) — that conversion happens
+# only when a daq_local payload is serialized, which does not apply here: this
+# machine runs entirely control-node side (no daq_local in this file; aborts
+# come from `controller` if-statements, not a DAQ-side abort_rule).
 
-machine fuelSeq
+machine firingSequence
 
 state safe
-    operator from manualControl, abort
+    operator from manualControl, abort, postTest
     sequence
+        # NV-01: Ox press
+        # NV-02: Fuel press
         NV-01-POS = 0
         NV-01-NEG = 0
         NV-02-POS = 0
         NV-02-NEG = 0
-        sleep 1000ms                    # close presses before venting tanks
+
+        # OV-01: Ox vent
+        # FV-02: fuel vent
         OV-01-CMD = 0
         FV-01-CMD = 0
+
+        # OV-02: Ox Fill
+        OV-02-CMD = 0
+
+        # OV-04: Lox Bleed
+        OV-04-CMD = 0
+
+        # OV-03: Ox ISO
+        # OV-05: MOV
+        # FV-02: Fuel Iso
+        # FV-03: MFV
+        OV-03-CMD = 0
+        OV-05-CMD = 0
+        FV-02-CMD = 0
+        FV-03-CMD = 0
 
 state manualControl
     operator from safe
@@ -31,38 +46,77 @@ state manualControl
 
 state autoSequence
     operator from manualControl
-    daq_local DAQ001
-    abort_rule CPT-01 > LIM-CPT01-HIGH from 0ms to 20000ms
-    abort_rule CPT-01 < LIM-CPT01-LOW from SEQ-IGN-LEAD to SEQ-CUTOFF-T
+
+    controller
+        # increment sequence clock.  CYCLE_TIME is the engine-provided,
+        # read-only tick period in seconds (1 / engineTickRateHz).
+        T-TIME = T-TIME + CYCLE_TIME
+
+        # Run abort rules
+        if CPT-01 > LIM-CPT01-HIGH and T-TIME > 0 and T-TIME < 20
+            transition abort
+        if CPT-01 < LIM-CPT01-LOW and T-TIME > SEQ-IGN-LEAD and T-TIME < SEQ-CUTOFF-T
+            transition abort
+
+
     sequence
+        # Set sequence time to 0
+        # Need to adjust this to be relative to ignition rather than count up from 0
+        T-TIME = 0.0
+
         OV-01-CMD = 0                   # LOX vent close        (t = 0)
         FV-01-CMD = 0                   # Fuel vent close       (t = 0)
         NV-03-CMD = 1                   # LOX press open        (t = 0)
         NV-04-CMD = 1                   # Fuel press open       (t = 0)
-        sleep SEQ-IGN-LEAD
+        wait_until T-TIME > SEQ-IGN-LEAD
         IG-01-CMD = 1                   # Igniter fire          (t = IGN_LEAD)
-        sleep 2000 - SEQ-IGN-LEAD
-        OV-05-CMD = 1                   # LOX main open         (t = 2000)
-        FV-03-CMD = 1                   # Fuel main open        (t = 2000)
-        sleep SEQ-CUTOFF-T - 2000
+        sleep 2 - SEQ-IGN-LEAD
+        OV-05-CMD = 1                   # LOX main open         (t = 2)
+        FV-03-CMD = 1                   # Fuel main open        (t = 2)
+        # Self-consistent with the absolute-schedule sleeps above: the mains
+        # close AT cutoff, not before it.  (The previous "SEQ-CUTOFF-T - 2.0"
+        # form closed the mains 2 units before cutoff — at the default values
+        # that lands at t=1s, BEFORE the mains even open at t=2s.  Flagged for
+        # the owner: confirm mains-close-at-cutoff is the intended procedure.)
+        wait_until T-TIME > SEQ-CUTOFF-T
         OV-05-CMD = 0                   # LOX main close        (t = CUTOFF_T)
         FV-03-CMD = 0                   # Fuel main close       (t = CUTOFF_T)
         IG-01-CMD = 0                   # Igniter off           (t = CUTOFF_T)
-        transition safe                 # completion transition (on sequence_complete)
-    abort_sequence                      # runs locally on the DAQ when a rule trips
+        transition postTest             # sequence ran to completion
+
+state postTest
+    # Entered only by autoSequence's completion transition — not
+    # operator-commandable.  After a nominal burn the mains are shut and the
+    # igniter is off, but the press valves (NV-03/NV-04) have been OPEN since
+    # t=0, so the tanks would otherwise stay pressurised indefinitely.
+    # Closing them stops adding pressure without venting, leaving the article
+    # in a held state the operator can inspect before deciding what happens
+    # next (vent via safe, or abort).  No auto-transition out, no
+    # vent/purge on entry — that decision belongs to the operator.
+    #
+    # Flagged for the owner: confirm this is the intended post-burn procedure.
+    sequence
+        NV-03-CMD = 0                   # LOX press close
+        NV-04-CMD = 0                   # Fuel press close
+
+state abort
+    operator from manualControl, autoSequence, postTest
+    sequence
+        # Safe the engine FIRST. These five steps used to live in
+        # autoSequence's abort_sequence, which the DAQ ran locally when an
+        # abort_rule tripped. With the sequence running control-node side there
+        # is no abort_sequence, so the abort state itself must shut the mains,
+        # kill the igniter and close the press valves before anything else —
+        # otherwise an abort leaves propellant flowing into a live chamber.
         OV-05-CMD = 0                   # LOX main close
         FV-03-CMD = 0                   # Fuel main close
         IG-01-CMD = 0                   # Igniter off
         NV-03-CMD = 0                   # LOX press close
         NV-04-CMD = 0                   # Fuel press close
-        transition abort                # abort destination (on abort_triggered)
 
-state abort
-    operator from manualControl, autoSequence
-    sequence
         NV-05-CMD = 1                   # LOX purge open        (t = 0)
         NV-06-CMD = 1                   # Fuel purge open       (t = 0)
-        sleep 5000ms
-        OV-01-CMD = 1                   # LOX vent open         (t = 5000)
-        FV-01-CMD = 1                   # Fuel vent open        (t = 5000)
+        sleep 5s
+        OV-01-CMD = 1                   # LOX vent open         (t = 5s)
+        FV-01-CMD = 1                   # Fuel vent open        (t = 5s)
         # No auto-return: stays in abort until the operator commands safe.

@@ -105,7 +105,7 @@ func (s *TransitionStmt) Line() int { return s.LineNo }
 
 // SleepStmt represents a sleep: sleep <duration or expr>.
 type SleepStmt struct {
-	Duration Expr // evaluates to int (milliseconds)
+	Duration Expr // evaluates to float64 seconds
 	LineNo   int
 }
 
@@ -115,7 +115,7 @@ func (s *SleepStmt) Line() int { return s.LineNo }
 // WaitUntilStmt represents a wait_until with optional timeout.
 type WaitUntilStmt struct {
 	Condition      Expr
-	Timeout        Expr    // optional; evaluates to int (milliseconds)
+	Timeout        Expr    // optional; evaluates to float64 seconds
 	TimeoutState   string  // optional; state to transition to on timeout
 	LineNo         int
 }
@@ -177,8 +177,8 @@ type AbortRule struct {
 	Channel  string // channel name
 	Op       string // ">", "<", ">=", "<=", "==", "!="
 	Value    Expr   // evaluates to float64
-	FromMs   Expr   // evaluates to int
-	ToMs     Expr   // evaluates to int
+	FromMs   Expr   // evaluates to float64 seconds (name kept for wire/history; the DAQ-ms conversion happens only at daq_local serialization)
+	ToMs     Expr   // evaluates to float64 seconds (see FromMs)
 	LineNo   int
 }
 

@@ -5,12 +5,6 @@ import (
 	"strconv"
 )
 
-// parseInt64 converts a lexer-produced integer/duration value (durations are
-// already normalised to milliseconds) to an int64.
-func parseInt64(s string) (int64, error) {
-	return strconv.ParseInt(s, 10, 64)
-}
-
 // ── Parser ───────────────────────────────────────────────────────────────
 //
 // Every token the grammar requires is taken with expect(), which returns a
@@ -656,13 +650,18 @@ func (p *Parser) parseTemplate() (*TemplateDef, error) {
 
 		// Optional duration qualifier: `on stale 5s -> …`.  It only has meaning
 		// for timeout-shaped events; the consumer rejects it on the others.
+		// DurationMs is a wall-clock millisecond field (data-receive staleness,
+		// not a sequence duration), so the DURATION token — normalised to
+		// seconds like every other duration literal — is converted back to ms
+		// here, at the one place that needs it.
 		var durMs int64
 		if p.is(TOK_DURATION) {
 			durTok := p.advance()
-			ms, perr := parseInt64(durTok.Value)
+			sec, perr := strconv.ParseFloat(durTok.Value, 64)
 			if perr != nil {
 				return nil, p.errorf(durTok.Line, "template %q: bad duration %q", name, durTok.Value)
 			}
+			ms := int64(sec*1000 + 0.5)
 			if ms <= 0 {
 				return nil, p.errorf(durTok.Line, "template %q: duration must be positive", name)
 			}
@@ -940,9 +939,13 @@ func (p *Parser) parsePrimaryExpr() (Expr, error) {
 		return &LiteralExpr{Value: val, LineNo: tok.Line}, nil
 
 	case TOK_DURATION:
+		// Duration literals are normalised to SECONDS by the lexer and always
+		// carry a float64, even for whole-second values (5s -> 5), so a
+		// suffixed literal and a bare number in the same time position
+		// evaluate identically.
 		p.advance()
-		var val int64
-		_, _ = fmt.Sscanf(tok.Value, "%d", &val)
+		var val float64
+		_, _ = fmt.Sscanf(tok.Value, "%f", &val)
 		return &LiteralExpr{Value: val, LineNo: tok.Line}, nil
 
 	case TOK_STRING:

@@ -47,7 +47,8 @@
       "Bash(gofmt -w daqnode/statemachine_test.go)",
       "Bash(gofmt -l daqnode/*_test.go broker/*_test.go webclient/*_test.go embed_test.go softchan/*_test.go config/*_test.go)",
       "Read(//c/Users/miles/myrepo/WebClient/js/**)",
-      "Read(//c/Users/miles/myrepo/WebClient/**)"
+      "Read(//c/Users/miles/myrepo/WebClient/**)",
+      "Bash(gofmt -w softchan/dsl_loader_test.go)"
     ],
     "additionalDirectories": [
       "c:\\Users\\miles\\myrepo\\ERAM-RTC_Code"

@@ -221,7 +221,8 @@ func (h *harness) assertNoErrors(t *testing.T) {
 }
 
 // coldflowSpace is the nominal channel space for the reference machine.
-func coldflowSpace(cutoffMs float64) *fakeSpace {
+// cutoffSec is SEQ-CUTOFF-T in seconds (the DSL's base time unit).
+func coldflowSpace(cutoffSec float64) *fakeSpace {
 	return newFakeSpace(map[string]float64{
 		"OV-05-CMD":        0,
 		"FV-02-CMD":        0,
@@ -230,7 +231,7 @@ func coldflowSpace(cutoffMs float64) *fakeSpace {
 		"PT-FUEL-AVG":      0,
 		"LIM-CPT01-HIGH":   850,
 		"SEQ-TARGET-PRESS": 300,
-		"SEQ-CUTOFF-T":     cutoffMs,
+		"SEQ-CUTOFF-T":     cutoffSec,
 	}, map[string]bool{
 		"IGNITION-OK": true,
 	})
@@ -240,7 +241,7 @@ func coldflowSpace(cutoffMs float64) *fakeSpace {
 
 func TestEngine_InitialStateAndSafeSequence(t *testing.T) {
 	prog := loadColdflow(t)
-	space := coldflowSpace(50)
+	space := coldflowSpace(0.05)
 	h := startEngine(t, prog, space)
 
 	if got, _ := h.eng.State("coldFlow"); got != "safe" {
@@ -262,7 +263,7 @@ func TestEngine_InitialStateAndSafeSequence(t *testing.T) {
 // demo_walkthrough.md and asserts the exact ordered command writes.
 func TestEngine_NominalWalk(t *testing.T) {
 	prog := loadColdflow(t)
-	space := coldflowSpace(50) // 50 ms burn = 5 ticks
+	space := coldflowSpace(0.05) // 0.05 s burn = 5 ticks at 100 Hz
 	h := startEngine(t, prog, space)
 
 	// startup: safe sequence safes both valves and opens the vent.
@@ -340,7 +341,7 @@ func TestEngine_ControllerGuardTransition(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			prog := loadColdflow(t)
-			space := coldflowSpace(50)
+			space := coldflowSpace(0.05)
 			h := startEngine(t, prog, space)
 
 			if err := h.eng.RequestTarget("coldFlow", tt.from); err != nil {
@@ -364,7 +365,7 @@ func TestEngine_ControllerGuardTransition(t *testing.T) {
 // command is written.
 func TestEngine_ControllerAbortCancelsSleep(t *testing.T) {
 	prog := loadColdflow(t)
-	space := coldflowSpace(100000) // 100 s burn: far longer than the test runs
+	space := coldflowSpace(100) // 100 s burn: far longer than the test runs
 	h := startEngine(t, prog, space)
 
 	// Walk to fire.
@@ -479,7 +480,7 @@ func TestEngine_WaitUntilTimeout(t *testing.T) {
 // TestEngine_OperatorTargets covers acceptance and rejection of operator requests.
 func TestEngine_OperatorTargets(t *testing.T) {
 	prog := loadColdflow(t)
-	space := coldflowSpace(50)
+	space := coldflowSpace(0.05)
 	h := startEngine(t, prog, space)
 
 	tests := []struct {
@@ -526,7 +527,7 @@ func TestEngine_OperatorTargets(t *testing.T) {
 // operator flag, and reports an error when nothing is armed.
 func TestEngine_NotifyAbortTriggered(t *testing.T) {
 	prog := loadColdflow(t)
-	space := coldflowSpace(50)
+	space := coldflowSpace(0.05)
 	h := startEngine(t, prog, space)
 
 	// Nothing armed yet: the machine sits in `safe`, which is not daq_local.
@@ -558,7 +559,7 @@ func TestEngine_NotifyAbortTriggered(t *testing.T) {
 // channel being saturated must not lose an abort or a sequence completion.
 func TestEngine_AbortNeverDroppedOnFullQueue(t *testing.T) {
 	prog := loadColdflow(t)
-	h := startEngine(t, prog, coldflowSpace(50))
+	h := startEngine(t, prog, coldflowSpace(0.05))
 
 	// Enter the daq_local state so an abort destination is armed.
 	if err := h.eng.RequestTarget("coldFlow", "abort"); err != nil {
@@ -728,7 +729,7 @@ func TestEngine_DaqStateEnterSendsPayload(t *testing.T) {
 		"    abort_rule CPT-01 > LIM from 0ms to 1000ms\n" +
 		"    sequence\n" +
 		"        IGN-CMD = 1\n" +
-		"        sleep 2000 - LEAD\n" +
+		"        sleep 2 - LEAD\n" +
 		"        IGN-CMD = 0\n" +
 		"    abort_sequence\n" +
 		"        IGN-CMD = 0\n" +
@@ -737,7 +738,7 @@ func TestEngine_DaqStateEnterSendsPayload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
-	space := newFakeSpace(map[string]float64{"IGN-CMD": 0, "CPT-01": 100, "LIM": 850, "LEAD": 500}, nil)
+	space := newFakeSpace(map[string]float64{"IGN-CMD": 0, "CPT-01": 100, "LIM": 850, "LEAD": 0.5}, nil)
 
 	var mu sync.Mutex
 	var sent []*DaqStateUpdate
@@ -786,7 +787,7 @@ func TestEngine_DaqStateEnterSendsPayload(t *testing.T) {
 	if p.RunID <= 0 {
 		t.Errorf("runId = %d, want a positive monotonically increasing id", p.RunID)
 	}
-	// sleep 2000 - LEAD  →  2000 - 500 = 1500 ms
+	// sleep 2 - LEAD  →  2 - 0.5 = 1.5 s  →  1500 ms on the wire
 	want := []DaqStep{
 		{TMs: 0, RefDes: "IGN-CMD", Value: 1},
 		{TMs: 1500, RefDes: "IGN-CMD", Value: 0},

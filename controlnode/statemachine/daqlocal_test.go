@@ -146,10 +146,12 @@ func TestDaqLocal_SendTimeResolution(t *testing.T) {
 	}
 	m, _ := prog.Machine("seq")
 
-	// Resolve with some identifier values
+	// Resolve with some identifier values.  Values are in the DSL's base time
+	// unit (seconds); the wire protocol's t_ms is produced only at
+	// serialization, so 0.5 s / 3 s here become 500 / 3500 ms below.
 	reader := &mockReader{values: map[string]float64{
-		"IGNITE-DELAY": 500,
-		"BURN-DUR":     3000,
+		"IGNITE-DELAY": 0.5,
+		"BURN-DUR":     3,
 		"LIMIT-HIGH":   850,
 		"START-MS":     0,
 	}}
@@ -191,6 +193,47 @@ func TestDaqLocal_SendTimeResolution(t *testing.T) {
 		if err == nil || !contains(err.Error(), "unresolvable") {
 			t.Errorf("expected unresolvable error, got: %v", err)
 		}
+	}
+}
+
+// TestDaqLocal_SecondsToMsAtSerialization pins the one place the DSL's
+// seconds-based durations are converted to the DAQ wire protocol's
+// milliseconds: a 3-second cutoff, held in a soft channel exactly as an
+// operator would set SEQ-CUTOFF-T, must still serialize as t_ms 3000 — the
+// wire format is unchanged even though the DSL surface now speaks seconds.
+func TestDaqLocal_SecondsToMsAtSerialization(t *testing.T) {
+	src := Source{Name: "cutoff.sm", Text: "" +
+		"machine cutoffTest\n" +
+		"state burn\n" +
+		"    daq_local DAQ001\n" +
+		"    sequence\n" +
+		"        IGN-CMD = 1\n" +
+		"        sleep CUTOFF\n" +
+		"        IGN-CMD = 0\n" +
+		"        transition safed\n" +
+		"state safed\n"}
+
+	prog, err := Compile([]Source{src}, Options{})
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	m, _ := prog.Machine("cutoffTest")
+
+	// CUTOFF = 3 (seconds — the DSL's base time unit, exactly what an
+	// operator-set SEQ-CUTOFF-T of "3.0 s" would resolve to).
+	reader := &mockReader{values: map[string]float64{"CUTOFF": 3}}
+	updates, err := m.DaqStateUpdates(reader)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	p := updates["DAQ001"][0]
+
+	want := []DaqStep{
+		{TMs: 0, RefDes: "IGN-CMD", Value: 1},
+		{TMs: 3000, RefDes: "IGN-CMD", Value: 0},
+	}
+	if !reflect.DeepEqual(p.EntrySequence, want) {
+		t.Errorf("entry_sequence:\n got %+v\nwant %+v (3 s must serialize as t_ms 3000)", p.EntrySequence, want)
 	}
 }
 

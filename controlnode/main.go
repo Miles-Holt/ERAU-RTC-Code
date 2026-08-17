@@ -94,6 +94,9 @@ func main() {
 		}
 	}
 	sc.RegisterStateMachineChannels(machineNames)
+	// CYCLE_TIME (tick period in seconds) must exist in the known-channel set
+	// before machines compile: daq001.sm's controller reads it every tick.
+	sc.RegisterCycleTimeChannel(cfg.Network.EngineTickRateHz)
 
 	for k, v := range sc.RefDesMap() {
 		refDesMap[k] = v

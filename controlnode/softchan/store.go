@@ -152,6 +152,34 @@ func (s *Store) RegisterStateMachineChannels(machineNames []string) {
 	}
 }
 
+// RegisterCycleTimeChannel adds the engine-provided, read-only CYCLE_TIME
+// channel: the tick period in seconds (1 / engineTickRateHz).  It is
+// registered the same way as SM-<NAME>-STATE — as a REAL definition, before
+// machines compile, so a controller referencing CYCLE_TIME (e.g.
+// `T-TIME = T-TIME + CYCLE_TIME`) resolves at compile time.  It is
+// deliberately NOT a user-authored .chan entry: an operator write would
+// silently corrupt every sequence clock, so the role is left "" (read-only)
+// and the value is stamped directly rather than taken from a persisted
+// softChannelValues.yaml.
+func (s *Store) RegisterCycleTimeChannel(tickHz int) {
+	if tickHz <= 0 {
+		tickHz = 100
+	}
+	cycle := 1.0 / float64(tickHz)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.addDefLocked(chanDef{
+		RefDes:      "CYCLE_TIME",
+		Description: "Engine tick period in seconds (1 / engineTickRateHz); read-only",
+		Units:       "s",
+		Role:        "", // read-only
+		Default:     cycle,
+	})
+	// Always the live tick period, never a stale persisted value (there is
+	// none to persist: CYCLE_TIME is a derived constant, not operator data).
+	s.values["CYCLE_TIME"] = cycle
+}
+
 // addDefLocked registers one definition if it is not already known.
 // Caller must hold s.mu.
 func (s *Store) addDefLocked(d chanDef) {

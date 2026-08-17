@@ -1,5 +1,55 @@
 # controlNode TODO
 
+## Firing sequence SM — manual work (owner)
+
+Items on `config/machines/daq001.sm` (`machine firingSequence`) to be implemented
+by hand. Each one is a procedure decision, not a code change, which is why they
+are not being done for you. Ordered roughly by consequence.
+
+- [ ] **`safe` does not close everything it should.** It zeroes NV-01/NV-02
+  (POS/NEG), the vents, fill, bleed, ISO and the mains — but never touches
+  **NV-03/NV-04 (press), NV-05/NV-06 (purge), or IG-01 (igniter)**. Two
+  consequences: coming back `abort → safe` leaves the **purge valves open**,
+  because `abort` opened them and nothing closes them; and `safe` cannot be
+  relied on as a "put the stand in a known state" command, since three valves
+  and the igniter keep whatever value they had. Decide whether `safe` should
+  drive every commandable channel to a defined state.
+- [ ] **Comment/refDes mismatch in `safe`.** The block comment reads
+  `# FV-02: fuel vent` immediately above `FV-01-CMD = 0`, while further down
+  `# FV-02: Fuel Iso` sits above `FV-02-CMD = 0`. One of the two labels is
+  wrong; on a P&ID-driven stand a mislabelled vent is worth fixing before it is
+  read under pressure.
+- [ ] **Confirm mains-close-at-cutoff.** The sequence now closes the mains AT
+  `SEQ-CUTOFF-T`. Your earlier `wait_until T-TIME > SEQ-CUTOFF-T - 2.0` would
+  have closed them 2 s *before* cutoff — at the defaults that is t=1 s, before
+  they open at t=2 s. Confirm the intended cutoff semantics.
+- [ ] **Confirm the `postTest` procedure.** It currently closes the press valves
+  (NV-03/NV-04) and holds, with no vent, no purge and no auto-transition, so the
+  operator decides what happens next. If a burn should vent or purge on its own,
+  that belongs here.
+- [ ] **T-TIME relative to ignition.** Your own note in the file: T-TIME counts
+  up from sequence start, not from ignition. Deciding the zero point affects
+  every abort window that uses it.
+- [ ] **T-TIME reset races the controller.** The sequence sets `T-TIME = 0.0` as
+  its first statement, but the controller (which does `T-TIME = T-TIME + CYCLE_TIME`)
+  may tick once between state entry and that assignment, so T-TIME can start at
+  one tick rather than zero. Harmless at 10 ms, but worth knowing if the zero
+  point becomes ignition-relative.
+- [ ] **Orchestrate the press and ignition machines.** The pattern you described:
+  `command pressSeq -> engineRunning`, then `wait_until AT-PRESSURE timeout N -> abort`,
+  then continue. Needs (a) the subordinate machines defined with their states,
+  (b) `AT-PRESSURE` as a computed `.chan` channel, e.g.
+  `compute PT-LOX-AVG > SEQ-TARGET-PRESS and PT-FUEL-AVG > SEQ-TARGET-PRESS`.
+  The `command` statement and compile-checked state names are queued as code work.
+- [ ] **Abort on subordinate failure.** Once the press/ignition machines exist,
+  the `autoSequence` controller should also abort on their faults, e.g.
+  `if machine.pressSeq.state == "fault"` → `transition abort`. Without it the
+  firing sequence keeps running against a failed press system.
+- [ ] **Put a timeout on every `wait_until` in `autoSequence`.** A bare
+  `wait_until` in a sequence that has already opened valves waits forever if the
+  condition never arrives; with two machines waiting on each other it deadlocks
+  with propellant loaded. `timeout <s> -> abort` is the safety net.
+
 ## Restructure follow-ups
 
 Left over after the DSL restructure (Phases 1–5). None of these block operation;
@@ -78,6 +128,8 @@ all of them are things a future run should close.
 
 ### commandability
 - [x] **Autosequence and Aborts** — superseded by the DSL restructure. Autosequences and aborts are now written in `config/machines/*.sm`; a `daq_local` state compiles to the `state_update` payload (`entry_sequence` / `exit_sequence` / `abort_rules`) and is sent on state entry. Thresholds and timings reference operator-settable `.chan` channels and are resolved at send time, which is what the "edit and upload a config" idea was really after. The compiled result is visible at `/docs/machines`.
+
+- [ ] **released for commanability** - add a `release` command to .sm files setting the channel as commandable by the operator. all channels start as unreleased, when [channel].released == True, the channels will be commandable by an operator through the websocket. to set a channel as commandable, the state machine will have something to the effect of "release OV-02" releasing all channels related to the OV-02 valve. all channels will be commandable by the statemachines, this is just a filter on the commands allowed from the webclient, and a visual indicator to the operator about what channels are availble to command by updating the valve icon and similar the the GUI. statemachine target state is always commandable, statemachine current state is a talkback and therefore never commanable, sensor channels are another example of channels that are never commandable
 
 # WebClient TODO
 

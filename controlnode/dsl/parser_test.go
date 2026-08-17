@@ -462,8 +462,8 @@ func TestParser_DurationInExpression(t *testing.T) {
 	sleep := state.Sequence[0].(*SleepStmt)
 
 	if lit, ok := sleep.Duration.(*LiteralExpr); ok {
-		if lit.Value != int64(5000) {
-			t.Errorf("sleep duration: got %v, expected 5000", lit.Value)
+		if lit.Value != float64(5) {
+			t.Errorf("sleep duration: got %v, expected 5 (seconds)", lit.Value)
 		}
 	} else {
 		t.Errorf("sleep duration: expected LiteralExpr, got %T", sleep.Duration)

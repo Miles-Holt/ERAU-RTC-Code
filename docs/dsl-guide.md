@@ -37,10 +37,19 @@ sleep 2000-SEQ-IGN-LEAD       # ERROR: that is one weird identifier
 ```
 
 **Values:** integers, floats, `true`/`false`, `"double quoted strings"`, and
-durations `100ms`, `5s`, `2m` (all compile to milliseconds).
+durations `100ms`, `5s`, `2m`.
 
 **Operators:** `+ - * / %`, `== != < <= > >=`, `and or not`, `=` for assignment,
 `++` / `--` on numeric channels.
+
+**Time is seconds.** Anywhere a duration appears — `sleep`, `wait_until … timeout`,
+`abort_rule … from … to …`, or a soft channel that carries a duration
+(`SEQ-IGN-LEAD`, `SEQ-CUTOFF-T`) — a bare number means seconds: `sleep 5` sleeps
+5 seconds. A suffixed literal normalises to seconds too: `100ms` -> `0.1`,
+`5s` -> `5`, `2m` -> `120`; after that, `sleep 100ms` and `sleep 0.1` are the same
+value. **The DAQ wire protocol still speaks milliseconds** (`t_ms`, `t_ms_on`,
+`t_ms_off`) — that conversion happens only once, when a `daq_local` payload is sent;
+nothing else in the DSL ever sees milliseconds.
 
 **Every channel name you reference must exist**, checked against the whole
 configuration at startup. There is no silent zero.
@@ -59,10 +68,10 @@ restarts. Two kinds:
 channel SEQ-CUTOFF-T
     type float
     description "Main-valve cutoff time, absolute from sequence start (burn length = this minus valve-open time)"
-    units ms                        # optional
-    default 3000
-    min 500                         # writes outside [min,max] are rejected
-    max 10000
+    units s                         # optional — seconds, the DSL's base time unit
+    default 3.0
+    min 0.5                         # writes outside [min,max] are rejected
+    max 10.0
 ```
 
 **Computed** — derived every engine tick, read-only, in dependency order:
@@ -123,11 +132,11 @@ requests only.
 
 An `operator` state can optionally list the states it must currently be
 commanded *from*. [`config/machines/daq001.sm`](../config/machines/daq001.sm)
-uses this to restore the intended fuelSeq transition graph:
+uses this to restore the intended firingSequence transition graph:
 
 ```
 state safe
-    operator from manualControl, abort
+    operator from manualControl, abort, postTest
 
 state manualControl
     operator from safe
@@ -135,14 +144,20 @@ state manualControl
 state autoSequence
     operator from manualControl
 
+state postTest
+    # entered only by autoSequence's completion transition — no operator flag
+
 state abort
-    operator from manualControl, autoSequence
+    operator from manualControl, autoSequence, postTest
 ```
 
-Read `operator from manualControl, autoSequence` on `abort` as: the operator's
-abort button only works while the machine is currently in `manualControl` or
-`autoSequence` — trying to command `abort` from, say, `safe` is refused. Bare
-`operator` (no `from`) stays commandable from anywhere, as before.
+Read `operator from manualControl, autoSequence, postTest` on `abort` as: the
+operator's abort button only works while the machine is currently in
+`manualControl`, `autoSequence` or `postTest` — trying to command `abort` from,
+say, `safe` is refused. Bare `operator` (no `from`) stays commandable from
+anywhere, as before. `postTest` needs no `operator from` of its own: nothing
+commands entry to it from the HMI, only autoSequence's own completion
+`transition postTest`.
 
 **This restricts operator input only.** It never blocks:
 - DAQ-originated aborts (`NotifyAbortTriggered`, e.g. an `abort_rule` tripping
@@ -150,13 +165,12 @@ abort button only works while the machine is currently in `manualControl` or
 - sequence completions (a `daq_local` state's completion transition),
 - or any `transition X` statement inside `.sm` controller/sequence code.
 
-Those are the machine's own logic, not a crew request, so `abort_sequence`'s
-`transition abort` and `autoSequence`'s `transition safe` above fire
-regardless of what `from` says. A gated command rejected at the engine looks
-like:
+Those are the machine's own logic, not a crew request, so autoSequence's
+`transition abort` and `transition postTest` above fire regardless of what
+`from` says. A gated command rejected at the engine looks like:
 
 ```
-machine "fuelSeq": cannot command "abort" from "safe" (allowed from: manualControl, autoSequence)
+machine "firingSequence": cannot command "abort" from "safe" (allowed from: manualControl, autoSequence, postTest)
 ```
 
 ### `controller` — runs every tick
@@ -229,38 +243,33 @@ Network latency is far too slow for T-0 aborts. A state flagged
 node when the machine enters the state, and executed there in under a
 millisecond.
 
-This is [`config/machines/daq001.sm`](../config/machines/daq001.sm), the real
-autosequence:
+`config/machines/daq001.sm` no longer uses `daq_local` — its `autoSequence`
+runs entirely control-node side, gated by `controller` if-statements instead
+(see the `operator from` example above). The running example for `daq_local`
+is now [`coldflow.sm`](restructure/demo/coldflow.sm), which exercises every
+`daq_local` feature end to end (walkthrough:
+[`demo_walkthrough.md`](restructure/demo/demo_walkthrough.md)):
 
 ```
-state autoSequence
-    operator from manualControl
-    daq_local DAQ001
-    abort_rule CPT-01 > LIM-CPT01-HIGH from 0ms to 20000ms
-    abort_rule CPT-01 < LIM-CPT01-LOW from SEQ-IGN-LEAD to SEQ-CUTOFF-T
-    sequence
-        OV-01-CMD = 0                   # LOX vent close        (t = 0)
-        FV-01-CMD = 0                   # Fuel vent close       (t = 0)
-        NV-03-CMD = 1                   # LOX press open        (t = 0)
-        NV-04-CMD = 1                   # Fuel press open       (t = 0)
-        sleep SEQ-IGN-LEAD
-        IG-01-CMD = 1                   # Igniter fire          (t = IGN_LEAD)
-        sleep 2000 - SEQ-IGN-LEAD
-        OV-05-CMD = 1                   # LOX main open         (t = 2000)
-        FV-03-CMD = 1                   # Fuel main open        (t = 2000)
-        sleep SEQ-CUTOFF-T - 2000
-        OV-05-CMD = 0                   # LOX main close        (t = CUTOFF_T)
-        FV-03-CMD = 0
-        IG-01-CMD = 0
-        transition safe                 # completion transition
-    abort_sequence                      # runs locally on the DAQ when a rule trips
+state abort
+    daq_local DAQ001                # compiled + cached on DAQ001 for local execution
+    abort_rule CPT-01 > 850 from 0ms to 20000ms
+    sequence                        # restricted subset: literal sets + sleeps only
+        FV-02-CMD = 0
         OV-05-CMD = 0
-        FV-03-CMD = 0
-        IG-01-CMD = 0
-        NV-03-CMD = 0
-        NV-04-CMD = 0
-        transition abort                # abort destination
+        sleep 100ms
+        VENT-CMD = 1
+    abort_sequence                  # run locally on DAQ001 when the rule trips
+        FV-02-CMD = 0
+        OV-05-CMD = 0
+        VENT-CMD = 1
+        transition safe             # abort destination reported to the engine
 ```
+
+`sleep 100ms` here is `0.1` seconds — the same seconds-based duration as
+everywhere else in the DSL. It is converted to `t_ms: 100` only when this
+state's payload is serialized for the wire (see "Literals, channel names, and
+constant arithmetic" below).
 
 ### What is allowed inside a `daq_local` state
 
@@ -280,9 +289,9 @@ list of `{t_ms, refDes, value}` steps.
 
 Assignment values, sleep durations and abort-rule thresholds/windows may be:
 
-- literals — `1`, `250ms`, `true`
+- literals — `1`, `0.25`, `250ms` (the same value: 0.25 seconds), `true`
 - **soft-channel identifiers** — `SEQ-IGN-LEAD`, `LIM-CPT01-HIGH`
-- **constant arithmetic over them** — `2000 - SEQ-IGN-LEAD`
+- **constant arithmetic over them** — `2 - SEQ-IGN-LEAD`
 
 Identifiers are resolved to numbers **at send time** — when the machine enters
 the state, and again on a node `state_req`. That is what keeps
@@ -290,11 +299,13 @@ operator-tuned limits live: change `LIM-CPT01-HIGH` on the HMI and the next run
 arms the new threshold, with no rebuild and no redeploy.
 
 Constant arithmetic is how you express an *absolute* schedule with sequential
-sleeps. In the example, the igniter fires at `SEQ-IGN-LEAD` and the mains open
-at a fixed t = 2000 ms, so the second sleep must be `2000 - SEQ-IGN-LEAD`.
+sleeps: an igniter that must fire at `SEQ-IGN-LEAD` with the mains opening at a
+fixed t = 2 seconds needs its second sleep written as `2 - SEQ-IGN-LEAD`, not a
+literal `2` (which would always wait 2 more seconds AFTER the igniter, however
+late `SEQ-IGN-LEAD` was set).
 
 If a value cannot be resolved, or a sleep folds to a negative number (someone
-set `SEQ-IGN-LEAD` above 2000), the payload is **refused** and an alarm is
+set `SEQ-IGN-LEAD` above 2), the payload is **refused** and an alarm is
 raised. It is never sent as a 0.
 
 ### The two transitions of a `daq_local` state

@@ -114,7 +114,7 @@ func TestDocsPagesServe(t *testing.T) {
 	}{
 		{"/docs", []string{"System summary", "DAQ001", "engineTickRateHz"}},
 		{"/docs/channels", []string{"Hardware channels", "Software channels", "SEQ-CUTOFF-T", "CPT-01"}},
-		{"/docs/machines", []string{"fuelSeq", "autoSequence", "daq_local", "<svg", "abort_rule"}},
+		{"/docs/machines", []string{"firingSequence", "autoSequence", "postTest", "daq_local", "<svg"}},
 		{"/docs/alerts", []string{"CHAMBER-HIGH", "every_daqnode", "disconnect"}},
 		{"/docs/protocol", []string{"state_update", "sequence_complete", "config_req"}},
 	} {
@@ -131,16 +131,17 @@ func TestDocsPagesServe(t *testing.T) {
 }
 
 // TestDocsMachineTransitions checks that the machine page recovers the graph
-// from the compiled AST, including the two edges only the DAQ can report.
+// from the compiled AST for the real, shipped firingSequence machine: it runs
+// entirely control-node side (no daq_local any more), so its edges are plain
+// `transition` statements — including the completion edge into the new
+// postTest state — rather than DAQ-reported sequence_complete/abort_triggered.
 func TestDocsMachineTransitions(t *testing.T) {
 	ts := docsTestServer(t)
 	body := getDocsPage(t, ts, "/docs/machines")
 
 	for _, want := range []string{
-		"sequence_complete", // completion transition of the daq_local state
-		"abort_triggered",   // abort destination declared by abort_sequence
-		"entry_sequence",    // daq_local sequence explained in terms of the payload
-		"exit_sequence",
+		"transition postTest", // autoSequence's nominal completion
+		"transition abort",    // autoSequence's controller-guarded aborts
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("machines page missing %q", want)
@@ -158,11 +159,11 @@ func TestDocsMachineOperatorGate(t *testing.T) {
 	body := getDocsPage(t, ts, "/docs/machines")
 
 	for _, want := range []string{
-		"commandable from: manualControl, abort",        // safe
-		"commandable from: safe",                        // manualControl
-		"commandable from: manualControl",               // autoSequence
-		"commandable from: manualControl, autoSequence", // abort
-		"operator command",                              // SVG legend
+		"commandable from: manualControl, abort, postTest",        // safe
+		"commandable from: safe",                                  // manualControl
+		"commandable from: manualControl",                         // autoSequence
+		"commandable from: manualControl, autoSequence, postTest", // abort
+		"operator command",                                        // SVG legend
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("machines page missing gate text %q", want)

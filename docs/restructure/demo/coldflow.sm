@@ -36,7 +36,7 @@ state fire                          # not operator-flagged: only reachable by se
             transition abort
     sequence
         FV-02-CMD = 1
-        sleep SEQ-CUTOFF-T          # duration from a soft channel (ms)
+        sleep SEQ-CUTOFF-T          # duration from a soft channel (seconds — the DSL's base time unit)
         FV-02-CMD = 0
         transition vent
 

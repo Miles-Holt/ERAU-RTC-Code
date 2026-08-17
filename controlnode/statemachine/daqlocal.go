@@ -8,6 +8,14 @@ import (
 	"controlnode/dsl"
 )
 
+// roundSeconds kills float64 accumulation dust (e.g. 0.05+0.1 = 0.15000000000000002)
+// at nanosecond precision — far finer than anything the DSL or the wire
+// protocol cares about, but enough that *1000 lands on a clean millisecond
+// value whenever the inputs were clean.
+func roundSeconds(sec float64) float64 {
+	return math.Round(sec*1e9) / 1e9
+}
+
 // ── DAQ-local payloads ────────────────────────────────────────────────────────
 //
 // A state flagged `daq_local <NODE>` is serialized at compile time into the
@@ -297,21 +305,27 @@ func resolveDaqLocalState(dls *DaqLocalState, reader Reader) (*DaqStateUpdate, e
 			return nil, fmt.Errorf("abort_rule \"to\": %v", err)
 		}
 
+		// from/to resolve in the DSL's base unit (seconds); the wire protocol
+		// (t_ms_on/t_ms_off) stays milliseconds — convert only here, at
+		// serialization, never earlier.
 		out.AbortRules = append(out.AbortRules, DaqAbortRule{
 			If:     fmt.Sprintf("%s %s %s", rule.Channel, rule.Op, formatNumber(val)),
-			TMsOn:  from,
-			TMsOff: to,
+			TMsOn:  roundSeconds(from) * 1000,
+			TMsOff: roundSeconds(to) * 1000,
 		})
 	}
 
 	return out, nil
 }
 
-// resolveSteps folds a block's expressions into absolute t_ms set-points.
-// Sleeps accumulate time; assignments emit a step at the current time.
+// resolveSteps folds a block's expressions into absolute set-points.  Sleeps
+// (seconds, the DSL's base unit) accumulate time; assignments emit a step at
+// the current time.  The accumulated time is converted to milliseconds only
+// when it lands in a DaqStep — the wire protocol's t_ms stays milliseconds
+// regardless of what unit the DSL speaks.
 func resolveSteps(steps []DaqLocalStep, reader Reader) ([]DaqStep, error) {
 	out := []DaqStep{}
-	tMs := 0.0
+	tSec := 0.0
 	for _, step := range steps {
 		val, err := resolveExpr(step.Expr, reader)
 		if err != nil {
@@ -319,14 +333,14 @@ func resolveSteps(steps []DaqLocalStep, reader Reader) ([]DaqStep, error) {
 		}
 		if step.RefDes == "" {
 			// A sleep.  Negative means the operator-tuned constants are
-			// inconsistent (e.g. SEQ-IGN-LEAD > 2000): refuse the payload.
+			// inconsistent (e.g. SEQ-IGN-LEAD > 2s): refuse the payload.
 			if val < 0 {
-				return nil, fmt.Errorf("sleep duration resolved to a negative value (%v ms)", val)
+				return nil, fmt.Errorf("sleep duration resolved to a negative value (%v s)", val)
 			}
-			tMs += val
+			tSec = roundSeconds(tSec + val)
 			continue
 		}
-		out = append(out, DaqStep{TMs: tMs, RefDes: step.RefDes, Value: val})
+		out = append(out, DaqStep{TMs: tSec * 1000, RefDes: step.RefDes, Value: val})
 	}
 	return out, nil
 }

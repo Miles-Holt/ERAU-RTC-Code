@@ -56,8 +56,9 @@ type Config struct {
 	// Clock is the tick source; defaults to NewRealClock(TickHz).
 	Clock Clock
 	// TickHz is the engine tick rate.  It also defines the engine's notion of
-	// elapsed time: every tick advances the clock by 1000/TickHz ms, which is
-	// what `sleep` and `wait_until … timeout` are measured against.
+	// elapsed time: every tick advances the clock by 1/TickHz seconds, which
+	// is what `sleep` and `wait_until … timeout` are measured against, and the
+	// value published on the read-only CYCLE_TIME channel.
 	TickHz int
 
 	// OnStateChange is called from the engine loop for every state entry,
@@ -108,7 +109,7 @@ type Engine struct {
 	snapReader SnapshotReader // non-nil when reader supports per-tick snapshots
 	writer     Writer
 	clock      Clock
-	tickMs     int64
+	tickSec    float64 // seconds advanced per tick (1/TickHz); immutable after New
 	onChange   func(machine, state string)
 	onError    func(machine string, err error)
 	preTick    func()
@@ -119,7 +120,11 @@ type Engine struct {
 	order    []*machineRT          // immutable after New
 
 	transitions chan transitionReq
-	timeMs      atomic.Int64
+	// ticks counts elapsed engine ticks.  Elapsed time in seconds is derived
+	// from it (ticks * tickSec) rather than accumulated as a float directly:
+	// sync/atomic has no atomic float64, and multiplying an exact integer
+	// tick count avoids compounding rounding error over a long-running test.
+	ticks atomic.Int64
 
 	// snap is the per-tick channel snapshot, reused across ticks.  Only the
 	// engine loop reads or writes it, so it needs no lock.
@@ -210,17 +215,14 @@ func New(cfg Config) (*Engine, error) {
 			log.Printf("statemachine: %s: %v", machine, err)
 		}
 	}
-	tickMs := int64(1000 / tickHz)
-	if tickMs < 1 {
-		tickMs = 1
-	}
+	tickSec := 1.0 / float64(tickHz)
 
 	e := &Engine{
 		prog:        cfg.Program,
 		reader:      cfg.Reader,
 		writer:      cfg.Writer,
 		clock:       clock,
-		tickMs:      tickMs,
+		tickSec:     tickSec,
 		onChange:    cfg.OnStateChange,
 		onError:     onError,
 		preTick:     cfg.PreTick,
@@ -281,7 +283,7 @@ func (e *Engine) Run(ctx context.Context) {
 // tick runs one engine cycle: PreTick, pending transitions, one channel
 // snapshot, every active controller, then a wake-up for the running sequences.
 func (e *Engine) tick(ctx context.Context) {
-	e.timeMs.Add(e.tickMs)
+	e.ticks.Add(1)
 
 	if e.preTick != nil {
 		e.preTick()
@@ -475,8 +477,13 @@ func (e *Engine) stopAll() {
 	}
 }
 
-// nowMs is the engine's monotonic notion of elapsed time in milliseconds.
-func (e *Engine) nowMs() int64 { return e.timeMs.Load() }
+// nowSec is the engine's monotonic notion of elapsed time in seconds,
+// derived from the exact tick count so it never accumulates rounding error.
+func (e *Engine) nowSec() float64 { return float64(e.ticks.Load()) * e.tickSec }
+
+// TickSeconds returns the engine's tick period in seconds (1/TickHz) — the
+// value published on the read-only CYCLE_TIME channel.
+func (e *Engine) TickSeconds() float64 { return e.tickSec }
 
 // ── Public accessors ──────────────────────────────────────────────────────────
 

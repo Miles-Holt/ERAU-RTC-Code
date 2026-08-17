@@ -247,31 +247,33 @@ func TestLexer_Identifiers(t *testing.T) {
 	}
 }
 
+// TestLexer_Durations checks that suffixed duration literals normalise to
+// SECONDS — the DSL's base time unit — not milliseconds.
 func TestLexer_Durations(t *testing.T) {
 	tests := []struct {
 		name   string
 		input  string
-		expect int64
+		expect float64
 	}{
 		{
 			name:   "milliseconds",
 			input:  "100ms",
-			expect: 100,
+			expect: 0.1,
 		},
 		{
 			name:   "seconds",
 			input:  "5s",
-			expect: 5000,
+			expect: 5,
 		},
 		{
 			name:   "minutes",
 			input:  "2m",
-			expect: 120000,
+			expect: 120,
 		},
 		{
 			name:   "float milliseconds",
 			input:  "250ms",
-			expect: 250,
+			expect: 0.25,
 		},
 	}
 
@@ -283,18 +285,18 @@ func TestLexer_Durations(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			var found int64
+			var found float64
 			for _, tok := range toks {
 				if tok.Type == TOK_DURATION {
-					var val int64
-					_, _ = fmt.Sscanf(tok.Value, "%d", &val)
+					var val float64
+					_, _ = fmt.Sscanf(tok.Value, "%f", &val)
 					found = val
 					break
 				}
 			}
 
 			if found != tt.expect {
-				t.Errorf("got %d, expected %d", found, tt.expect)
+				t.Errorf("got %v, expected %v", found, tt.expect)
 			}
 		})
 	}
@@ -394,10 +396,10 @@ func TestLexer_MinusAdjacency(t *testing.T) {
 // lex error, not a silently truncated `5m` plus a stray identifier.
 func TestLexer_DurationSuffixes(t *testing.T) {
 	ok := map[string]string{
-		"100ms": "100",
-		"5s":    "5000",
-		"2m":    "120000",
-		"1.5s":  "1500",
+		"100ms": "0.1",
+		"5s":    "5",
+		"2m":    "120",
+		"1.5s":  "1.5",
 	}
 	for src, want := range ok {
 		toks, err := NewLexer(src).Tokenize()
