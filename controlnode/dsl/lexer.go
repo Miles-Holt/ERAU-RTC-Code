@@ -39,6 +39,7 @@ const (
 	TOK_ABORT_RULE
 	TOK_ABORT_SEQUENCE
 	TOK_TRANSITION
+	TOK_COMMAND
 	TOK_SLEEP
 	TOK_WAIT_UNTIL
 	TOK_TIMEOUT
@@ -546,6 +547,7 @@ func (l *Lexer) keyword(s string) (TokenType, bool) {
 		"abort_rule":     TOK_ABORT_RULE,
 		"abort_sequence": TOK_ABORT_SEQUENCE,
 		"transition":  TOK_TRANSITION,
+		"command":     TOK_COMMAND,
 		"sleep":       TOK_SLEEP,
 		"wait_until":  TOK_WAIT_UNTIL,
 		"timeout":     TOK_TIMEOUT,

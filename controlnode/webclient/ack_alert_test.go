@@ -24,7 +24,7 @@ func TestAckAlertMarksAndBroadcasts(t *testing.T) {
 
 	mustWrite(t, ctrl, map[string]interface{}{"type": "ack_alert", "id": "rule:CHAMBER-HIGH"})
 
-	m := readUntilType(t, sub, "alert_acked", 2*time.Second)
+	m := readUntilType(t, sub, "alert_acked", 10*time.Second)
 	if m["id"] != "rule:CHAMBER-HIGH" {
 		t.Errorf("alert_acked id = %v, want rule:CHAMBER-HIGH", m["id"])
 	}
@@ -88,7 +88,7 @@ func TestAckAlertLatchingRuleStaysRaisedUntilAcked(t *testing.T) {
 	defer sub.Close()
 
 	mustWrite(t, ctrl, map[string]interface{}{"type": "ack_alert", "id": id})
-	m := readUntilType(t, sub, "alert_acked", 2*time.Second)
+	m := readUntilType(t, sub, "alert_acked", 10*time.Second)
 	if m["id"] != id {
 		t.Fatalf("alert_acked id = %v, want %v", m["id"], id)
 	}

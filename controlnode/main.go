@@ -168,9 +168,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("alerts: %v", err)
 	}
+	machineStates := make(map[string][]string)
+	if programOrNil != nil {
+		for _, m := range programOrNil.Machines {
+			names := make([]string, len(m.States))
+			for i, st := range m.States {
+				names[i] = st.Name
+			}
+			machineStates[m.Name] = names
+		}
+	}
 	alertCfg, err := alerts.LoadDir(alertsDir, alerts.Options{
 		KnownChannels: knownChannels,
 		MachineNames:  machineNames,
+		MachineStates: machineStates,
 	})
 	if err != nil {
 		// An unknown channel reference or a malformed rule is fatal, exactly

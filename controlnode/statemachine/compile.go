@@ -263,6 +263,7 @@ func Compile(sources []Source, opts Options) (*Program, error) {
 		m := prog.Machines[i]
 		c.checkTargets(m)
 		c.checkOperatorGates(m)
+		c.checkCommands(prog, m)
 		c.checkReferences(prog, m, def)
 	}
 	if len(c.errs) > 0 {
@@ -490,9 +491,86 @@ func (c *compiler) checkReferences(prog *Program, m *Machine, def *dsl.MachineDe
 	checker := dsl.NewChecker(c.opts.KnownChannels, func(machine, field string) bool {
 		_, ok := prog.byName[machine]
 		return ok && field == "state"
-	})
+	}).WithMachineStates(machineStatesFunc(prog))
 	res := checker.Check(def)
 	for _, e := range res.Errors {
 		c.errs = append(c.errs, strings.Replace(e, "file:", m.Source+":", 1))
 	}
+}
+
+// machineStatesFunc builds the callback dsl.Checker uses to validate a
+// `machine.<M>.state == "…"` string literal against M's real state names.
+func machineStatesFunc(prog *Program) func(machine string) ([]string, bool) {
+	return func(machine string) ([]string, bool) {
+		mm, ok := prog.byName[machine]
+		if !ok {
+			return nil, false
+		}
+		return stateNames(mm), true
+	}
+}
+
+// checkCommands validates every `command <machine> -> <state>` statement:
+// unknown machine, unknown state in that machine, and commanding your own
+// machine (a compile error pointing at `transition`, which already exists for
+// that) are all caught here with whole-program knowledge, the same pass that
+// resolves `operator from` gates.  Runs over controller and sequence blocks
+// only — a daq_local block's own compiler already rejects any statement that
+// isn't an assignment, sleep, or trailing transition.
+func (c *compiler) checkCommands(prog *Program, m *Machine) {
+	var walk func(stmts []dsl.Stmt)
+	walk = func(stmts []dsl.Stmt) {
+		for _, s := range stmts {
+			switch v := s.(type) {
+			case *dsl.CommandStmt:
+				c.checkCommand(prog, m, v)
+			case *dsl.IfStmt:
+				walk(v.Body)
+				for _, e := range v.Elif {
+					walk(e.Body)
+				}
+			}
+		}
+	}
+	for _, st := range m.States {
+		walk(st.Controller)
+		walk(st.Sequence)
+	}
+}
+
+func (c *compiler) checkCommand(prog *Program, m *Machine, v *dsl.CommandStmt) {
+	if v.Machine == m.Name {
+		c.errorf(m.Source, v.LineNo,
+			"machine %q: \"command\" may not target its own machine; use \"transition %s\" for a self-transition",
+			m.Name, v.Target)
+		return
+	}
+	target, ok := prog.byName[v.Machine]
+	if !ok {
+		c.errorf(m.Source, v.LineNo,
+			"command: unknown machine %q (available machines: %s)",
+			v.Machine, strings.Join(machineNames(prog), ", "))
+		return
+	}
+	if _, ok := target.byName[v.Target]; !ok {
+		c.errorf(m.Source, v.LineNo,
+			"command: machine %q has no state %q (available states: %s)",
+			v.Machine, v.Target, strings.Join(stateNames(target), ", "))
+	}
+}
+
+func machineNames(prog *Program) []string {
+	out := make([]string, 0, len(prog.Machines))
+	for _, m := range prog.Machines {
+		out = append(out, m.Name)
+	}
+	return out
+}
+
+func stateNames(m *Machine) []string {
+	out := make([]string, 0, len(m.States))
+	for _, s := range m.States {
+		out = append(out, s.Name)
+	}
+	return out
 }

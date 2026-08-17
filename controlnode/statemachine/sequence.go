@@ -99,6 +99,11 @@ func (e *Engine) execSequence(m *machineRT, r *seqRun, stmts []dsl.Stmt) error {
 		case *dsl.TransitionStmt:
 			return e.requestTransition(m, r, v.Target)
 
+		case *dsl.CommandStmt:
+			if err := e.CommandMachine(m.def.Name, v.Machine, v.Target); err != nil {
+				return err
+			}
+
 		case *dsl.SleepStmt:
 			if err := e.execSleep(r, v); err != nil {
 				return err

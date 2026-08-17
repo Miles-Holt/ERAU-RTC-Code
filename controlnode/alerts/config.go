@@ -96,6 +96,14 @@ type Options struct {
 	// MachineNames is the set of state machines, so `machine.<name>.state`
 	// references in rule conditions can be validated.
 	MachineNames []string
+	// MachineStates maps each machine name to its real state names, so a
+	// `machine.<name>.state == "…"` comparison in a rule condition can be
+	// checked against them at compile time (a typo'd state name would
+	// otherwise be a guard that silently never fires). Optional: a machine
+	// missing from this map (or a nil map) simply skips that validation for
+	// its comparisons, MachineNames is still what makes the machine itself
+	// known.
+	MachineStates map[string][]string
 }
 
 // LoadDir parses every .alert file in dir.  A missing directory is not an error
@@ -180,7 +188,7 @@ func Load(srcs []Source, opts Options) (*Config, error) {
 				cfg.Template = tmpl
 
 			case *dsl.AlertDef:
-				rule, rerr := compileRule(src.Name, def, known, machines)
+				rule, rerr := compileRule(src.Name, def, known, machines, opts.MachineStates)
 				if rerr != nil {
 					return nil, rerr
 				}
@@ -301,7 +309,7 @@ func compileTemplate(file string, def *dsl.TemplateDef, known map[string]bool) (
 	return tmpl, nil
 }
 
-func compileRule(file string, def *dsl.AlertDef, known, machines map[string]bool) (*Rule, error) {
+func compileRule(file string, def *dsl.AlertDef, known, machines map[string]bool, machineStates map[string][]string) (*Rule, error) {
 	if def.Condition == nil {
 		return nil, errf(file, def.LineNo, "alert %q: missing `if <expression>`", def.Name)
 	}
@@ -320,6 +328,9 @@ func compileRule(file string, def *dsl.AlertDef, known, machines map[string]bool
 	// same contract .sm and .chan files have.
 	checker := dsl.NewChecker(keys(known), func(machine, field string) bool {
 		return machines[machine]
+	}).WithMachineStates(func(machine string) ([]string, bool) {
+		states, ok := machineStates[machine]
+		return states, ok
 	})
 	if res := checker.Check(def); len(res.Errors) > 0 {
 		return nil, fmt.Errorf("%s", strings.Replace(res.Errors[0], "file:", file+":", 1))

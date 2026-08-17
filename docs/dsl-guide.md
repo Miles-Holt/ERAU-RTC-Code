@@ -230,9 +230,68 @@ state:
 ```
 
 `machine.<name>.state` yields the state **name** as a string, comparable with
-`==` against a quoted name. To *command* another machine, write its target
-channel: `SM-loxSeq-TARGET = 3` (an index — the same numbering `state_config`
-publishes).
+`==` against a quoted name — and that string is **checked at compile time**
+against `loxSeq`'s real state names, so `machine.loxSeq.state == "abrot"` is
+caught before it ships, not discovered the day it silently never fires.
+
+### `command` — driving another machine directly
+
+To *command* another machine, use `command <machine> -> <state>`, legal in
+both `controller` and `sequence` blocks:
+
+```
+    sequence
+        command pressSeq -> engineRunning
+```
+
+This is the owner's real orchestration shape — a master firing sequence
+driving a subordinate press system, then waiting on its own computed
+"at pressure" channel before continuing the burn:
+
+```
+channel AT-PRESSURE
+    type bool
+    compute PT-LOX-AVG > SEQ-TARGET-PRESS and PT-FUEL-AVG > SEQ-TARGET-PRESS
+
+# pressSeq.sm
+machine pressSeq
+
+state idle
+    operator
+
+state engineRunning
+    operator from armed
+    sequence
+        OV-LOX-PRESS-CMD = 1
+        OV-FUEL-PRESS-CMD = 1
+
+# firingSequence.sm (excerpt)
+machine firingSequence
+
+state engineBurn
+    sequence
+        command pressSeq -> engineRunning
+        wait_until AT-PRESSURE timeout 30 -> abort
+        # ... continue the burn: ignition, mains open, cutoff
+```
+
+`command` is **not** an operator command: it bypasses `pressSeq`'s `operator`
+flag and any `operator from` gate on `engineRunning` entirely, because gating
+exists to stop a human operator from skipping a step, not to stop
+`firingSequence`'s own logic from driving a subordinate machine. Note
+`engineRunning` above is gated `operator from armed` — an *operator* could
+not command it from `idle` — but `firingSequence`'s `command` can, from
+wherever `pressSeq` currently is, because it isn't operator input.
+
+`<machine>` and `<state>` are both resolved and validated **at compile time**:
+an unknown machine, an unknown state, or commanding your own machine (use
+`transition <state>` for that — it is a compile error pointing you there) are
+all caught before startup. `command` is the preferred way to drive another
+machine from inside a `.sm` file; the older mechanism — writing a numeric
+state index to `SM-<name>-TARGET` — still works (the browser still uses it)
+but is fragile for `.sm`-to-`.sm` orchestration, since inserting a state
+earlier in the file silently retargets every write that names a later index,
+and it is still the `operator`-gated path.
 
 ---
 
@@ -380,7 +439,11 @@ Everything is reported as `file:line: message`.
 | Message | What happened | Fix |
 |---|---|---|
 | `unknown channel "CPT-1"` | a name that no `controls.yaml` channel, `.chan` channel or generated `SM-*` channel matches | check the spelling against `/docs/channels` |
-| `transition to unknown state "abrt" in machine "fuelSeq"` | typo'd target, or the state is in a different machine | states are per-machine; use `SM-<other>-TARGET` to command another one |
+| `transition to unknown state "abrt" in machine "fuelSeq"` | typo'd target, or the state is in a different machine | states are per-machine; use `command <other> -> <state>` to command another one |
+| `command: unknown machine "pressSeq" (available machines: ...)` | typo'd machine name in a `command` statement | check the machine name against the `.sm` files that are actually loaded |
+| `command: machine "pressSeq" has no state "enginRunning" (available states: ...)` | typo'd target state | check the spelling against `pressSeq.sm`'s states |
+| `machine "fuelSeq": "command" may not target its own machine; use "transition safe" for a self-transition` | `command fuelSeq -> safe` written inside `fuelSeq` itself | use `transition safe` — that is what it is for |
+| `machine "fuelSeq" has no state "abrot" (valid states: ...)` | typo'd string literal compared against `machine.fuelSeq.state` | check the spelling; this also fires on `.alert` rule conditions |
 | `state "x": abort_rule requires daq_local` | abort rules only run on the node | flag the state `daq_local <NODE>` — or make it a controller guard |
 | `state "x": daq_local state with abort_rule(s) must declare an abort_sequence` | you armed a rule with no local safing action | add `abort_sequence`, ending in `transition <abort state>` |
 | `state "x": abort_sequence must end with "transition <state>"` | no abort destination declared | the last line of `abort_sequence` names the state the engine enters |

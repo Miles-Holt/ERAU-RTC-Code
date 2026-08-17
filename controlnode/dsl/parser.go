@@ -323,6 +323,8 @@ func (p *Parser) parseStmt() (Stmt, error) {
 		return p.parseIf()
 	case TOK_TRANSITION:
 		return p.parseTransition()
+	case TOK_COMMAND:
+		return p.parseCommand()
 	case TOK_SLEEP:
 		return p.parseSleep()
 	case TOK_WAIT_UNTIL:
@@ -471,6 +473,28 @@ func (p *Parser) parseTransition() (*TransitionStmt, error) {
 		return nil, err
 	}
 	return &TransitionStmt{Target: target.Value, LineNo: ttok.Line}, nil
+}
+
+// parseCommand parses `command <machine> -> <state>`: a cross-machine
+// command, legal in both controller and sequence blocks (parseStmt dispatches
+// here from both).
+func (p *Parser) parseCommand() (*CommandStmt, error) {
+	ctok, err := p.expect(TOK_COMMAND)
+	if err != nil {
+		return nil, err
+	}
+	machineTok, err := p.expect(TOK_IDENT)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := p.expect(TOK_ARROW); err != nil {
+		return nil, err
+	}
+	stateTok, err := p.expect(TOK_IDENT)
+	if err != nil {
+		return nil, err
+	}
+	return &CommandStmt{Machine: machineTok.Value, Target: stateTok.Value, LineNo: ctok.Line}, nil
 }
 
 func (p *Parser) parseSleep() (*SleepStmt, error) {
@@ -1083,6 +1107,7 @@ func (p *Parser) tokName(typ TokenType) string {
 		TOK_ABORT_RULE:     "abort_rule",
 		TOK_ABORT_SEQUENCE: "abort_sequence",
 		TOK_TRANSITION:     "transition",
+		TOK_COMMAND:        "command",
 		TOK_SLEEP:          "sleep",
 		TOK_WAIT_UNTIL:     "wait_until",
 		TOK_TIMEOUT:        "timeout",

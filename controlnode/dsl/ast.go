@@ -103,6 +103,23 @@ type TransitionStmt struct {
 func (s *TransitionStmt) stmt()  {}
 func (s *TransitionStmt) Line() int { return s.LineNo }
 
+// CommandStmt represents a cross-machine command: command <machine> -> <state>.
+// Unlike TransitionStmt (same machine, no authority check) and unlike an
+// operator's SM-<NAME>-TARGET write (gated by the `operator` flag and any
+// `operator from` list), a CommandStmt is the issuing machine's own logic
+// commanding another machine directly: it bypasses the operator flag and gate
+// entirely.  Both Machine and State are validated at compile time (unknown
+// machine, unknown state, and self-command are all compile errors — see
+// statemachine/compile.go's checkCommands).
+type CommandStmt struct {
+	Machine string // target machine name
+	Target  string // target state name
+	LineNo  int
+}
+
+func (s *CommandStmt) stmt()  {}
+func (s *CommandStmt) Line() int { return s.LineNo }
+
 // SleepStmt represents a sleep: sleep <duration or expr>.
 type SleepStmt struct {
 	Duration Expr // evaluates to float64 seconds

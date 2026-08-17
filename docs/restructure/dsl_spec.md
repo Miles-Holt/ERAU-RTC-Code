@@ -55,6 +55,23 @@ machine state. `machine.<name>.state` yields the machine's current state name (s
 comparable with `==` to a quoted state name). Referencing an unknown channel is a
 **compile error** (checked against the full config at load), not a silent 0.
 
+**Compile-checked state-name strings.** When one side of `==` or `!=` is a
+`machine.<M>.state` reference and the other side is a quoted string literal, the
+literal is validated against `M`'s real state names at compile time — everywhere
+expressions are checked (`controller`, `sequence`, `wait_until`, `.alert` rule
+conditions). `machine.fuelSeq.state == "enginRunning"` (typo) is a compile error
+naming the machine, the bad state, and the valid ones, e.g.:
+
+```
+a.sm:12: machine "fuelSeq" has no state "enginRunning" (valid states: safe, armed, engineRunning, abort)
+```
+
+Without this, a typo'd state name is a guard — commonly in an abort condition —
+that silently never fires, the same class of bug the old `{{VAR}}`-resolves-to-0
+behaviour was. Comparisons where the other side is not a literal (comparing to
+another expression, e.g. another machine's state) are left alone; they cannot be
+checked at compile time.
+
 ## `.sm` — state machines
 
 ```
@@ -109,6 +126,52 @@ state abort
   A state may have controller, sequence, both, or neither (a bare state — e.g. a
   manual-control mode — rests until an operator or another transition moves it). Sequence completion without a
   `transition` leaves the state active (controller keeps ticking).
+- **`command <machine> -> <state>`**: a first-class statement, legal in both
+  `controller` and `sequence` blocks, for one machine's own logic to drive another
+  machine directly — the orchestration case, e.g. a master firing sequence
+  commanding a subordinate press system:
+  ```
+  state engineBurn
+      sequence
+          command pressSeq -> engineRunning
+          wait_until AT-PRESSURE timeout 30 -> abort
+          # ... continue the burn
+  ```
+  Both `<machine>` and `<state>` are bare identifiers, resolved **at compile
+  time** against the whole program: an unknown machine, an unknown state in that
+  machine, and commanding **your own machine** are all compile errors. Self-command
+  is rejected in favor of the statement that already exists for it — `transition
+  <state>` — with an error pointing there:
+  ```
+  a.sm:7: machine "fuelSeq": "command" may not target its own machine; use "transition safe" for a self-transition
+  ```
+  **Authority: a machine command is NOT an operator command.** It bypasses the
+  target state's `operator` flag and any `operator from` gate **entirely** — it
+  never needs `operator`, and a gated state's `from` list plays no part in whether
+  a `command` succeeds. The `operator`/`operator from` machinery exists to stop a
+  human operator skipping a step (e.g. jumping past `manualControl`); it has no
+  business stopping a firing sequence from driving a subordinate machine such as a
+  press system. A `command` still goes through full engine transition arbitration
+  — the same epoch/queue any other transition does, so a stale request from an
+  abandoned state is still discarded exactly as it always was — and it is **never
+  droppable**: it is queued on the same never-dropped priority path
+  `NotifyAbortTriggered` uses (an unbounded slice plus a wake-up signal), not the
+  bounded operator-request channel, so a command can never be silently lost under
+  load. A `command` that cannot be applied at runtime (defensive paths only —
+  compile-time checking means a real `.sm` file can never produce one) goes
+  through the engine's error path to an operator alert; it is never a silent
+  no-op.
+
+  The older mechanism — writing a numeric state index to the auto-published
+  `SM-<NAME>-TARGET` channel — keeps working (the browser and any existing config
+  rely on it) but is fragile for `.sm`-to-`.sm` orchestration: inserting a state
+  earlier in a subordinate file silently retargets every `SM-<NAME>-TARGET` write
+  that names a later index, and that channel is the same one `RequestTarget`
+  (the **operator** path) uses, so it is still `operator`-flag-and-gate-checked.
+  **`command` is the preferred form inside `.sm` files** — the target is a name,
+  resolved and validated at compile time, and it is authority-correct: not an
+  operator request.
+
 - **`daq_local <NODE>`**: the state's sequence must be reducible to timed set-steps
   (assignments, `sleep`); the compiler serializes it into the existing DAQ
   `state_update` payload (`entry_sequence` with `t_ms`) and it is cached on the daqNode

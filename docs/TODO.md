@@ -40,7 +40,14 @@ are not being done for you. Ordered roughly by consequence.
   then continue. Needs (a) the subordinate machines defined with their states,
   (b) `AT-PRESSURE` as a computed `.chan` channel, e.g.
   `compute PT-LOX-AVG > SEQ-TARGET-PRESS and PT-FUEL-AVG > SEQ-TARGET-PRESS`.
-  The `command` statement and compile-checked state names are queued as code work.
+  The `command` statement and compile-checked state names are DONE (code work):
+  `command <machine> -> <state>` is a first-class statement (`controlnode/dsl`,
+  `controlnode/statemachine`), and `machine.<M>.state == "…"` string literals are
+  validated against M's real state names at compile time. See
+  `docs/restructure/dsl_spec.md` and `docs/dsl-guide.md` for the syntax and a
+  worked orchestration example. What is left here is still the procedure
+  decision: actually writing `pressSeq`/ignition's `.sm` files and wiring this
+  sequence's `command`/`wait_until` into them.
 - [ ] **Abort on subordinate failure.** Once the press/ignition machines exist,
   the `autoSequence` controller should also abort on their faults, e.g.
   `if machine.pressSeq.state == "fault"` → `transition abort`. Without it the

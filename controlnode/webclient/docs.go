@@ -579,6 +579,16 @@ func docsTransitions(m *statemachine.Machine) []docsTransition {
 						detail = "transition " + v.Target
 					}
 					add(v.Target, kind, detail)
+				case *dsl.CommandStmt:
+					// Cross-machine: "To" names the other machine's state as
+					// "<machine>.<state>" so it reads distinctly from this
+					// machine's own state names above. The circular per-machine
+					// diagram below only draws edges between this machine's own
+					// states, so a command edge harmlessly has no diagram node
+					// to land on and is skipped there — it still shows up here
+					// in the transitions table and in the state's source.
+					add(v.Machine+"."+v.Target, "command",
+						"command "+v.Machine+" -> "+v.Target)
 				case *dsl.WaitUntilStmt:
 					if v.TimeoutState != "" {
 						add(v.TimeoutState, kind+" timeout",

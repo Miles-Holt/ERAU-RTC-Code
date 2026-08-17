@@ -371,6 +371,40 @@ func TestCompile_Errors(t *testing.T) {
 				"    operator\n"}},
 			want: `duplicate state "manualControl" in "operator from"`,
 		},
+		{
+			name: "command: unknown machine",
+			sources: []Source{{Name: "a.sm", Text: "" +
+				"machine a\n" +
+				"state safe\n" +
+				"    sequence\n" +
+				"        command ghost -> ready\n"}},
+			want: `command: unknown machine "ghost"`,
+		},
+		{
+			name: "command: unknown state",
+			sources: []Source{
+				{Name: "a.sm", Text: "" +
+					"machine a\n" +
+					"state safe\n" +
+					"    sequence\n" +
+					"        command b -> nope\n"},
+				{Name: "b.sm", Text: "" +
+					"machine b\n" +
+					"state ready\n" +
+					"    sequence\n" +
+					"        X = 1\n"},
+			},
+			want: `command: machine "b" has no state "nope"`,
+		},
+		{
+			name: "command: self-command",
+			sources: []Source{{Name: "a.sm", Text: "" +
+				"machine a\n" +
+				"state safe\n" +
+				"    sequence\n" +
+				"        command a -> safe\n"}},
+			want: `may not target its own machine; use "transition safe"`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -386,6 +420,55 @@ func TestCompile_Errors(t *testing.T) {
 				t.Errorf("error %q is missing a file:line prefix", err.Error())
 			}
 		})
+	}
+}
+
+// TestCompile_CommandValid compiles a two-machine orchestration program: a
+// master commands a subordinate machine into a state that is not itself
+// operator-flagged — that asymmetry (command bypasses the operator gate
+// entirely) is exercised at the engine level in engine_test.go; here we only
+// need it to compile.
+func TestCompile_CommandValid(t *testing.T) {
+	sources := []Source{
+		{Name: "master.sm", Text: "" +
+			"machine master\n" +
+			"state run\n" +
+			"    sequence\n" +
+			"        command press -> engineRunning\n" +
+			"        wait_until AT-PRESSURE timeout 30 -> abort\n" +
+			"        transition burning\n" +
+			"state burning\n" +
+			"    sequence\n" +
+			"        X = 1\n" +
+			"state abort\n" +
+			"    sequence\n" +
+			"        X = 0\n"},
+		{Name: "press.sm", Text: "" +
+			"machine press\n" +
+			"state idle\n" +
+			"    sequence\n" +
+			"        X = 0\n" +
+			"state engineRunning\n" +
+			"    sequence\n" +
+			"        X = 1\n"},
+	}
+	prog, err := Compile(sources, Options{KnownChannels: []string{"X", "AT-PRESSURE"}})
+	if err != nil {
+		t.Fatalf("expected the orchestration program to compile, got: %v", err)
+	}
+	if len(prog.Machines) != 2 {
+		t.Fatalf("machines: got %d, want 2", len(prog.Machines))
+	}
+	master, ok := prog.Machine("master")
+	if !ok {
+		t.Fatalf("machine master not found")
+	}
+	cmd, ok := master.States[0].Sequence[0].(*dsl.CommandStmt)
+	if !ok {
+		t.Fatalf("expected first sequence statement to be a CommandStmt, got %T", master.States[0].Sequence[0])
+	}
+	if cmd.Machine != "press" || cmd.Target != "engineRunning" {
+		t.Errorf("compiled command %q -> %q, want press -> engineRunning", cmd.Machine, cmd.Target)
 	}
 }
 

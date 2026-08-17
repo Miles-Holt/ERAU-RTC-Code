@@ -106,6 +106,8 @@ func StmtLines(stmts []Stmt, indent int) []string {
 			out = append(out, pad+v.Target+"--")
 		case *TransitionStmt:
 			out = append(out, pad+"transition "+v.Target)
+		case *CommandStmt:
+			out = append(out, pad+"command "+v.Machine+" -> "+v.Target)
 		case *SleepStmt:
 			out = append(out, pad+"sleep "+ExprString(v.Duration))
 		case *WaitUntilStmt:

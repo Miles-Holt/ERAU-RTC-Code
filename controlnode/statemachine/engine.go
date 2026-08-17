@@ -539,6 +539,35 @@ func (e *Engine) RequestTarget(machine, state string) error {
 	}
 }
 
+// CommandMachine implements a `command <machine> -> <state>` statement: one
+// machine's own controller/sequence logic directly commanding another
+// machine. This is NOT an operator command — it deliberately bypasses the
+// target state's `operator` flag and any `operator from` gate entirely.
+// Gating exists to stop a human operator skipping steps (e.g. manualControl),
+// not to stop a firing sequence driving a subordinate machine such as a press
+// system; see docs/restructure/dsl_spec.md.
+//
+// fromMachine/machine/target are all validated at compile time
+// (statemachine/compile.go's checkCommands), so the error paths here are
+// defensive rather than expected. Like any other transition it still goes
+// through full engine arbitration (epoch/queue) — but it is never dropped:
+// it is queued on the same never-dropped priority path NotifyAbortTriggered
+// uses, not the bounded e.transitions channel, so a command can never be
+// silently lost under load. Any failure to apply is returned to the caller,
+// which (via execController/execSequence) routes it through e.onError to an
+// operator alert — a command failure is never a silent no-op.
+func (e *Engine) CommandMachine(fromMachine, machine, state string) error {
+	m, ok := e.machines[machine]
+	if !ok {
+		return fmt.Errorf("command %s -> %s: unknown machine %q (commanded by %q)", machine, state, machine, fromMachine)
+	}
+	if _, ok := m.def.State(state); !ok {
+		return fmt.Errorf("command %s -> %s: machine %q has no state %q (commanded by %q)", machine, state, machine, state, fromMachine)
+	}
+	e.enqueuePriority(transitionReq{machine: machine, target: state, epoch: 0})
+	return nil
+}
+
 // DaqStateUpdates resolves and returns the DAQ state update payloads for a machine,
 // resolving all identifiers from the current channel state.
 // Only machines with daq_local states will have payloads; others return empty map.
@@ -887,6 +916,11 @@ func (e *Engine) execController(r Reader, m *machineRT, stmts []dsl.Stmt) (strin
 
 		case *dsl.TransitionStmt:
 			return v.Target, nil
+
+		case *dsl.CommandStmt:
+			if err := e.CommandMachine(m.def.Name, v.Machine, v.Target); err != nil {
+				return "", err
+			}
 
 		case *dsl.IfStmt:
 			body, err := e.selectBranch(r, v)

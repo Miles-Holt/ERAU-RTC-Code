@@ -16,6 +16,7 @@ type CheckResult struct {
 type Checker struct {
 	knownChannels    map[string]bool
 	machineValidator func(machine, field string) bool
+	machineStates    func(machine string) ([]string, bool)
 	errors           []string
 }
 
@@ -33,6 +34,17 @@ func NewChecker(knownChannels []string, machineValidator func(machine, field str
 		machineValidator: machineValidator,
 		errors:           []string{},
 	}
+}
+
+// WithMachineStates enables compile-time validation of the string literal on
+// the other side of a `machine.<M>.state == "…"` / `!= "…"` comparison
+// against M's real state names. statesFn returns the machine's state names in
+// declaration order, with ok=false for an unknown machine (which is already
+// reported separately by machineValidator, so WithMachineStates stays quiet
+// about it). Returns the receiver so callers can chain it onto NewChecker.
+func (c *Checker) WithMachineStates(statesFn func(machine string) ([]string, bool)) *Checker {
+	c.machineStates = statesFn
+	return c
 }
 
 // Check walks the given AST and returns a CheckResult.
@@ -112,6 +124,11 @@ func (c *Checker) checkStmt(stmt Stmt) {
 	case *TransitionStmt:
 		// State names are checked later (not in this pass)
 
+	case *CommandStmt:
+		// Target machine/state are checked later, with whole-program knowledge
+		// (statemachine/compile.go's checkCommands): this pass only knows one
+		// machine's own channel space.
+
 	case *SleepStmt:
 		c.checkExpr(s.Duration)
 
@@ -136,12 +153,81 @@ func (c *Checker) checkExpr(expr Expr) {
 		c.checkIdent(e)
 
 	case *BinaryExpr:
+		if e.Op == "==" || e.Op == "!=" {
+			c.checkStateComparison(e)
+		}
 		c.checkExpr(e.Left)
 		c.checkExpr(e.Right)
 
 	case *UnaryExpr:
 		c.checkExpr(e.Operand)
 	}
+}
+
+// checkStateComparison validates the string literal on the other side of a
+// `machine.<M>.state == "…"` / `!= "…"` comparison against M's real state
+// names, in either operand order.  Without this, a typo'd state name is a
+// guard that silently never fires — the same class of bug the old
+// `{{VAR}}`-resolves-to-0 behaviour was.  Comparisons against a non-literal
+// expression, or a literal of a non-string type, are left alone: the former
+// cannot be checked at compile time, the latter is an existing type-mismatch
+// case handled at eval time.
+func (c *Checker) checkStateComparison(e *BinaryExpr) {
+	if c.machineStates == nil {
+		return
+	}
+	machine, lit, ok := stateComparisonParts(e)
+	if !ok {
+		return
+	}
+	want, isStr := lit.Value.(string)
+	if !isStr {
+		return
+	}
+	states, ok := c.machineStates(machine)
+	if !ok {
+		// Unknown machine: already reported by checkIdent via machineValidator.
+		return
+	}
+	for _, s := range states {
+		if s == want {
+			return
+		}
+	}
+	c.addError(lit.LineNo, "machine %q has no state %q (valid states: %s)",
+		machine, want, strings.Join(states, ", "))
+}
+
+// stateComparisonParts extracts the machine name and literal operand from a
+// machine.<M>.state == <literal> comparison, checking both operand orders.
+// ok is false when the expression is not shaped like that (e.g. comparing
+// machine.<M>.state to another expression rather than a literal).
+func stateComparisonParts(e *BinaryExpr) (machine string, lit *LiteralExpr, ok bool) {
+	if m, isState := machineStateName(e.Left); isState {
+		if l, isLit := e.Right.(*LiteralExpr); isLit {
+			return m, l, true
+		}
+	}
+	if m, isState := machineStateName(e.Right); isState {
+		if l, isLit := e.Left.(*LiteralExpr); isLit {
+			return m, l, true
+		}
+	}
+	return "", nil, false
+}
+
+// machineStateName reports whether expr is a `machine.<name>.state` ident and,
+// if so, the machine name.
+func machineStateName(expr Expr) (machine string, ok bool) {
+	ident, isIdent := expr.(*IdentExpr)
+	if !isIdent || !strings.HasPrefix(ident.Name, "machine.") {
+		return "", false
+	}
+	parts := strings.Split(ident.Name, ".")
+	if len(parts) == 3 && parts[2] == "state" {
+		return parts[1], true
+	}
+	return "", false
 }
 
 func (c *Checker) checkIdent(ident *IdentExpr) {

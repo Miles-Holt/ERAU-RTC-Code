@@ -144,6 +144,18 @@ func newHarness(t *testing.T, simClock daqsim.Clock, sensors map[string]daqsim.S
 	return h
 }
 
+// newHarnessExtra is newHarness plus additional `.sm` sources compiled into
+// the SAME program as the real shipped config and daqLocalFixtureSrc. Kept
+// separate from newHarness (rather than a variadic on it) so every existing
+// call site — which must NOT get an extra autonomous machine racing its own
+// RequestTarget calls — is untouched.
+func newHarnessExtra(t *testing.T, simClock daqsim.Clock, sensors map[string]daqsim.SensorSpec, extra ...statemachine.Source) *harness {
+	t.Helper()
+	h := newHarnessDeferredConnectExtra(t, simClock, sensors, extra...)
+	h.connectClient()
+	return h
+}
+
 // newHarnessDeferredConnect builds the same harness as newHarness (real
 // config, real engine, real daqsim standing in for DAQ001) but does NOT start
 // the daqnode.Client's Run() loop — the WebSocket connection to daqsim is not
@@ -154,6 +166,13 @@ func newHarness(t *testing.T, simClock daqsim.Clock, sensors map[string]daqsim.S
 // undeliverable-state_update cases: see TestFirstConnectWhileAlreadyRunning
 // and TestStateUpdateUndeliverableWhileDisconnected in daqsim_e2e_test.go.
 func newHarnessDeferredConnect(t *testing.T, simClock daqsim.Clock, sensors map[string]daqsim.SensorSpec) *harness {
+	t.Helper()
+	return newHarnessDeferredConnectExtra(t, simClock, sensors)
+}
+
+// newHarnessDeferredConnectExtra is newHarnessDeferredConnect plus additional
+// `.sm` sources compiled into the same program; see newHarnessExtra.
+func newHarnessDeferredConnectExtra(t *testing.T, simClock daqsim.Clock, sensors map[string]daqsim.SensorSpec, extra ...statemachine.Source) *harness {
 	t.Helper()
 
 	cfg, err := config.ParseDir(configDir)
@@ -171,6 +190,11 @@ func newHarnessDeferredConnect(t *testing.T, simClock daqsim.Clock, sensors map[
 		t.Fatalf("ScanMachineNames: %v", err)
 	}
 	machineNames = append(machineNames, "daqLocalFixture")
+	for _, src := range extra {
+		if name, ok := scanMachineName(src.Text); ok {
+			machineNames = append(machineNames, name)
+		}
+	}
 	sc.RegisterStateMachineChannels(machineNames)
 	sc.RegisterCycleTimeChannel(200) // must match TickHz below
 	for k, v := range sc.RefDesMap() {
@@ -199,6 +223,7 @@ func newHarnessDeferredConnect(t *testing.T, simClock daqsim.Clock, sensors map[
 		sources = append(sources, statemachine.Source{Name: p, Text: string(data)})
 	}
 	sources = append(sources, statemachine.Source{Name: "daqlocal_fixture.sm", Text: daqLocalFixtureSrc})
+	sources = append(sources, extra...)
 	prog, err := statemachine.Compile(sources, statemachine.Options{KnownChannels: knownChannels})
 	if err != nil {
 		t.Fatalf("statemachine.Compile: %v", err)
@@ -290,6 +315,24 @@ func newHarnessDeferredConnect(t *testing.T, simClock daqsim.Clock, sensors map[
 func (h *harness) connectClient() {
 	h.t.Helper()
 	go h.client.Run(h.ctx)
+}
+
+// scanMachineName returns the `machine <name>` declared by a `.sm` source's
+// text, without compiling it — used to register an extra fixture machine's
+// SM-<NAME>-STATE/-TARGET channels before compilation (see
+// statemachine.ScanMachineNames, which does the same thing but from files on
+// disk rather than an in-memory source).
+func scanMachineName(text string) (string, bool) {
+	toks, err := dsl.NewLexer(text).Tokenize()
+	if err != nil {
+		return "", false
+	}
+	for i := 0; i+1 < len(toks); i++ {
+		if toks[i].Type == dsl.TOK_MACHINE && toks[i+1].Type == dsl.TOK_IDENT {
+			return toks[i+1].Value, true
+		}
+	}
+	return "", false
 }
 
 // waitFor polls cond until true or timeout, matching the convention already
