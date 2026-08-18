@@ -46,12 +46,6 @@
 
   h2 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -0.005em; }
 
-  h3 {
-    font-family: var(--mono);
-    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--dim); margin: 0 0 14px; font-weight: 500;
-  }
-
   p { margin: 0 0 14px; max-width: 72ch; }
   p:last-child { margin-bottom: 0; }
 
@@ -61,7 +55,7 @@
   }
 
   /* Feedback applied */
-  .applied { border: 1px solid var(--border); background: var(--surface); padding: 18px 22px; margin: 0 0 44px; }
+  .applied { border: 1px solid var(--border); background: var(--surface); padding: 18px 22px; margin: 0 0 20px; }
   .applied ul { margin: 0; padding-left: 18px; }
   .applied li { margin-bottom: 6px; font-size: 13.5px; color: var(--muted); }
   .applied li:last-child { margin-bottom: 0; }
@@ -70,11 +64,51 @@
     font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em;
     text-transform: uppercase; color: var(--ok); display: block; margin-bottom: 10px;
   }
+  .applied.open .tag { color: var(--warn); }
+  .applied.last { margin-bottom: 44px; }
+
+
+  /* Decision surface — this page is a menu, so the open picks lead and the
+     settled history collapses out of the way. */
+  .picks {
+    border: 1px solid var(--border); border-left: 3px solid var(--warn);
+    background: var(--surface); padding: 20px 24px 22px; margin: 0 0 14px;
+  }
+  .picks-tag {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--warn); display: block; margin-bottom: 14px;
+  }
+  .picks ol { margin: 0; padding-left: 20px; display: grid; gap: 14px; }
+  .picks li { color: var(--muted); font-size: 13.5px; }
+  .picks li::marker { font-family: var(--mono); color: var(--dim); font-size: 12px; }
+  .picks a { color: var(--text); text-decoration: none; border-bottom: 1px solid var(--border); }
+  .picks a:hover, .picks a:focus-visible { border-bottom-color: var(--accent); color: var(--accent); }
+  .picks .ch {
+    display: block; font-family: var(--mono); font-size: 11.5px;
+    color: var(--accent); margin-top: 4px; letter-spacing: 0.02em;
+  }
+  .picks .why { display: block; margin-top: 3px; font-size: 12.5px; color: var(--dim); }
+
+  .settled { border: 1px solid var(--border); background: var(--surface); margin: 0 0 44px; }
+  .settled summary { padding: 14px 22px; cursor: default; list-style: none; display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+  .settled summary::-webkit-details-marker { display: none; }
+  .settled summary::before { content: "▸"; color: var(--dim); font-size: 11px; }
+  .settled[open] summary::before { content: "▾"; }
+  .settled .s-tag {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ok);
+  }
+  .settled .s-n { font-size: 12.5px; color: var(--dim); }
+  .settled ul { margin: 0; padding: 0 24px 20px 42px; }
+  .settled li { margin-bottom: 6px; font-size: 13.5px; color: var(--muted); }
+  .settled li:last-child { margin-bottom: 0; }
+  .settled strong { color: var(--text); font-weight: 600; }
 
   section.block { margin-bottom: 58px; }
   .block-head { display: flex; align-items: baseline; gap: 14px; border-bottom: 1px solid var(--rule); padding-bottom: 12px; margin-bottom: 20px; }
   .block-head .id { font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: 0.1em; }
   .block-head .size { margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: var(--dim); }
+  .block-head .pick { margin-left: auto; font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--warn); }
 
   .matrix-scroll { overflow-x: auto; padding-bottom: 6px; margin: 20px 0; }
   .matrix { display: flex; gap: 1px; background: var(--rule); border: 1px solid var(--rule); min-width: min-content; }
@@ -97,11 +131,74 @@
   .anatomy .t { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text); }
   .anatomy .d { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
 
+  /* Option cards — the places where a choice is still yours */
+  .opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(252px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .opt { background: var(--surface); padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+  .opt .oid { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+  .opt .on { font-weight: 600; font-size: 14.5px; margin-top: -6px; }
+  .opt .od { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+  .opt .row { display: flex; gap: 14px; align-items: center; }
+
   .qs { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
   .q { background: var(--surface); padding: 16px 20px; }
-  .q .num { font-family: var(--mono); font-size: 11px; color: var(--accent); margin-right: 10px; }
   .q .t { font-weight: 600; }
   .q .b { font-size: 13.5px; color: var(--muted); margin-top: 5px; }
+  .q.settled .t::before { content: "SETTLED"; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--ok); margin-right: 10px; }
+  .q.open .t::before { content: "OPEN"; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--warn); margin-right: 10px; }
+
+  /* Command panel mockup — real DOM, not a drawing, because that is what it is.
+     Drawn ON the object it belongs to: the whole redesign is about where the
+     panel appears relative to the thing you clicked, so a detached panel
+     would hide the only part that matters. */
+  .panels { display: flex; flex-wrap: wrap; gap: 34px; align-items: flex-start; margin: 20px 0; }
+  .stage {
+    position: relative; width: 300px; height: 306px;
+    background: var(--canvas); border: 1px solid var(--rule);
+    background-image:
+      linear-gradient(var(--rule) 1px, transparent 1px),
+      linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .stage .obj { position: absolute; left: 16px; top: 18px; }
+  .stage .vp  { position: absolute; left: 40px; top: 80px; box-shadow: 0 8px 24px rgba(0,0,0,0.7); width: 244px; }
+  .stage .cur { position: absolute; left: 38px; top: 46px; }
+  .stage .pipe { position: absolute; left: 0; top: 0; }
+  .vp { width: 268px; border: 1px solid var(--border); background: var(--surface); font-family: var(--sans); }
+  .vp-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--rule); }
+  .vp-title { font-family: var(--mono); font-size: 11.5px; color: var(--text); letter-spacing: 0.04em; }
+  .vp-desc { font-size: 11px; color: var(--dim); }
+  .vp-x { margin-left: auto; color: var(--dim); font-size: 13px; }
+  .vp-cmd { padding: 12px 10px; display: flex; flex-direction: column; gap: 8px; }
+  .seg { display: flex; gap: 1px; background: var(--border); border: 1px solid var(--border); }
+  .seg button {
+    flex: 1; appearance: none; border: 0; cursor: default;
+    background: var(--object); color: var(--muted);
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; padding: 11px 8px;
+  }
+  .seg button.is-now { background: #14261a; color: var(--ok); box-shadow: inset 0 -2px 0 var(--ok); }
+  .seg button.is-next { color: var(--text); }
+  .seg button.is-armed { background: #2a1d10; color: var(--warn); box-shadow: inset 0 -2px 0 var(--warn); }
+  .vp-hint { font-size: 11px; color: var(--dim); font-family: var(--mono); letter-spacing: 0.04em; }
+  .vp-more { border-top: 1px solid var(--rule); padding: 7px 10px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+  .vp-rows { border-top: 1px solid var(--rule); }
+  .vp-row { display: flex; align-items: baseline; gap: 10px; padding: 6px 10px; font-size: 12px; }
+  .vp-row + .vp-row { border-top: 1px solid #151515; }
+  .vp-row .r { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .vp-row .v { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--text); font-variant-numeric: tabular-nums; }
+  .vp-states { display: flex; flex-direction: column; gap: 1px; background: var(--border); border: 1px solid var(--border); }
+  .vp-state { background: var(--object); padding: 9px 11px; display: flex; align-items: center; gap: 9px; font-family: var(--mono); font-size: 12px; color: var(--text); }
+  .vp-state .mk { width: 8px; height: 8px; flex: none; }
+  .vp-state.now { background: #14261a; color: var(--ok); }
+  .vp-state.gated { color: var(--dim); }
+  .vp-state .why { margin-left: auto; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
+  .pcap { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); margin-bottom: 8px; }
+
+  .tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 4px; }
+  .tbl th, .tbl td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .tbl th { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); font-weight: 500; }
+  .tbl td.was { color: var(--dim); }
+  .tbl td.now { color: var(--text); }
+  .tbl-scroll { overflow-x: auto; }
 
   footer.page { margin-top: 52px; padding-top: 20px; border-top: 1px solid var(--rule); font-size: 12.5px; color: var(--dim); }
 </style>
@@ -112,72 +209,230 @@
   <p class="eyebrow">P&amp;ID front panel · one object system</p>
   <h1>Front Panel Object System</h1>
   <p class="lede">
-    One way of drawing every object on the panel. A sensor, a valve and a state machine are
-    the same construction — an optional glyph, an optional title, and a line of live text —
-    so the panel reads as one instrument rather than three widget families. Everything is
-    drawn at true size in the app's own palette.
+    One way of drawing every object on the panel, and one way of commanding it. A sensor, a
+    valve and a state machine are the same construction — an optional glyph, a name line and a
+    line of live text — so the panel reads as one instrument rather than three widget families.
+    Everything is drawn at true size in the app's own palette.
   </p>
 </header>
 
-<div class="applied">
-  <span class="tag">Your notes, applied</span>
+<nav class="picks">
+  <span class="picks-tag">Three things to pick — everything else is settled</span>
+  <ol>
+    <li>
+      <a href="#pick-bubble"><strong>The bubble interior</strong></a>
+      <span class="ch">A empty · B whole tag · C type set large · D drawn mark per instrument type</span>
+      <span class="why">Decides whether the tag is read inside the circle or off the name line.</span>
+    </li>
+    <li>
+      <a href="#pick-panel"><strong>The command panel layout</strong></a>
+      <span class="ch">1 segmented control · 2 action list</span>
+      <span class="why">Both open under the cursor and both stay open; they differ in whether the
+      states sit side by side or stack as verbs.</span>
+    </li>
+    <li>
+      <a href="#pick-mark"><strong>The state-ring interior mark</strong></a>
+      <span class="ch">one mark for every machine · a mark per state, set in the editor</span>
+      <span class="why">Per-state reads faster once learned and is one more thing to author per machine.</span>
+    </li>
+  </ol>
+</nav>
+
+<details class="settled">
+  <summary><span class="s-tag">Settled this round</span><span class="s-n">13 changes from your annotations — expand to check I read them right</span></summary>
   <ul>
-    <li><strong>Inline is the base.</strong> No box. The glyph and the title are both opt-in per object.</li>
-    <li><strong>The status dot is gone.</strong> State is carried by the colour of the reading itself, and by the glyph's ring when a glyph is present.</li>
-    <li><strong>Out of range is visible, not loud</strong> — the number turns red and the ring turns red. Nothing moves, nothing flashes.</li>
-    <li><strong>Alarm is the loud state, and only a configured alert can raise it.</strong> Nothing auto-alarms from <span class="k">validMin</span>/<span class="k">validMax</span>: those are plausibility bounds on a system that is not live yet, so a blanket rule would cry wolf from day one. <em>This also means dropping the blanket <span class="k">on bad_data</span> line from the every-daqNode alert template — a config change, noted below.</em></li>
-    <li><strong>No sparkline.</strong></li>
-    <li><strong>The glyph is the family resemblance:</strong> an instrument balloon for a sensor, the valve symbol for a valve, a state ring for a machine — same circle, same ring, different interior.</li>
+    <li><strong>No centre line in the bubble.</strong> The ISA tag-split is gone.</li>
+    <li><strong>The name line is the title.</strong> The italic description above the tag is gone; the <span class="k">CPT-01</span> line is now the title, in its own formatting.</li>
+    <li><strong>Decimals are per object</strong> — display only, default 2, set in the editor. The wire value is untouched.</li>
+    <li><strong>Units are hidable</strong> per object.</li>
+    <li><strong>Unbound is grey, not red</strong> — dashed ring, italic text. A drawing mistake is not an alarm.</li>
+    <li><strong>No marker dot on alarm.</strong> Loud is a thickened ring and nothing else. Static, no pulse.</li>
+    <li><strong>Drawn marks, no emoji.</strong> The alert bar's icons become drawn SVG on the glyph grid.</li>
+    <li><strong>The state ring loses its number.</strong> Position is carried by the lit segment.</li>
+    <li><strong>Abort is just a state.</strong> Its colour comes from a raised alert, never from its name.</li>
+    <li><strong>Closed is 45°</strong> on I/O-position valves, and position feedback gets its own ring — drawn differently for continuous and limit-switched.</li>
+    <li><strong>Mismatch is not a look, it is an alert</strong> — a templated <em>valve not responding to command</em> rule.</li>
+    <li><strong>Selection is a white glow, not a state.</strong> It layers under the object, so an alarming object stays red while selected, and it works in the panel as well as the editor.</li>
+    <li><strong>The dropdown stays</strong>, rebuilt around the click count rather than replaced with a gesture.</li>
   </ul>
-</div>
+</details>
+
+<section class="block" id="pick-bubble">
+  <div class="block-head"><span class="id">BUBBLES</span><h2>Four interiors, no centre line</h2><span class="pick">pick one</span></div>
+  <p class="note">Same circle and same ring in all four — only what sits inside changes. Each cell draws the option twice: a short tag, then the case that stresses it, a long one. <strong>B</strong> and <strong>C</strong> keep the P&amp;ID reading habit; <strong>A</strong> and <strong>D</strong> lean on the name line below to carry the tag.</p>
+  <div class="matrix-scroll"><div class="matrix" id="bubbles"></div></div>
+</section>
 
 <section class="block">
   <div class="block-head"><span class="id">ANATOMY</span><h2>Three parts, all optional but the reading</h2></div>
+  <p class="note">The name line is drawn in the tag's own formatting — mono, tracked, dim — and it is the object's title. Everything else stacks around it.</p>
   <div class="anatomy" id="anatomy"></div>
 </section>
 
 <section class="block">
   <div class="block-head"><span class="id">COMPOSITION</span><h2>The same sensor, four ways</h2><span class="size">per-object toggles</span></div>
-  <p class="note">Glyph and title are independent switches, so a panel can carry dense readings in the corner and fully labelled instruments where it matters — without two renderers.</p>
+  <p class="note">Glyph, name line and units are independent switches, so a panel can carry dense readings in the corner and fully labelled instruments where it matters — without two renderers.</p>
   <div class="matrix-scroll"><div class="matrix" id="composition"></div></div>
 </section>
 
 <section class="block">
-  <div class="block-head"><span class="id">SENSOR</span><h2>Instrument balloon</h2><span class="size">glyph Ø 34</span></div>
-  <p class="note">The ISA 5.1 balloon: tag split across a centre line. The ring carries data quality; the number carries the value. Shown here with glyph and title on, which is the loudest the sensor gets.</p>
+  <div class="block-head"><span class="id">PRECISION</span><h2>Decimals and units, per object</h2><span class="size">display only</span></div>
+  <p class="note">Set in the editor sidebar, stored on the object, and applied at render. The channel's real value is never rounded on the wire, in the buffer, or in the graph — this is presentation, so two objects bound to the same channel can legitimately show it differently.</p>
+  <div class="matrix-scroll"><div class="matrix" id="precision"></div></div>
+</section>
+
+<section class="block">
+  <div class="block-head"><span class="id">SENSOR</span><h2>Sensor states</h2><span class="size">glyph Ø 34</span></div>
+  <p class="note">The ring carries data quality; the number carries the value. Drawn with option <strong>B</strong> so the matrix reads as one thing — whichever interior you pick applies to every cell here.</p>
   <div class="matrix-scroll"><div class="matrix" id="sensor"></div></div>
 </section>
 
 <section class="block">
-  <div class="block-head"><span class="id">VALVE</span><h2>Valve symbol</h2><span class="size">glyph Ø 34 — same ring</span></div>
-  <p class="note">Same circle, same ring semantics, valve symbol inside: the line lies across the bore when shut and along it when open, with an arc and pointer for a percentage feedback. The text line reads the commanded state rather than a number.</p>
+  <div class="block-head"><span class="id">VALVE</span><h2>Valve symbol and feedback ring</h2><span class="size">glyph Ø 34 — same ring</span></div>
+  <p class="note">The bore line lies across the bore at <strong>45°</strong> when shut and along it when open. Position feedback is a <strong>second, outer ring</strong>, so command and feedback never fight over one stroke: a continuous position sweeps it like a gauge, and a limit-switched valve lights one of two discrete ticks — because a limit switch knows two things and a sweep would imply it knows a hundred.</p>
+  <div class="matrix-scroll"><div class="matrix" id="valvefb"></div></div>
+  <p class="note" style="margin-top:18px">The state matrix. <strong>Mismatch is gone as a look</strong> — commanded open with feedback shut now raises the templated <em>valve not responding</em> alert, and the object goes to <em>Alarm</em> like anything else. One less thing to learn, and the reason lands in the alert bar in words.</p>
   <div class="matrix-scroll"><div class="matrix" id="valve"></div></div>
 </section>
 
 <section class="block">
   <div class="block-head"><span class="id">STATE MACHINE</span><h2>State ring</h2><span class="size">glyph Ø 34 — segmented</span></div>
-  <p class="note">The ring is divided into one segment per state, with the current one lit — so position in the sequence is readable at a glance, before you read the word. The text line names the state; the operator's target dropdown sits below it as it does today.</p>
+  <p class="note">One segment per state, the current one lit, so position in the sequence reads before the word does. <strong>The number is gone.</strong> The interior now carries a mark; the state's name is on the text line, where it was always more legible. <em>Abort is drawn as an ordinary state</em> — the last cell shows what it looks like when an alert is raised, which is the only thing that makes an object loud.</p>
   <div class="matrix-scroll"><div class="matrix" id="machine"></div></div>
+  <p class="note" style="margin-top:18px">Open question: one mark for every machine, or a per-state mark chosen in the editor. Both drawn, in the sequence order the ring steps through.</p>
+  <div class="matrix-scroll" id="pick-mark"><div class="matrix" id="smmark"></div></div>
+</section>
+
+<section class="block" id="pick-panel">
+  <div class="block-head"><span class="id">COMMAND</span><h2>The dropdown, rebuilt around the click count</h2><span class="pick">pick one</span></div>
+  <p class="note">
+    Today: click the valve, the panel opens centred on the object, you travel to a small
+    <em>Open</em> button, and any click outside dismisses it unless you hit <em>Pin</em> first
+    (<span class="k">valveDropdown.js</span>). Toggling twice is four clicks and a mouse race.
+    The panel concept stays. Four things change, and they are what kill the race:
+  </p>
+  <ul class="note" style="max-width:72ch">
+    <li><strong>Commands come first</strong> — the command control is the top of the panel, not a row buried in the channel list.</li>
+    <li><strong>It opens under the cursor</strong>, with the command control on the pointer. No travel to the first click.</li>
+    <li><strong>It stays open</strong> until you dismiss it with <span class="k">Esc</span>, the ✕, or a click on the canvas. <em>Pin</em> disappears — sticky becomes the default rather than an opt-in you have to reach for first.</li>
+    <li><strong>The next click is in the same place.</strong> Open then closed then open is three clicks that never move the mouse, because the control does not relayout when the state changes.</li>
+  </ul>
+  <p class="note">Each stage below is a valve sitting on the panel grid with its menu open, drawn where it actually lands: <strong>under the cursor, over the object</strong>. The pointer mark is the click that opened it.</p>
+  <div class="panels" id="panels"></div>
+  <p class="note">
+    A state machine gets the same panel instead of the native <span class="k">&lt;select&gt;</span>:
+    one row per state, the current one marked, and — the part the <span class="k">&lt;select&gt;</span>
+    could never show — targets blocked by <span class="k">operator from …</span> gating are drawn
+    dimmed with the reason, instead of being silently accepted and refused by the server.
+  </p>
 </section>
 
 <section class="block">
-  <div class="block-head"><span class="id">DECISIONS</span><h2>Still yours to call</h2></div>
+  <div class="block-head"><span class="id">MARKS</span><h2>Drawn, not emoji</h2></div>
+  <p class="note">The alert bar's <span class="k">ℹ️ ⚠️ 🚨</span> come from <span class="k">_categoryIcon()</span> in <span class="k">alerts.js</span> and render differently on every machine. These are SVG on the same grid as the glyphs, so they sit at any size and take the palette.</p>
+  <div class="matrix-scroll"><div class="matrix" id="marks"></div></div>
+</section>
+
+<section class="block">
+  <div class="block-head"><span class="id">EDITOR</span><h2>The problem list</h2><span class="size">editor only</span></div>
+  <p class="note">
+    Unbound renders as unbound on the canvas and <strong>reaches no list at all</strong> today. The
+    warnings button in the editor header is fed from exactly one place —
+    <span class="k">routingErrors.push</span> in <span class="k">editor.js</span>, on a
+    <span class="k">pidRoute</span> failure — so it is a <em>routing</em> list, not a problem list.
+    A broken channel binding does not appear in it either; it is simply invisible until you notice
+    the object is grey.
+  </p>
+  <p class="note">
+    So the change is wider than adding one entry: the button becomes a problem list rather than a
+    routing list. <strong>One flat list, no severities</strong> — a routing failure and an unbound
+    binding are both a location plus a one-line reason, and sorting them into buckets would add a
+    decision to every row without changing what any row says. One list, one count on the button,
+    every row clickable back to the offending element — which is the part that makes a list worth
+    opening.
+  </p>
+  <div class="matrix-scroll"><div class="matrix" id="problems"></div></div>
+  <p class="note">
+    Worth saying plainly: this is a <em>drawing</em> check, not a config check. It catches a layout
+    that references a control the config does not have — a renamed refDes, a copied object, a panel
+    drawn against a different stand. It cannot tell you the config itself is wrong.
+  </p>
+</section>
+
+<section class="block">
+  <div class="block-head"><span class="id">ALERTS</span><h2>One path to red</h2><span class="size">runtime change</span></div>
+  <p class="note">
+    The change you called: <strong>the broker stops being a second source of truth.</strong> Today
+    <span class="k">broker.checkBounds</span> emits <span class="k">bad_data</span> on every
+    <span class="k">validMin</span>/<span class="k">validMax</span> crossing, and the alert template
+    separately raises a row off the same event — two mechanisms, one fact. After the change there is
+    one: an alert template auto-generated for every <em>sensor</em> channel. Out of range still shows
+    on the object, because the object colours from the raised alert like everything else does.
+  </p>
+  <div class="tbl-scroll">
+    <table class="tbl">
+      <thead><tr><th>Fact</th><th>Today</th><th>After</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="k">CPT-01</span> above <span class="k">validMax</span></td>
+          <td class="was"><span class="k">bad_data</span> from the broker colours the reading; the template <em>separately</em> raises a warning row</td>
+          <td class="now">One auto-generated sensor alert raises. The object colours from it. One event, one row, one reason.</td>
+        </tr>
+        <tr>
+          <td>Valve commanded open, feedback shut</td>
+          <td class="was">Red ring, indistinguishable from a comms fault</td>
+          <td class="now">Templated <em>valve not responding to command</em> alert; object goes red with the reason in words</td>
+        </tr>
+        <tr>
+          <td>Node reconnects</td>
+          <td class="was"><span class="k">on reconnect -&gt; info</span> raises a fresh info row</td>
+          <td class="now">Line removed. The disconnect alarm goes inactive and stays on the board until reset.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note" style="margin-top:16px">
+    One thing to know about that last row, because the code does not quite say what the config
+    implies: <span class="k">Registry.Clear()</span> does not delete an alert, it sets
+    <span class="k">Acked = true</span> and broadcasts <span class="k">alert_acked</span> — and the
+    browser keeps acked rows in the list, greyed, out of the unacked count. So removing the reconnect
+    line gives you exactly the behaviour you described. It also means the <em>server</em> acks the
+    disconnect on your behalf: no operator ever has to acknowledge that a node dropped. If that ack
+    should be a human's, <span class="k">Clear</span> is the wrong verb on the reconnect path and
+    wants a separate <em>resolved-but-unacked</em> state. Flagging it, not changing it.
+  </p>
+</section>
+
+<section class="block">
+  <div class="block-head"><span class="id">DECISIONS</span><h2>Where this stands</h2></div>
   <div class="qs">
-    <div class="q">
-      <div><span class="num">01</span><span class="t">How loud is "loud" for a configured alarm?</span></div>
-      <div class="b">Drawn here as a thickened ring plus a filled marker — static. The step up from that is a slow pulse, which is genuinely impossible to miss across a room and genuinely irritating if it sits unacknowledged for an hour. Say which and I will build it.</div>
+    <div class="q settled">
+      <div class="t">Loudness of a configured alarm</div>
+      <div class="b">Static thickened ring. No pulse, no marker dot. Your call: "i like what it is now".</div>
     </div>
-    <div class="q">
-      <div><span class="num">02</span><span class="t">Should the ring double as a range indicator?</span></div>
-      <div class="b">The ring is currently a status colour only. It could instead sweep like a gauge — filling as the value crosses its band — which reads well for a pressure and means nothing for a thermocouple. Cheap to add later; awkward to retrofit if the ring already means three other things.</div>
+    <div class="q settled">
+      <div class="t">Ring as a gauge sweep</div>
+      <div class="b">Not for sensors. Kept for valve position, on its own outer ring, with limit-switched feedback drawn as discrete ticks rather than a sweep.</div>
     </div>
-    <div class="q">
-      <div><span class="num">03</span><span class="t">Valve: is the mismatch state worth its own look?</span></div>
-      <div class="b">Commanded open, feedback says shut — today that shows as a red ring, identical to a comms fault. They are different problems: one is a stuck valve, the other is a dead link. I would give the stuck valve its own mark, but it costs a distinct visual that has to stay legible at 34 px.</div>
+    <div class="q settled">
+      <div class="t">Valve command/feedback mismatch</div>
+      <div class="b">Not a distinct visual. A templated <em>valve not responding to command</em> alert, which turns the object red — your call, and it means a stuck valve and a dead link now differ in the alert bar rather than in a glyph a reader has to decode.</div>
     </div>
-    <div class="q">
-      <div><span class="num">04</span><span class="t">Confirm the alert-template change.</span></div>
-      <div class="b">Per your note, I will drop <span class="k">on bad_data -&gt; warning</span> from the every-daqNode template in <span class="k">config/alerts/alerts.alert</span>, so out-of-range readings stop raising automatic alerts and only explicitly written rules do. Disconnect, reconnect and stale stay as they are.</div>
+    <div class="q settled">
+      <div class="t">The <span class="k">bad_data</span> path</div>
+      <div class="b">Removed from the broker; replaced by an auto-generated alarm template across all sensor channels. Out of range stays visible.</div>
+    </div>
+    <div class="q open">
+      <div class="t">Bubble interior</div>
+      <div class="b">A, B, C or D — first section.</div>
+    </div>
+    <div class="q open">
+      <div class="t">Command panel layout</div>
+      <div class="b">Segmented control, or action list. Both are the same click count; they differ in whether the panel shows you the current state as part of the control.</div>
+    </div>
+    <div class="q open">
+      <div class="t">State-ring interior mark</div>
+      <div class="b">One mark for all machines, or per-state marks configured in the editor.</div>
     </div>
   </div>
 </section>
@@ -193,19 +448,28 @@
 const C = {
   object: '#181818', border: '#242424', text: '#d0d8d8', muted: '#909898',
   dim: '#5c6464', accent: '#58a6ff', ok: '#3fb950', warn: '#e3b341', bad: '#f85149',
-  track: '#242424', canvas: '#080808',
+  canvas: '#080808',
 };
 
 const MONO = 'ui-monospace, Consolas, monospace';
 const SANS = 'ui-sans-serif, Segoe UI, sans-serif';
 const R = 17;                      // glyph radius — one number for all three families
+const RFB = R + 5;                 // feedback ring — outside the glyph, never on it
 
 const svg = (w, h, inner) =>
   `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
 
+const pt = (cx, cy, r, a) => [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+
+function arc(cx, cy, r, a0, a1, attrs) {
+  const [x0, y0] = pt(cx, cy, r, a0), [x1, y1] = pt(cx, cy, r, a1);
+  const large = (a1 - a0) > Math.PI ? 1 : 0;
+  return `<path d="M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1}" fill="none" ${attrs}/>`;
+}
+
 // One state vocabulary shared by every object type. `ring` is the glyph outline,
-// `ink` is the live text. Nothing here animates except `alarm`, which is the only
-// state a configured alert can raise.
+// `ink` is the live text. Nothing animates: `loud` only thickens the ring, and
+// only a configured alert can raise it.
 function look(s) {
   switch (s) {
     case 'live':    return { ring: C.border, ink: C.text, loud: false };
@@ -213,71 +477,150 @@ function look(s) {
     case 'stale':   return { ring: C.warn,   ink: C.warn, loud: false };
     case 'range':   return { ring: C.bad,    ink: C.bad,  loud: false };
     case 'offline': return { ring: C.bad,    ink: C.dim,  loud: false };
-    case 'unbound': return { ring: C.dim,    ink: C.dim,  loud: false };
+    case 'unbound': return { ring: C.dim,    ink: C.dim,  loud: false, ghost: true };
     case 'alarm':   return { ring: C.bad,    ink: C.bad,  loud: true  };
-    case 'select':  return { ring: C.accent, ink: C.text, loud: false };
     default:        return { ring: C.border, ink: C.text, loud: false };
   }
 }
 
+// Dashed means one thing only: unbound. Selection is not a state and never
+// touches the ring — see glow() below.
 function ringAttrs(L, s) {
   const w = L.loud ? 3 : 1.5;
-  const dash = s === 'select' ? ' stroke-dasharray="3 2"' : '';
+  const dash = s === 'unbound' ? ' stroke-dasharray="3 2"' : '';
   return `stroke="${L.ring}" stroke-width="${w}"${dash}`;
 }
 
-// ── Glyphs ──────────────────────────────────────────────────────────────────
-// Same circle and ring for all three; only the interior changes. That shared
-// construction is the whole point of the system.
+// ── Bubble interiors ────────────────────────────────────────────────────────
+// Four candidates. Same circle, same ring; the interior is the only variable.
 
-function glyphSensor(cx, cy, s, tagTop, tagBot) {
+function bubbleShell(cx, cy, s, inner) {
   const L = look(s);
-  const bad = s === 'unbound';
-  return `
-    <circle cx="${cx}" cy="${cy}" r="${R}" fill="${C.object}" ${ringAttrs(L, s)}/>
-    <line x1="${cx - R + 1}" y1="${cy}" x2="${cx + R - 1}" y2="${cy}" stroke="${C.border}" stroke-width="1"/>
-    <text x="${cx}" y="${cy - 5}" text-anchor="middle" font-family="${MONO}" font-size="9.5"
-          fill="${bad ? C.bad : C.muted}">${tagTop}</text>
-    <text x="${cx}" y="${cy + 12}" text-anchor="middle" font-family="${MONO}" font-size="9.5"
-          fill="${bad ? C.bad : C.muted}">${tagBot}</text>
-    ${L.loud ? `<circle cx="${cx + 13}" cy="${cy - 13}" r="4" fill="${C.bad}"/>` : ''}`;
+  return `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${C.object}" ${ringAttrs(L, s)}/>${inner}`;
 }
 
-function glyphValve(cx, cy, s, pos) {
-  // pos: 'shut' | 'open' | number (percent) | 'uncfg'
+// A — empty. The tag lives on the name line and nowhere else.
+function bubbleA(cx, cy, s) {
+  return bubbleShell(cx, cy, s, '');
+}
+
+// B — the whole tag, one line, no divider.
+function bubbleB(cx, cy, s, tag) {
+  const t = tag || 'PT01';
+  const size = t.length > 5 ? 8 : 9.5;
+  return bubbleShell(cx, cy, s, `
+    <text x="${cx}" y="${cy + 3.5}" text-anchor="middle" font-family="${MONO}" font-size="${size}"
+          letter-spacing="0.02em" fill="${look(s).ghost ? C.dim : C.muted}">${t}</text>`);
+}
+
+// C — instrument type only, set large. The loop number is on the name line.
+function bubbleC(cx, cy, s, type) {
+  return bubbleShell(cx, cy, s, `
+    <text x="${cx}" y="${cy + 5}" text-anchor="middle" font-family="${MONO}" font-size="14"
+          font-weight="700" letter-spacing="-0.02em"
+          fill="${look(s).ghost ? C.dim : C.muted}">${type || 'PT'}</text>`);
+}
+
+// D — a drawn mark per instrument type: dial, bulb, chevrons.
+function bubbleD(cx, cy, s, kind) {
+  const c = look(s).ghost ? C.dim : C.muted;
+  let m = '';
+  if (kind === 'temp') {
+    m = `<line x1="${cx}" y1="${cy - 7}" x2="${cx}" y2="${cy + 2}" stroke="${c}" stroke-width="1.6" stroke-linecap="round"/>
+         <circle cx="${cx}" cy="${cy + 5}" r="3.4" fill="none" stroke="${c}" stroke-width="1.6"/>
+         <line x1="${cx + 3.5}" y1="${cy - 5}" x2="${cx + 6}" y2="${cy - 5}" stroke="${c}" stroke-width="1.2"/>
+         <line x1="${cx + 3.5}" y1="${cy - 1}" x2="${cx + 6}" y2="${cy - 1}" stroke="${c}" stroke-width="1.2"/>`;
+  } else if (kind === 'flow') {
+    m = `<path d="M ${cx - 7} ${cy - 5} L ${cx - 1} ${cy} L ${cx - 7} ${cy + 5}" fill="none"
+               stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+         <path d="M ${cx + 1} ${cy - 5} L ${cx + 7} ${cy} L ${cx + 1} ${cy + 5}" fill="none"
+               stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`;
+  } else {
+    // pressure: a dial face with a needle
+    m = `${arc(cx, cy + 3, 7.5, Math.PI, Math.PI * 2, `stroke="${c}" stroke-width="1.5" stroke-linecap="round"`)}
+         <line x1="${cx}" y1="${cy + 3}" x2="${cx + 5}" y2="${cy - 3}" stroke="${c}" stroke-width="1.6" stroke-linecap="round"/>
+         <circle cx="${cx}" cy="${cy + 3}" r="1.6" fill="${c}"/>`;
+  }
+  return bubbleShell(cx, cy, s, m);
+}
+
+// ── Valve ───────────────────────────────────────────────────────────────────
+// pos: 'shut' | 'open' | number (percent) | 'uncfg'
+// fb : 'none' | 'cont' | 'limit-open' | 'limit-shut' | 'limit-none'
+
+const FB0 = Math.PI * 0.75, FBSPAN = Math.PI * 1.5;   // sweep start / extent
+
+function valveFeedback(cx, cy, s, fb) {
+  if (!fb || fb === 'none') return '';
+  const L = look(s);
+  if (fb === 'cont' || typeof fb === 'number') {
+    const frac = typeof fb === 'number' ? fb / 100 : 0.45;
+    const track = arc(cx, cy, RFB, FB0, FB0 + FBSPAN, `stroke="${C.border}" stroke-width="2" stroke-linecap="round"`);
+    if (frac <= 0.001) return track;
+    const live = arc(cx, cy, RFB, FB0, FB0 + FBSPAN * frac, `stroke="${C.ok}" stroke-width="2.5" stroke-linecap="round"`);
+    const [hx, hy] = pt(cx, cy, RFB, FB0 + FBSPAN * frac);
+    return `${track}${live}<circle cx="${hx}" cy="${hy}" r="2.6" fill="${C.ok}"/>`;
+  }
+  // Limit switches: two discrete ticks, one per switch. Lit = made.
+  const a = { shut: FB0, open: FB0 + FBSPAN };
+  const tick = (ang, on) => {
+    const [x0, y0] = pt(cx, cy, RFB - 3.5, ang), [x1, y1] = pt(cx, cy, RFB + 3.5, ang);
+    return `<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="${on ? C.ok : C.border}"
+                  stroke-width="${on ? 3 : 2}" stroke-linecap="round"/>`;
+  };
+  return tick(a.shut, fb === 'limit-shut') + tick(a.open, fb === 'limit-open');
+}
+
+function glyphValve(cx, cy, s, pos, fb) {
   const L = look(s);
   const l = R - 5;
+  const d = l * 0.72;               // 45° half-extent
   let inner = '';
   if (pos === 'uncfg') {
-    inner = `<line x1="${cx - l}" y1="${cy + l}" x2="${cx + l}" y2="${cy - l}"
-                   stroke="${C.dim}" stroke-width="1.5"/>`;
+    inner = `<line x1="${cx - d}" y1="${cy + d}" x2="${cx + d}" y2="${cy - d}"
+                   stroke="${C.dim}" stroke-width="1.5" stroke-dasharray="3 2"/>`;
   } else if (typeof pos === 'number') {
-    // Percentage feedback: arc sweep plus a pointer, as the current valve does.
-    const a0 = Math.PI * 0.75, a1 = a0 + Math.PI * 1.5 * (pos / 100);
-    const ax = cx + Math.cos(a1) * (R - 4), ay = cy + Math.sin(a1) * (R - 4);
-    const large = (pos / 100) > 0.5 ? 1 : 0;
-    inner = `
-      <path d="M ${cx + Math.cos(a0) * (R - 4)} ${cy + Math.sin(a0) * (R - 4)}
-               A ${R - 4} ${R - 4} 0 ${large} 1 ${ax} ${ay}"
-            fill="none" stroke="${L.ink}" stroke-width="2"/>
-      <circle cx="${ax}" cy="${ay}" r="3" fill="${L.ink}"/>
-      <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-family="${MONO}"
-            font-size="10" font-weight="700" fill="${L.ink}">${pos}</text>`;
+    inner = `<text x="${cx}" y="${cy + 4}" text-anchor="middle" font-family="${MONO}"
+                   font-size="11" font-weight="700" fill="${L.ink}">${pos}</text>`;
+  } else if (pos === 'shut') {
+    // Shut: across the bore at 45°, per your note on I/O-position valves.
+    inner = `<line x1="${cx - d}" y1="${cy - d}" x2="${cx + d}" y2="${cy + d}"
+                   stroke="${L.ink}" stroke-width="2.5" stroke-linecap="round"/>`;
   } else {
-    // Bore line: across the bore when shut, along it when open.
-    const shut = pos === 'shut';
-    inner = shut
-      ? `<line x1="${cx}" y1="${cy - l}" x2="${cx}" y2="${cy + l}" stroke="${L.ink}" stroke-width="2.5"/>`
-      : `<line x1="${cx - l}" y1="${cy}" x2="${cx + l}" y2="${cy}" stroke="${C.ok}" stroke-width="2.5"/>`;
+    // Open: along the bore.
+    inner = `<line x1="${cx - l}" y1="${cy}" x2="${cx + l}" y2="${cy}"
+                   stroke="${C.ok}" stroke-width="2.5" stroke-linecap="round"/>`;
   }
-  return `
+  return `${valveFeedback(cx, cy, s, fb)}
     <circle cx="${cx}" cy="${cy}" r="${R}" fill="${C.object}" ${ringAttrs(L, s)}/>
-    ${inner}
-    ${L.loud ? `<circle cx="${cx + 13}" cy="${cy - 13}" r="4" fill="${C.bad}"/>` : ''}`;
+    ${inner}`;
 }
 
-function glyphMachine(cx, cy, s, idx, total) {
-  // Ring split into one segment per state; the live one is lit.
+// ── State machine ───────────────────────────────────────────────────────────
+// Segmented ring, one segment per state, current lit. No number inside.
+
+function smMark(cx, cy, c, kind) {
+  switch (kind) {
+    case 'hold':   // two bars — held / manual
+      return `<line x1="${cx - 3}" y1="${cy - 5}" x2="${cx - 3}" y2="${cy + 5}" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>
+              <line x1="${cx + 3}" y1="${cy - 5}" x2="${cx + 3}" y2="${cy + 5}" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>`;
+    case 'run':    // triangle — running a sequence
+      return `<path d="M ${cx - 3.5} ${cy - 5.5} L ${cx + 5} ${cy} L ${cx - 3.5} ${cy + 5.5} Z" fill="${c}"/>`;
+    case 'stop':   // square — safe / stopped
+      return `<rect x="${cx - 4.2}" y="${cy - 4.2}" width="8.4" height="8.4" rx="1" fill="${c}"/>`;
+    case 'abort':  // bang — abort
+      return `<line x1="${cx}" y1="${cy - 6}" x2="${cx}" y2="${cy + 1.5}" stroke="${c}" stroke-width="2.4" stroke-linecap="round"/>
+              <circle cx="${cx}" cy="${cy + 5}" r="1.5" fill="${c}"/>`;
+    case 'none':
+      return '';
+    default:       // generic sequence mark — three steps, used for every machine
+      return `<path d="M ${cx - 6} ${cy + 4} L ${cx - 1.5} ${cy + 4} L ${cx - 1.5} ${cy} L ${cx + 2.5} ${cy}
+                       L ${cx + 2.5} ${cy - 4} L ${cx + 6.5} ${cy - 4}" fill="none" stroke="${c}"
+                    stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>`;
+  }
+}
+
+function glyphMachine(cx, cy, s, idx, total, mark) {
   const L = look(s);
   const gap = 0.16, seg = (Math.PI * 2) / total;
   let arcs = '';
@@ -285,150 +628,385 @@ function glyphMachine(cx, cy, s, idx, total) {
     const a0 = -Math.PI / 2 + i * seg + gap / 2;
     const a1 = a0 + seg - gap;
     const lit = i === idx;
-    const rr = R + 3;
-    const x0 = cx + Math.cos(a0) * rr, y0 = cy + Math.sin(a0) * rr;
-    const x1 = cx + Math.cos(a1) * rr, y1 = cy + Math.sin(a1) * rr;
-    arcs += `<path d="M ${x0} ${y0} A ${rr} ${rr} 0 0 1 ${x1} ${y1}" fill="none"
-                   stroke="${lit ? (idx >= 0 ? L.ring : C.dim) : C.border}"
-                   stroke-width="${lit ? (L.loud ? 4 : 3) : 2}" stroke-linecap="round"/>`;
+    arcs += arc(cx, cy, R + 3, a0, a1,
+      `stroke="${lit ? L.ring : C.border}" stroke-width="${lit ? (L.loud ? 4 : 3) : 2}" stroke-linecap="round"`);
   }
-  const label = s === 'unbound' ? '??' : String(idx >= 0 ? idx + 1 : '-');
-  return `
-    ${arcs}
-    <circle cx="${cx}" cy="${cy}" r="${R - 2}" fill="${C.object}" stroke="${C.border}" stroke-width="1"/>
-    <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-family="${MONO}" font-size="12"
-          font-weight="700" fill="${L.ink}">${label}</text>
-    ${L.loud ? `<circle cx="${cx + 14}" cy="${cy - 14}" r="4" fill="${C.bad}"/>` : ''}`;
+  const dash = s === 'unbound' ? ' stroke-dasharray="3 2"' : '';
+  return `${arcs}
+    <circle cx="${cx}" cy="${cy}" r="${R - 2}" fill="${C.object}" stroke="${C.border}"
+            stroke-width="1"${dash}/>
+    ${smMark(cx, cy, idx < 0 ? C.dim : L.ink, mark)}`;
+}
+
+// ── Marks ───────────────────────────────────────────────────────────────────
+
+function markWarning(cx, cy, c) {
+  return `<path d="M ${cx} ${cy - 9} L ${cx + 10} ${cy + 8} L ${cx - 10} ${cy + 8} Z" fill="none"
+                stroke="${c}" stroke-width="1.8" stroke-linejoin="round"/>
+          <line x1="${cx}" y1="${cy - 3}" x2="${cx}" y2="${cy + 2}" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>
+          <circle cx="${cx}" cy="${cy + 5.4}" r="1.2" fill="${c}"/>`;
+}
+
+function markAlarm(cx, cy, c) {
+  // Octagon — the shape that means stop everywhere, and legible at 12 px.
+  let d = '';
+  for (let i = 0; i < 8; i++) {
+    const a = -Math.PI / 2 + (Math.PI / 4) * i + Math.PI / 8;
+    const [x, y] = pt(cx, cy, 10, a);
+    d += (i ? ' L ' : 'M ') + x.toFixed(2) + ' ' + y.toFixed(2);
+  }
+  return `<path d="${d} Z" fill="none" stroke="${c}" stroke-width="1.8" stroke-linejoin="round"/>
+          <line x1="${cx}" y1="${cy - 4.5}" x2="${cx}" y2="${cy + 1}" stroke="${c}" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="${cx}" cy="${cy + 4.6}" r="1.3" fill="${c}"/>`;
+}
+
+function markStale(cx, cy, c) {
+  return `<circle cx="${cx}" cy="${cy}" r="9" fill="none" stroke="${c}" stroke-width="1.8"/>
+          <line x1="${cx}" y1="${cy - 5}" x2="${cx}" y2="${cy}" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>
+          <line x1="${cx}" y1="${cy}" x2="${cx + 4}" y2="${cy + 2.5}" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>`;
+}
+
+function markOffline(cx, cy, c) {
+  return `<path d="M ${cx - 9} ${cy + 4} A 6 6 0 0 1 ${cx - 2} ${cy - 3}" fill="none" stroke="${c}"
+                stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M ${cx + 9} ${cy - 4} A 6 6 0 0 1 ${cx + 2} ${cy + 3}" fill="none" stroke="${c}"
+                stroke-width="1.8" stroke-linecap="round"/>
+          <line x1="${cx - 8}" y1="${cy - 8}" x2="${cx + 8}" y2="${cy + 8}" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>`;
+}
+
+function markUnbound(cx, cy, c) {
+  return `<circle cx="${cx}" cy="${cy}" r="9" fill="none" stroke="${c}" stroke-width="1.6" stroke-dasharray="3 2"/>
+          <path d="M ${cx - 3} ${cy - 2.5} A 3 3 0 1 1 ${cx} ${cy + 1.5}" fill="none" stroke="${c}"
+                stroke-width="1.7" stroke-linecap="round"/>
+          <circle cx="${cx}" cy="${cy + 5}" r="1.2" fill="${c}"/>`;
+}
+
+// ── Selection ───────────────────────────────────────────────────────────────
+// Selection is NOT a state. It is a white glow drawn under the object, so it
+// layers over whatever the object already is — an alarming object stays red
+// while selected, which the old dashed accent ring could not do (it replaced
+// the ring colour, so selecting an alarm hid the alarm).
+// Built from three concentric strokes rather than a blur filter: identical
+// output everywhere, and no filter region to get wrong at 34 px.
+
+const GLOW = [[2, 2.5, 0.34], [4.5, 5, 0.13], [8, 8, 0.05]];
+
+function glowCircle(cx, cy, r) {
+  return GLOW.map(([dr, w, o]) =>
+    `<circle cx="${cx}" cy="${cy}" r="${r + dr}" fill="none" stroke="#ffffff"
+             stroke-width="${w}" stroke-opacity="${o}"/>`).join('');
+}
+
+function glowRect(x, y, w, h) {
+  return GLOW.map(([dr, sw, o]) =>
+    `<rect x="${x - dr}" y="${y - dr}" width="${w + dr * 2}" height="${h + dr * 2}" rx="${3 + dr}"
+           fill="none" stroke="#ffffff" stroke-width="${sw}" stroke-opacity="${o}"/>`).join('');
 }
 
 // ── Object rows ─────────────────────────────────────────────────────────────
-// An object is: [glyph?] [title?] + reading. Text left-aligns to a fixed x so a
-// column of objects lines up whether or not each one carries a glyph.
+// An object is: [glyph?] + name line + reading. The name line IS the title.
+
+function fmt(v, dp) {
+  if (typeof v !== 'number') return v;
+  return v.toFixed(dp === undefined ? 2 : dp);
+}
 
 function object(opts) {
-  const { state, glyph, title, tag, value, units, W = 190, H = 54 } = opts;
+  const {
+    state = 'live', glyph, name, value, units, decimals,
+    W = 190, H = 54, showName = true, selected = false,
+  } = opts;
   const L = look(state);
   const hasGlyph = !!glyph;
-  const tx = hasGlyph ? 2 * R + 14 : 4;
+  const tx = hasGlyph ? 2 * R + 16 : 4;
   const cy = H / 2;
-  const titleY = title ? cy - 14 : null;
-  const tagY = title ? cy + 1 : cy - 7;
-  const valY = title ? cy + 18 : cy + 13;
+  const nameY = cy - 6;
+  const valY = showName ? cy + 15 : cy + 7;
+  const shown = fmt(value, decimals);
+  const italic = L.ghost ? ' font-style="italic"' : '';
   return svg(W, H, `
-    ${state === 'select' && !hasGlyph
-      ? `<rect x="1" y="4" width="${W - 2}" height="${H - 8}" rx="3" fill="none"
-               stroke="${C.accent}" stroke-width="1.5" stroke-dasharray="3 2"/>` : ''}
-    ${hasGlyph ? glyph(R + 4, cy, state) : ''}
-    ${title ? `<text x="${tx}" y="${titleY}" font-family="${SANS}" font-size="9" font-style="italic"
-                     fill="${C.dim}">${title}</text>` : ''}
-    <text x="${tx}" y="${tagY}" font-family="${MONO}" font-size="9.5" letter-spacing="0.05em"
-          fill="${state === 'unbound' ? C.bad : C.dim}">${tag}</text>
+    ${selected ? (hasGlyph ? glowCircle(R + 6, cy, R) : glowRect(3, 6, W - 6, H - 12)) : ''}
+    ${hasGlyph ? glyph(R + 6, cy, state) : ''}
+    ${showName ? `<text x="${tx}" y="${nameY}" font-family="${MONO}" font-size="10.5" letter-spacing="0.06em"
+                        fill="${L.ghost ? C.dim : C.muted}"${italic}>${name}</text>` : ''}
     <text x="${tx}" y="${valY}" font-family="${MONO}" font-size="17" font-weight="700"
-          fill="${L.ink}">${value}</text>
-    ${units ? `<text x="${tx + String(value).length * 10.3 + 6}" y="${valY}" font-family="${SANS}"
+          fill="${L.ink}"${italic}>${shown}</text>
+    ${units ? `<text x="${tx + String(shown).length * 10.3 + 6}" y="${valY}" font-family="${SANS}"
                      font-size="9.5" fill="${C.dim}">${units}</text>` : ''}
   `);
 }
 
-// ── Content ─────────────────────────────────────────────────────────────────
+const cells = (id, items) => {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = items.join('');
+};
+
+const cell = (label, body, sub) =>
+  `<div class="cell"><span class="label">${label}</span>${body}${sub ? `<span class="sub">${sub}</span>` : ''}</div>`;
+
+// ── Bubble options ──────────────────────────────────────────────────────────
+const BUBBLE_OPTS = [
+  ['A', 'Empty bubble', (x, y, s) => bubbleA(x, y, s),
+   'Nothing inside. The ring is pure state and the tag is read once, on the name line. Cleanest at density; least recognisable to someone reading it as a P&amp;ID.'],
+  ['B', 'Tag inside', (x, y, s) => bubbleB(x, y, s, 'CPT01'),
+   'The whole tag on one line, no divider. Keeps the balloon doing its P&amp;ID job. Long tags shrink — the second drawing is a 7-character one.'],
+  ['C', 'Type, set large', (x, y, s) => bubbleC(x, y, s, 'PT'),
+   'Instrument type only, big enough to read across a room; the loop number stays on the name line. Reads fastest when a panel is mostly pressure and temperature.'],
+  ['D', 'Drawn mark', (x, y, s) => bubbleD(x, y, s, 'press'),
+   'A mark per instrument type — dial, bulb, chevrons. Language-free and the most distinct at a glance; needs a mark defined for every instrument type you add.'],
+];
+
+const bubbleAlt = {
+  A: (x, y, s) => bubbleA(x, y, s),
+  B: (x, y, s) => bubbleB(x, y, s, 'TC-1204'),
+  C: (x, y, s) => bubbleC(x, y, s, 'TC'),
+  D: (x, y, s) => bubbleD(x, y, s, 'temp'),
+};
+
+cells('bubbles', BUBBLE_OPTS.map(([id, nm, g, d]) => cell(
+  id + ' — ' + nm,
+  object({ glyph: g, name: 'CPT-01', value: 412.63, units: 'psia', W: 168 }) +
+  object({ glyph: bubbleAlt[id], name: 'TC-1204', value: 21.4, decimals: 1, units: '°C', W: 168 }),
+  d)));
+
+// ── Anatomy ─────────────────────────────────────────────────────────────────
+const BUB = (x, y, s) => bubbleB(x, y, s, 'CPT01');
+
+cells('anatomy', [
+  ['Reading only', object({ name: 'CPT-01', value: 412.63, units: 'psia', W: 170, showName: false }),
+   'Just the number. For readings that are context rather than the thing you are watching — a corner of the panel where the drawing already says what it is.'],
+  ['+ name line', object({ name: 'CPT-01', value: 412.63, units: 'psia', W: 170 }),
+   'The tag, in the formatting it always had. This is the title now — no second italic line above it.'],
+  ['+ glyph', object({ glyph: BUB, name: 'CPT-01', value: 412.63, units: 'psia' }),
+   'Adds the bubble, and with it a second carrier for state: the ring. Turns a number into something a P&amp;ID reader recognises.'],
+  ['+ units off', object({ glyph: BUB, name: 'CPT-01', value: 412.63 }),
+   'Units are a per-object toggle. Off where a whole panel is one unit and the repetition is noise.'],
+].map(([t, s, d]) => `<div class="a"><span class="t">${t}</span>${s}<span class="d">${d}</span></div>`));
+
+// ── Composition ─────────────────────────────────────────────────────────────
+cells('composition', [
+  ['Reading only',  { showName: false }],
+  ['+ name line',   {}],
+  ['+ glyph',       { glyph: BUB }],
+  ['+ units off',   { glyph: BUB, units: null }],
+].map(([label, extra]) => cell(label, object(Object.assign(
+  { name: 'CPT-01', value: 412.63, units: 'psia', W: 180 }, extra)), '')));
+
+// ── Precision ───────────────────────────────────────────────────────────────
+cells('precision', [
+  cell('0 dp', object({ glyph: BUB, name: 'CPT-01', value: 412.63, decimals: 0, units: 'psia' }),
+       'A tank pressure nobody reads to a tenth.'),
+  cell('1 dp', object({ glyph: BUB, name: 'CPT-01', value: 412.63, decimals: 1, units: 'psia' }), ''),
+  cell('2 dp — default', object({ glyph: BUB, name: 'CPT-01', value: 412.63, decimals: 2, units: 'psia' }),
+       'What every object gets until you change it.'),
+  cell('3 dp', object({ glyph: BUB, name: 'CPT-01', value: 412.63, decimals: 3, units: 'psia' }),
+       'A load cell, where the last digit is the measurement.'),
+]);
+
+// ── Sensor states ───────────────────────────────────────────────────────────
 const SENSOR_STATES = [
-  ['live',    'Live',         'Fresh, inside its band.'],
-  ['nodata',  'No data yet',  'Configured; nothing has published it since startup.'],
-  ['stale',   'Stale',        'No update within channelStaleMs. The number on screen may be minutes old.'],
-  ['range',   'Out of range', 'Past validMin/validMax. Visible, deliberately not loud.'],
-  ['offline', 'Node offline', 'The owning DAQ dropped. Will not recover on its own.'],
-  ['unbound', 'Unbound',      'controlRefDes names nothing in the config.'],
-  ['alarm',   'Alarm',        'A configured alert rule is raised and unacknowledged.'],
-  ['select',  'Selected',     'Editor only.'],
+  ['live',    'Live',         412.63, 'Fresh, inside its band.'],
+  ['nodata',  'No data yet',  null,   'Configured; nothing has published it since startup.'],
+  ['stale',   'Stale',        412.63, 'No update within channelStaleMs. The number on screen may be minutes old.'],
+  ['range',   'Out of range', 918.44, 'Past validMin/validMax. Red, and now an alert row too — but not loud.'],
+  ['offline', 'Node offline', null,   'The owning DAQ dropped. Will not recover on its own.'],
+  ['unbound', 'Unbound',      null,   'controlRefDes names nothing in the config. Grey, dashed, italic — a drawing mistake, not an alarm.'],
+  ['alarm',   'Alarm',        918.44, 'A configured alert is raised and unacknowledged. Thickened ring, nothing moving.'],
+  ['live',    'Selected',     412.63, 'The object whose sidebar is open. A white glow under the object, in the panel as well as the editor.', true],
+  ['alarm',   'Selected + alarm', 918.44, 'Layered, not replaced — selecting an alarming object no longer costs you the alarm.', true],
 ];
 
+cells('sensor', SENSOR_STATES.map(([s, label, v, desc, sel]) => cell(label, object({
+  selected: !!sel,
+  state: s,
+  glyph: (x, y, st) => bubbleB(x, y, st, s === 'unbound' ? '??' : 'CPT01'),
+  name: s === 'unbound' ? 'PT-99 ?' : 'CPT-01',
+  value: v === null ? '- -' : v,
+  decimals: 2,
+  units: 'psia',
+}), desc));
+
+// ── Valve feedback ──────────────────────────────────────────────────────────
+cells('valvefb', [
+  cell('No feedback', object({ glyph: (x, y, s) => glyphValve(x, y, s, 'shut', 'none'), name: 'NV-03', value: 'CLOSED', W: 200 }),
+       'Command only. No outer ring at all, so the absence is visible rather than implied.'),
+  cell('Limit — shut', object({ glyph: (x, y, s) => glyphValve(x, y, s, 'shut', 'limit-shut'), name: 'OV-05', value: 'CLOSED', W: 200 }),
+       'Two ticks, one per switch. The shut switch is made.'),
+  cell('Limit — open', object({ glyph: (x, y, s) => glyphValve(x, y, s, 'open', 'limit-open'), name: 'OV-05', value: 'OPEN', W: 200 }),
+       'Open switch made. Two states drawn as two states.'),
+  cell('Limit — travelling', object({ glyph: (x, y, s) => glyphValve(x, y, s, 'open', 'limit-none'), name: 'OV-05', value: 'OPEN', W: 200 }),
+       'Neither switch made: between the stops, or a failed switch. Unlit is information.'),
+  cell('Continuous 45%', object({ glyph: (x, y, s) => glyphValve(x, y, s, 45, 45), name: 'TV-02', value: '45%', W: 200 }),
+       'A real position: the outer ring sweeps like a gauge, which only makes sense when the feedback is continuous.'),
+  cell('Continuous 100%', object({ glyph: (x, y, s) => glyphValve(x, y, s, 100, 100), name: 'TV-02', value: '100%', W: 200 }),
+       ''),
+]);
+
+// ── Valve states ────────────────────────────────────────────────────────────
 const VALVE_STATES = [
-  ['live',    'Shut',         'shut',  'CLOSED'],
-  ['live',    'Open',         'open',  'OPEN'],
-  ['live',    'Throttled',    45,      '45%'],
-  ['range',   'Mismatch',     'shut',  'CMD OPEN'],
-  ['stale',   'Stale',        'shut',  'CLOSED'],
-  ['offline', 'Node offline', 'shut',  '- -'],
-  ['unbound', 'Unconfigured', 'uncfg', '- -'],
-  ['alarm',   'Alarm',        'open',  'OPEN'],
-  ['select',  'Selected',     'shut',  'CLOSED'],
+  ['live',    'Shut',         'shut',  'limit-shut', 'CLOSED'],
+  ['live',    'Open',         'open',  'limit-open', 'OPEN'],
+  ['stale',   'Stale',        'shut',  'limit-shut', 'CLOSED'],
+  ['offline', 'Node offline', 'shut',  'none',       '- -'],
+  ['unbound', 'Unconfigured', 'uncfg', 'none',       '- -'],
+  ['alarm',   'Alarm',        'shut',  'limit-shut', 'CMD OPEN'],
+  ['live',    'Selected',     'shut',  'limit-shut', 'CLOSED', true],
 ];
 
+cells('valve', VALVE_STATES.map(([s, label, pos, fb, text, sel]) => cell(label, object({
+  selected: !!sel,
+  state: s,
+  glyph: (x, y, st) => glyphValve(x, y, st, pos, fb),
+  name: s === 'unbound' ? 'OV-99 ?' : 'OV-05',
+  value: text,
+  W: 200,
+}), label === 'Alarm' ? 'Commanded open, shut switch still made — the "valve not responding" alert is what makes it red.' : ''));
+
+// ── State machine ───────────────────────────────────────────────────────────
 const MACHINE_STATES = [
-  ['live',    'Safe',          0, 'safe'],
-  ['live',    'Manual',        1, 'manualControl'],
-  ['live',    'Auto sequence', 2, 'autoSequence'],
-  ['alarm',   'Abort',         3, 'abort'],
-  ['stale',   'Stale',         2, 'autoSequence'],
-  ['offline', 'Node offline', -1, '- -'],
-  ['unbound', 'Unbound',      -1, '- -'],
-  ['select',  'Selected',      0, 'safe'],
+  ['live',    'Safe',          0, 'safe',          'stop'],
+  ['live',    'Manual',        1, 'manualControl', 'hold'],
+  ['live',    'Auto sequence', 2, 'autoSequence',  'run'],
+  ['live',    'Abort',         3, 'abort',         'abort'],
+  ['stale',   'Stale',         2, 'autoSequence',  'run'],
+  ['offline', 'Node offline', -1, '- -',           'none'],
+  ['unbound', 'Unbound',      -1, '- -',           'none'],
+  ['live',    'Selected',      0, 'safe',          'stop', true],
+  ['alarm',   'Abort + alert', 3, 'abort',         'abort'],
 ];
 
-// Anatomy
-document.getElementById('anatomy').innerHTML = [
-  ['Reading only', object({ state: 'live', tag: 'CPT-01', value: '412.6', units: 'psia', W: 170 }),
-   'The base object. No chrome, no glyph — for the many readings that are context rather than the thing you are watching.'],
-  ['+ glyph', object({ state: 'live', glyph: (x, y, s) => glyphSensor(x, y, s, 'PT', '01'), tag: 'CPT-01', value: '412.6', units: 'psia' }),
-   'Adds the instrument balloon. Turns a number into something a P&amp;ID reader recognises, and gives state a second carrier: the ring.'],
-  ['+ title', object({ state: 'live', title: 'Chamber pressure', tag: 'CPT-01', value: '412.6', units: 'psia', W: 170 }),
-   'Adds the control description above the tag, for objects whose refDes is not self-explanatory to a visitor.'],
-  ['+ both', object({ state: 'live', glyph: (x, y, s) => glyphSensor(x, y, s, 'PT', '01'), title: 'Chamber pressure', tag: 'CPT-01', value: '412.6', units: 'psia' }),
-   'Everything on. Reserved for the few instruments that carry a test.'],
-].map(([t, s, d]) => `<div class="a"><span class="t">${t}</span>${s}<span class="d">${d}</span></div>`).join('');
+cells('machine', MACHINE_STATES.map(([s, label, idx, text, mark, sel]) => cell(label, object({
+  selected: !!sel,
+  state: s,
+  glyph: (x, y, st) => glyphMachine(x, y, st, idx, 4, mark),
+  name: s === 'unbound' ? 'SM-??' : 'DAQ001 · firingSequence',
+  value: text,
+  W: 236,
+}), label === 'Abort' ? 'An ordinary state. Nothing red about the word itself.'
+   : label === 'Abort + alert' ? 'The same state with an alert raised — this is the only thing that makes it loud.' : ''));
 
-// Composition
-document.getElementById('composition').innerHTML = [
-  ['Reading only', {}],
-  ['+ title',      { title: 'Chamber pressure' }],
-  ['+ glyph',      { glyph: (x, y, s) => glyphSensor(x, y, s, 'PT', '01') }],
-  ['+ both',       { glyph: (x, y, s) => glyphSensor(x, y, s, 'PT', '01'), title: 'Chamber pressure' }],
-].map(([label, extra]) => `
-  <div class="cell">
-    <span class="label">${label}</span>
-    ${object(Object.assign({ state: 'live', tag: 'CPT-01', value: '412.6', units: 'psia' }, extra))}
-  </div>`).join('');
+// ── State-ring interior mark ────────────────────────────────────────────────
+const smRow = svgs =>
+  `<div style="display:flex;gap:6px">${svgs}</div>`;
 
-// Sensor matrix
-document.getElementById('sensor').innerHTML = SENSOR_STATES.map(([s, label, desc]) => `
-  <div class="cell">
-    <span class="label">${label}</span>
-    ${object({
-      state: s,
-      glyph: (x, y, st) => glyphSensor(x, y, st, s === 'unbound' ? '??' : 'PT', s === 'unbound' ? '--' : '01'),
-      title: 'Chamber pressure',
-      tag: s === 'unbound' ? 'PT-99 ?' : 'CPT-01',
-      value: (s === 'nodata' || s === 'offline' || s === 'unbound') ? '- -' : (s === 'range' || s === 'alarm' ? '918.4' : '412.6'),
-      units: 'psia',
-    })}
-    <span class="sub">${desc}</span>
-  </div>`).join('');
+cells('smmark', [
+  cell('One mark, every machine',
+       smRow([0, 1, 2, 3].map(i => svg(44, 44, glyphMachine(22, 22, 'live', i, 4, 'seq'))).join('')),
+       'The interior never changes; the lit segment does all the work. Nothing to configure, and no mark can lie after a state is renamed.'),
+  cell('A mark per state',
+       smRow([['stop', 0], ['hold', 1], ['run', 2], ['abort', 3]]
+         .map(([m, i]) => svg(44, 44, glyphMachine(22, 22, 'live', i, 4, m))).join('')),
+       'Stopped, held, running, abort — readable without the word. Costs a field per state in the editor, plus a default.'),
+]);
 
-// Valve matrix
-document.getElementById('valve').innerHTML = VALVE_STATES.map(([s, label, pos, text]) => `
-  <div class="cell">
-    <span class="label">${label}</span>
-    ${object({
-      state: s,
-      glyph: (x, y, st) => glyphValve(x, y, st, pos),
-      title: 'LOX main valve',
-      tag: s === 'unbound' ? 'OV-99 ?' : 'OV-05',
-      value: text,
-      W: 200,
-    })}
-  </div>`).join('');
+// ── Marks ───────────────────────────────────────────────────────────────────
+cells('marks', [
+  ['Warning', markWarning, C.warn, 'Replaces ⚠️'],
+  ['Alarm', markAlarm, C.bad, 'Replaces 🚨'],
+  ['Stale', markStale, C.warn, 'Data older than channelStaleMs'],
+  ['Offline', markOffline, C.bad, 'Node link down'],
+  ['Unbound', markUnbound, C.dim, 'Names nothing in the config'],
+].map(([label, fn, c, sub]) => cell(label, svg(40, 40, fn(20, 20, c)), sub)));
 
-// State machine matrix
-document.getElementById('machine').innerHTML = MACHINE_STATES.map(([s, label, idx, text]) => `
-  <div class="cell">
-    <span class="label">${label}</span>
-    ${object({
-      state: s,
-      glyph: (x, y, st) => glyphMachine(x, y, st, idx, 4),
-      title: 'firingSequence',
-      tag: s === 'unbound' ? 'SM-?? ' : 'DAQ001',
-      value: text,
-      W: 230,
-    })}
-  </div>`).join('');
+// ── Editor problem list ─────────────────────────────────────────────────────
+// One flat list, no severities. The row is the whole point: it names the
+// element, so clicking it can select the thing that is wrong.
+const problemRow = (mark, c, title, detail) => `
+  <div style="display:flex;gap:10px;align-items:flex-start;text-align:left;width:210px">
+    ${svg(20, 20, mark(10, 10, c))}
+    <div>
+      <div style="font-family:${MONO};font-size:11.5px;color:${C.text}">${title}</div>
+      <div style="font-size:11px;color:${C.dim};line-height:1.4">${detail}</div>
+    </div>
+  </div>`;
+
+cells('problems', [
+  cell('Routing',
+       problemRow(markWarning, C.warn, 'NV-03 → PT-11', 'No orthogonal path: the pipe goes nowhere.'),
+       'What the list holds today.'),
+  cell('Unbound binding',
+       problemRow(markUnbound, C.warn, 'PT-99 ?', 'controlRefDes names nothing in the config.'),
+       'New — this never reached a list before.'),
+  cell('No readable channel',
+       problemRow(markUnbound, C.warn, 'OV-05', 'Control exists, but has no readable channel to bind to.'),
+       'The other way resolveSensorBinding returns null.'),
+]);
+
+// ── Command panels ──────────────────────────────────────────────────────────
+// A cursor mark, so "opens under the cursor" is visible rather than asserted.
+const cursor = svg(16, 20, `
+  <path d="M 1 1 L 1 15 L 5 11.5 L 7.5 17 L 10 16 L 7.5 10.5 L 12.5 10.5 Z"
+        fill="#ffffff" stroke="${C.canvas}" stroke-width="1" stroke-linejoin="round"/>`);
+
+// The valve as it sits on the panel: glyph, name line, state.
+const valveObj = (text, fb) => object({
+  glyph: (x, y, s) => glyphValve(x, y, s, text === 'OPEN' ? 'open' : 'shut', fb),
+  name: 'OV-05', value: text, W: 190,
+});
+
+const stage = (caption, objSvg, panel) => `
+  <div>
+    <div class="pcap">${caption}</div>
+    <div class="stage">
+      <div class="obj">${objSvg}</div>
+      ${panel}
+      <div class="cur">${cursor}</div>
+    </div>
+  </div>`;
+
+const head = (title, desc) => `
+  <div class="vp-head">
+    <span class="vp-title">${title}</span><span class="vp-desc">${desc}</span><span class="vp-x">&#10005;</span>
+  </div>`;
+
+const panelSeg = stage('Layout 1 — segmented, on the valve',
+  valveObj('CLOSED', 'limit-shut'), `
+  <div class="vp">
+    ${head('OV-05', 'LOX main')}
+    <div class="vp-cmd">
+      <div class="seg">
+        <button class="is-now">CLOSED</button>
+        <button class="is-next">OPEN</button>
+      </div>
+      <span class="vp-hint">current is lit &middot; click the other half</span>
+    </div>
+    <div class="vp-more">Channels &#9662;</div>
+  </div>`);
+
+const panelList = stage('Layout 2 — action list, on the valve',
+  valveObj('OPEN', 'limit-open'), `
+  <div class="vp">
+    ${head('OV-05', 'LOX main')}
+    <div class="vp-cmd">
+      <div class="seg" style="flex-direction:column">
+        <button class="is-next" style="text-align:left;padding-left:12px">CLOSE</button>
+        <button class="is-armed" style="text-align:left;padding-left:12px">OPEN &nbsp;&middot;&nbsp; current</button>
+      </div>
+      <span class="vp-hint">every row is a target, never a state</span>
+    </div>
+    <div class="vp-rows">
+      <div class="vp-row"><span class="r">OV-05-CMD</span><span class="v">1</span></div>
+      <div class="vp-row"><span class="r">OV-05-FB</span><span class="v">1</span></div>
+    </div>
+  </div>`);
+
+const panelSm = stage('State machine — same panel, on the object',
+  object({
+    glyph: (x, y, s) => glyphMachine(x, y, s, 0, 4, 'stop'),
+    name: 'DAQ001', value: 'safe', W: 210,
+  }), `
+  <div class="vp">
+    ${head('firingSequence', 'DAQ001')}
+    <div class="vp-cmd">
+      <div class="vp-states">
+        <div class="vp-state now">${svg(12, 12, smMark(6, 6, C.ok, 'stop'))}safe<span class="why">current</span></div>
+        <div class="vp-state">${svg(12, 12, smMark(6, 6, C.text, 'hold'))}manualControl</div>
+        <div class="vp-state gated">${svg(12, 12, smMark(6, 6, C.dim, 'run'))}autoSequence<span class="why">from manual only</span></div>
+        <div class="vp-state">${svg(12, 12, smMark(6, 6, C.text, 'abort'))}abort</div>
+      </div>
+      <span class="vp-hint">gated targets dimmed, not silently refused</span>
+    </div>
+  </div>`);
+
+document.getElementById('panels').innerHTML = panelSeg + panelList + panelSm;
 </script>
