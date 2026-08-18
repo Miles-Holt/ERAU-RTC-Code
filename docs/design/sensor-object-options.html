@@ -1,0 +1,434 @@
+<title>Front Panel Object System</title>
+<style>
+  :root {
+    /* Tokens lifted from WebClient/css/style.css so these are the real thing. */
+    --canvas:  #080808;
+    --surface: #101010;
+    --object:  #181818;
+    --border:  #242424;
+    --rule:    #1b1b1b;
+    --text:    #d0d8d8;
+    --muted:   #909898;
+    --dim:     #5c6464;
+    --accent:  #58a6ff;
+    --ok:      #3fb950;
+    --warn:    #e3b341;
+    --bad:     #f85149;
+
+    --sans: ui-sans-serif, "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--canvas);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 56px 28px 96px; }
+
+  header.page { border-bottom: 1px solid var(--rule); padding-bottom: 28px; margin-bottom: 36px; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--dim); margin: 0 0 12px;
+  }
+
+  h1 { font-size: 30px; line-height: 1.2; font-weight: 600; margin: 0 0 14px; text-wrap: balance; letter-spacing: -0.01em; }
+  .lede { color: var(--muted); max-width: 68ch; margin: 0; }
+
+  h2 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -0.005em; }
+
+  h3 {
+    font-family: var(--mono);
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--dim); margin: 0 0 14px; font-weight: 500;
+  }
+
+  p { margin: 0 0 14px; max-width: 72ch; }
+  p:last-child { margin-bottom: 0; }
+
+  code, .k {
+    font-family: var(--mono); font-size: 0.88em; color: var(--text);
+    background: #141414; border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px;
+  }
+
+  /* Feedback applied */
+  .applied { border: 1px solid var(--border); background: var(--surface); padding: 18px 22px; margin: 0 0 44px; }
+  .applied ul { margin: 0; padding-left: 18px; }
+  .applied li { margin-bottom: 6px; font-size: 13.5px; color: var(--muted); }
+  .applied li:last-child { margin-bottom: 0; }
+  .applied strong { color: var(--text); font-weight: 600; }
+  .applied .tag {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ok); display: block; margin-bottom: 10px;
+  }
+
+  section.block { margin-bottom: 58px; }
+  .block-head { display: flex; align-items: baseline; gap: 14px; border-bottom: 1px solid var(--rule); padding-bottom: 12px; margin-bottom: 20px; }
+  .block-head .id { font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: 0.1em; }
+  .block-head .size { margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: var(--dim); }
+
+  .matrix-scroll { overflow-x: auto; padding-bottom: 6px; margin: 20px 0; }
+  .matrix { display: flex; gap: 1px; background: var(--rule); border: 1px solid var(--rule); min-width: min-content; }
+  .cell {
+    background: var(--canvas); padding: 14px 12px 12px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 172px;
+  }
+  .cell .label {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--dim); white-space: nowrap;
+  }
+  .cell .sub { font-size: 11.5px; color: var(--dim); text-align: center; line-height: 1.35; max-width: 150px; }
+  .cell svg { display: block; }
+
+  .note { font-size: 13.5px; color: var(--muted); }
+  .note strong { color: var(--text); font-weight: 600; }
+
+  .anatomy { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .anatomy .a { background: var(--surface); padding: 16px 16px 18px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+  .anatomy .t { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text); }
+  .anatomy .d { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+
+  .qs { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .q { background: var(--surface); padding: 16px 20px; }
+  .q .num { font-family: var(--mono); font-size: 11px; color: var(--accent); margin-right: 10px; }
+  .q .t { font-weight: 600; }
+  .q .b { font-size: 13.5px; color: var(--muted); margin-top: 5px; }
+
+  footer.page { margin-top: 52px; padding-top: 20px; border-top: 1px solid var(--rule); font-size: 12.5px; color: var(--dim); }
+</style>
+
+<div class="wrap">
+
+<header class="page">
+  <p class="eyebrow">P&amp;ID front panel · one object system</p>
+  <h1>Front Panel Object System</h1>
+  <p class="lede">
+    One way of drawing every object on the panel. A sensor, a valve and a state machine are
+    the same construction — an optional glyph, an optional title, and a line of live text —
+    so the panel reads as one instrument rather than three widget families. Everything is
+    drawn at true size in the app's own palette.
+  </p>
+</header>
+
+<div class="applied">
+  <span class="tag">Your notes, applied</span>
+  <ul>
+    <li><strong>Inline is the base.</strong> No box. The glyph and the title are both opt-in per object.</li>
+    <li><strong>The status dot is gone.</strong> State is carried by the colour of the reading itself, and by the glyph's ring when a glyph is present.</li>
+    <li><strong>Out of range is visible, not loud</strong> — the number turns red and the ring turns red. Nothing moves, nothing flashes.</li>
+    <li><strong>Alarm is the loud state, and only a configured alert can raise it.</strong> Nothing auto-alarms from <span class="k">validMin</span>/<span class="k">validMax</span>: those are plausibility bounds on a system that is not live yet, so a blanket rule would cry wolf from day one. <em>This also means dropping the blanket <span class="k">on bad_data</span> line from the every-daqNode alert template — a config change, noted below.</em></li>
+    <li><strong>No sparkline.</strong></li>
+    <li><strong>The glyph is the family resemblance:</strong> an instrument balloon for a sensor, the valve symbol for a valve, a state ring for a machine — same circle, same ring, different interior.</li>
+  </ul>
+</div>
+
+<section class="block">
+  <div class="block-head"><span class="id">ANATOMY</span><h2>Three parts, all optional but the reading</h2></div>
+  <div class="anatomy" id="anatomy"></div>
+</section>
+
+<section class="block">
+  <div class="block-head"><span class="id">COMPOSITION</span><h2>The same sensor, four ways</h2><span class="size">per-object toggles</span></div>
+  <p class="note">Glyph and title are independent switches, so a panel can carry dense readings in the corner and fully labelled instruments where it matters — without two renderers.</p>
+  <div class="matrix-scroll"><div class="matrix" id="composition"></div></div>
+</section>
+
+<section class="block">
+  <div class="block-head"><span class="id">SENSOR</span><h2>Instrument balloon</h2><span class="size">glyph Ø 34</span></div>
+  <p class="note">The ISA 5.1 balloon: tag split across a centre line. The ring carries data quality; the number carries the value. Shown here with glyph and title on, which is the loudest the sensor gets.</p>
+  <div class="matrix-scroll"><div class="matrix" id="sensor"></div></div>
+</section>
+
+<section class="block">
+  <div class="block-head"><span class="id">VALVE</span><h2>Valve symbol</h2><span class="size">glyph Ø 34 — same ring</span></div>
+  <p class="note">Same circle, same ring semantics, valve symbol inside: the line lies across the bore when shut and along it when open, with an arc and pointer for a percentage feedback. The text line reads the commanded state rather than a number.</p>
+  <div class="matrix-scroll"><div class="matrix" id="valve"></div></div>
+</section>
+
+<section class="block">
+  <div class="block-head"><span class="id">STATE MACHINE</span><h2>State ring</h2><span class="size">glyph Ø 34 — segmented</span></div>
+  <p class="note">The ring is divided into one segment per state, with the current one lit — so position in the sequence is readable at a glance, before you read the word. The text line names the state; the operator's target dropdown sits below it as it does today.</p>
+  <div class="matrix-scroll"><div class="matrix" id="machine"></div></div>
+</section>
+
+<section class="block">
+  <div class="block-head"><span class="id">DECISIONS</span><h2>Still yours to call</h2></div>
+  <div class="qs">
+    <div class="q">
+      <div><span class="num">01</span><span class="t">How loud is "loud" for a configured alarm?</span></div>
+      <div class="b">Drawn here as a thickened ring plus a filled marker — static. The step up from that is a slow pulse, which is genuinely impossible to miss across a room and genuinely irritating if it sits unacknowledged for an hour. Say which and I will build it.</div>
+    </div>
+    <div class="q">
+      <div><span class="num">02</span><span class="t">Should the ring double as a range indicator?</span></div>
+      <div class="b">The ring is currently a status colour only. It could instead sweep like a gauge — filling as the value crosses its band — which reads well for a pressure and means nothing for a thermocouple. Cheap to add later; awkward to retrofit if the ring already means three other things.</div>
+    </div>
+    <div class="q">
+      <div><span class="num">03</span><span class="t">Valve: is the mismatch state worth its own look?</span></div>
+      <div class="b">Commanded open, feedback says shut — today that shows as a red ring, identical to a comms fault. They are different problems: one is a stuck valve, the other is a dead link. I would give the stuck valve its own mark, but it costs a distinct visual that has to stay legible at 34 px.</div>
+    </div>
+    <div class="q">
+      <div><span class="num">04</span><span class="t">Confirm the alert-template change.</span></div>
+      <div class="b">Per your note, I will drop <span class="k">on bad_data -&gt; warning</span> from the every-daqNode template in <span class="k">config/alerts/alerts.alert</span>, so out-of-range readings stop raising automatic alerts and only explicitly written rules do. Disconnect, reconnect and stale stay as they are.</div>
+    </div>
+  </div>
+</section>
+
+<footer class="page">
+  True size on the 20 px grid. Colours are the tokens from <span class="k">WebClient/css/style.css</span>.
+  Dark only — these objects never render on a light ground.
+</footer>
+
+</div>
+
+<script>
+const C = {
+  object: '#181818', border: '#242424', text: '#d0d8d8', muted: '#909898',
+  dim: '#5c6464', accent: '#58a6ff', ok: '#3fb950', warn: '#e3b341', bad: '#f85149',
+  track: '#242424', canvas: '#080808',
+};
+
+const MONO = 'ui-monospace, Consolas, monospace';
+const SANS = 'ui-sans-serif, Segoe UI, sans-serif';
+const R = 17;                      // glyph radius — one number for all three families
+
+const svg = (w, h, inner) =>
+  `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+
+// One state vocabulary shared by every object type. `ring` is the glyph outline,
+// `ink` is the live text. Nothing here animates except `alarm`, which is the only
+// state a configured alert can raise.
+function look(s) {
+  switch (s) {
+    case 'live':    return { ring: C.border, ink: C.text, loud: false };
+    case 'nodata':  return { ring: C.border, ink: C.dim,  loud: false };
+    case 'stale':   return { ring: C.warn,   ink: C.warn, loud: false };
+    case 'range':   return { ring: C.bad,    ink: C.bad,  loud: false };
+    case 'offline': return { ring: C.bad,    ink: C.dim,  loud: false };
+    case 'unbound': return { ring: C.dim,    ink: C.dim,  loud: false };
+    case 'alarm':   return { ring: C.bad,    ink: C.bad,  loud: true  };
+    case 'select':  return { ring: C.accent, ink: C.text, loud: false };
+    default:        return { ring: C.border, ink: C.text, loud: false };
+  }
+}
+
+function ringAttrs(L, s) {
+  const w = L.loud ? 3 : 1.5;
+  const dash = s === 'select' ? ' stroke-dasharray="3 2"' : '';
+  return `stroke="${L.ring}" stroke-width="${w}"${dash}`;
+}
+
+// ── Glyphs ──────────────────────────────────────────────────────────────────
+// Same circle and ring for all three; only the interior changes. That shared
+// construction is the whole point of the system.
+
+function glyphSensor(cx, cy, s, tagTop, tagBot) {
+  const L = look(s);
+  const bad = s === 'unbound';
+  return `
+    <circle cx="${cx}" cy="${cy}" r="${R}" fill="${C.object}" ${ringAttrs(L, s)}/>
+    <line x1="${cx - R + 1}" y1="${cy}" x2="${cx + R - 1}" y2="${cy}" stroke="${C.border}" stroke-width="1"/>
+    <text x="${cx}" y="${cy - 5}" text-anchor="middle" font-family="${MONO}" font-size="9.5"
+          fill="${bad ? C.bad : C.muted}">${tagTop}</text>
+    <text x="${cx}" y="${cy + 12}" text-anchor="middle" font-family="${MONO}" font-size="9.5"
+          fill="${bad ? C.bad : C.muted}">${tagBot}</text>
+    ${L.loud ? `<circle cx="${cx + 13}" cy="${cy - 13}" r="4" fill="${C.bad}"/>` : ''}`;
+}
+
+function glyphValve(cx, cy, s, pos) {
+  // pos: 'shut' | 'open' | number (percent) | 'uncfg'
+  const L = look(s);
+  const l = R - 5;
+  let inner = '';
+  if (pos === 'uncfg') {
+    inner = `<line x1="${cx - l}" y1="${cy + l}" x2="${cx + l}" y2="${cy - l}"
+                   stroke="${C.dim}" stroke-width="1.5"/>`;
+  } else if (typeof pos === 'number') {
+    // Percentage feedback: arc sweep plus a pointer, as the current valve does.
+    const a0 = Math.PI * 0.75, a1 = a0 + Math.PI * 1.5 * (pos / 100);
+    const ax = cx + Math.cos(a1) * (R - 4), ay = cy + Math.sin(a1) * (R - 4);
+    const large = (pos / 100) > 0.5 ? 1 : 0;
+    inner = `
+      <path d="M ${cx + Math.cos(a0) * (R - 4)} ${cy + Math.sin(a0) * (R - 4)}
+               A ${R - 4} ${R - 4} 0 ${large} 1 ${ax} ${ay}"
+            fill="none" stroke="${L.ink}" stroke-width="2"/>
+      <circle cx="${ax}" cy="${ay}" r="3" fill="${L.ink}"/>
+      <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-family="${MONO}"
+            font-size="10" font-weight="700" fill="${L.ink}">${pos}</text>`;
+  } else {
+    // Bore line: across the bore when shut, along it when open.
+    const shut = pos === 'shut';
+    inner = shut
+      ? `<line x1="${cx}" y1="${cy - l}" x2="${cx}" y2="${cy + l}" stroke="${L.ink}" stroke-width="2.5"/>`
+      : `<line x1="${cx - l}" y1="${cy}" x2="${cx + l}" y2="${cy}" stroke="${C.ok}" stroke-width="2.5"/>`;
+  }
+  return `
+    <circle cx="${cx}" cy="${cy}" r="${R}" fill="${C.object}" ${ringAttrs(L, s)}/>
+    ${inner}
+    ${L.loud ? `<circle cx="${cx + 13}" cy="${cy - 13}" r="4" fill="${C.bad}"/>` : ''}`;
+}
+
+function glyphMachine(cx, cy, s, idx, total) {
+  // Ring split into one segment per state; the live one is lit.
+  const L = look(s);
+  const gap = 0.16, seg = (Math.PI * 2) / total;
+  let arcs = '';
+  for (let i = 0; i < total; i++) {
+    const a0 = -Math.PI / 2 + i * seg + gap / 2;
+    const a1 = a0 + seg - gap;
+    const lit = i === idx;
+    const rr = R + 3;
+    const x0 = cx + Math.cos(a0) * rr, y0 = cy + Math.sin(a0) * rr;
+    const x1 = cx + Math.cos(a1) * rr, y1 = cy + Math.sin(a1) * rr;
+    arcs += `<path d="M ${x0} ${y0} A ${rr} ${rr} 0 0 1 ${x1} ${y1}" fill="none"
+                   stroke="${lit ? (idx >= 0 ? L.ring : C.dim) : C.border}"
+                   stroke-width="${lit ? (L.loud ? 4 : 3) : 2}" stroke-linecap="round"/>`;
+  }
+  const label = s === 'unbound' ? '??' : String(idx >= 0 ? idx + 1 : '-');
+  return `
+    ${arcs}
+    <circle cx="${cx}" cy="${cy}" r="${R - 2}" fill="${C.object}" stroke="${C.border}" stroke-width="1"/>
+    <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-family="${MONO}" font-size="12"
+          font-weight="700" fill="${L.ink}">${label}</text>
+    ${L.loud ? `<circle cx="${cx + 14}" cy="${cy - 14}" r="4" fill="${C.bad}"/>` : ''}`;
+}
+
+// ── Object rows ─────────────────────────────────────────────────────────────
+// An object is: [glyph?] [title?] + reading. Text left-aligns to a fixed x so a
+// column of objects lines up whether or not each one carries a glyph.
+
+function object(opts) {
+  const { state, glyph, title, tag, value, units, W = 190, H = 54 } = opts;
+  const L = look(state);
+  const hasGlyph = !!glyph;
+  const tx = hasGlyph ? 2 * R + 14 : 4;
+  const cy = H / 2;
+  const titleY = title ? cy - 14 : null;
+  const tagY = title ? cy + 1 : cy - 7;
+  const valY = title ? cy + 18 : cy + 13;
+  return svg(W, H, `
+    ${state === 'select' && !hasGlyph
+      ? `<rect x="1" y="4" width="${W - 2}" height="${H - 8}" rx="3" fill="none"
+               stroke="${C.accent}" stroke-width="1.5" stroke-dasharray="3 2"/>` : ''}
+    ${hasGlyph ? glyph(R + 4, cy, state) : ''}
+    ${title ? `<text x="${tx}" y="${titleY}" font-family="${SANS}" font-size="9" font-style="italic"
+                     fill="${C.dim}">${title}</text>` : ''}
+    <text x="${tx}" y="${tagY}" font-family="${MONO}" font-size="9.5" letter-spacing="0.05em"
+          fill="${state === 'unbound' ? C.bad : C.dim}">${tag}</text>
+    <text x="${tx}" y="${valY}" font-family="${MONO}" font-size="17" font-weight="700"
+          fill="${L.ink}">${value}</text>
+    ${units ? `<text x="${tx + String(value).length * 10.3 + 6}" y="${valY}" font-family="${SANS}"
+                     font-size="9.5" fill="${C.dim}">${units}</text>` : ''}
+  `);
+}
+
+// ── Content ─────────────────────────────────────────────────────────────────
+const SENSOR_STATES = [
+  ['live',    'Live',         'Fresh, inside its band.'],
+  ['nodata',  'No data yet',  'Configured; nothing has published it since startup.'],
+  ['stale',   'Stale',        'No update within channelStaleMs. The number on screen may be minutes old.'],
+  ['range',   'Out of range', 'Past validMin/validMax. Visible, deliberately not loud.'],
+  ['offline', 'Node offline', 'The owning DAQ dropped. Will not recover on its own.'],
+  ['unbound', 'Unbound',      'controlRefDes names nothing in the config.'],
+  ['alarm',   'Alarm',        'A configured alert rule is raised and unacknowledged.'],
+  ['select',  'Selected',     'Editor only.'],
+];
+
+const VALVE_STATES = [
+  ['live',    'Shut',         'shut',  'CLOSED'],
+  ['live',    'Open',         'open',  'OPEN'],
+  ['live',    'Throttled',    45,      '45%'],
+  ['range',   'Mismatch',     'shut',  'CMD OPEN'],
+  ['stale',   'Stale',        'shut',  'CLOSED'],
+  ['offline', 'Node offline', 'shut',  '- -'],
+  ['unbound', 'Unconfigured', 'uncfg', '- -'],
+  ['alarm',   'Alarm',        'open',  'OPEN'],
+  ['select',  'Selected',     'shut',  'CLOSED'],
+];
+
+const MACHINE_STATES = [
+  ['live',    'Safe',          0, 'safe'],
+  ['live',    'Manual',        1, 'manualControl'],
+  ['live',    'Auto sequence', 2, 'autoSequence'],
+  ['alarm',   'Abort',         3, 'abort'],
+  ['stale',   'Stale',         2, 'autoSequence'],
+  ['offline', 'Node offline', -1, '- -'],
+  ['unbound', 'Unbound',      -1, '- -'],
+  ['select',  'Selected',      0, 'safe'],
+];
+
+// Anatomy
+document.getElementById('anatomy').innerHTML = [
+  ['Reading only', object({ state: 'live', tag: 'CPT-01', value: '412.6', units: 'psia', W: 170 }),
+   'The base object. No chrome, no glyph — for the many readings that are context rather than the thing you are watching.'],
+  ['+ glyph', object({ state: 'live', glyph: (x, y, s) => glyphSensor(x, y, s, 'PT', '01'), tag: 'CPT-01', value: '412.6', units: 'psia' }),
+   'Adds the instrument balloon. Turns a number into something a P&amp;ID reader recognises, and gives state a second carrier: the ring.'],
+  ['+ title', object({ state: 'live', title: 'Chamber pressure', tag: 'CPT-01', value: '412.6', units: 'psia', W: 170 }),
+   'Adds the control description above the tag, for objects whose refDes is not self-explanatory to a visitor.'],
+  ['+ both', object({ state: 'live', glyph: (x, y, s) => glyphSensor(x, y, s, 'PT', '01'), title: 'Chamber pressure', tag: 'CPT-01', value: '412.6', units: 'psia' }),
+   'Everything on. Reserved for the few instruments that carry a test.'],
+].map(([t, s, d]) => `<div class="a"><span class="t">${t}</span>${s}<span class="d">${d}</span></div>`).join('');
+
+// Composition
+document.getElementById('composition').innerHTML = [
+  ['Reading only', {}],
+  ['+ title',      { title: 'Chamber pressure' }],
+  ['+ glyph',      { glyph: (x, y, s) => glyphSensor(x, y, s, 'PT', '01') }],
+  ['+ both',       { glyph: (x, y, s) => glyphSensor(x, y, s, 'PT', '01'), title: 'Chamber pressure' }],
+].map(([label, extra]) => `
+  <div class="cell">
+    <span class="label">${label}</span>
+    ${object(Object.assign({ state: 'live', tag: 'CPT-01', value: '412.6', units: 'psia' }, extra))}
+  </div>`).join('');
+
+// Sensor matrix
+document.getElementById('sensor').innerHTML = SENSOR_STATES.map(([s, label, desc]) => `
+  <div class="cell">
+    <span class="label">${label}</span>
+    ${object({
+      state: s,
+      glyph: (x, y, st) => glyphSensor(x, y, st, s === 'unbound' ? '??' : 'PT', s === 'unbound' ? '--' : '01'),
+      title: 'Chamber pressure',
+      tag: s === 'unbound' ? 'PT-99 ?' : 'CPT-01',
+      value: (s === 'nodata' || s === 'offline' || s === 'unbound') ? '- -' : (s === 'range' || s === 'alarm' ? '918.4' : '412.6'),
+      units: 'psia',
+    })}
+    <span class="sub">${desc}</span>
+  </div>`).join('');
+
+// Valve matrix
+document.getElementById('valve').innerHTML = VALVE_STATES.map(([s, label, pos, text]) => `
+  <div class="cell">
+    <span class="label">${label}</span>
+    ${object({
+      state: s,
+      glyph: (x, y, st) => glyphValve(x, y, st, pos),
+      title: 'LOX main valve',
+      tag: s === 'unbound' ? 'OV-99 ?' : 'OV-05',
+      value: text,
+      W: 200,
+    })}
+  </div>`).join('');
+
+// State machine matrix
+document.getElementById('machine').innerHTML = MACHINE_STATES.map(([s, label, idx, text]) => `
+  <div class="cell">
+    <span class="label">${label}</span>
+    ${object({
+      state: s,
+      glyph: (x, y, st) => glyphMachine(x, y, st, idx, 4),
+      title: 'firingSequence',
+      tag: s === 'unbound' ? 'SM-?? ' : 'DAQ001',
+      value: text,
+      W: 230,
+    })}
+  </div>`).join('');
+</script>
