@@ -104,6 +104,42 @@
   .settled li:last-child { margin-bottom: 0; }
   .settled strong { color: var(--text); font-weight: 600; }
 
+
+  /* "Today" — the current widgets, rebuilt from their real markup and CSS so the
+     comparison is honest. Values taken from valveDropdown.js, alerts.js and the
+     .pid-daqctrl-select / .valve-panel rules in style.css. */
+  .today { display: grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .today .t-cell { background: var(--canvas); padding: 18px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+  .today .t-lab { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+  .today .t-note { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+  .today .t-note strong { color: var(--text); font-weight: 600; }
+
+  /* current valve panel */
+  .vpanel { width: 244px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; font-family: var(--sans); }
+  .vpanel-h { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .vpanel-pin { background: none; border: 1px solid var(--border); border-radius: 4px; color: var(--muted); font-size: 10px; padding: 2px 7px; }
+  .vpanel-t { font-size: 11.5px; color: var(--text); }
+  .vpanel-x { margin-left: auto; color: var(--muted); font-size: 13px; }
+  .vpanel-r { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-bottom: 1px solid var(--rule); }
+  .vpanel-r:last-child { border-bottom: 0; }
+  .vpanel-lab { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+  .vpanel-val { font-family: var(--mono); font-size: 12px; color: var(--warn); opacity: 0.6; margin-left: auto; }
+  .vpanel-btns { display: flex; gap: 4px; }
+  .vpanel-btns button { font-size: 10px; padding: 3px 9px; border-radius: 4px; border: 1px solid var(--border); background: var(--object); color: var(--muted); }
+
+  /* current state-machine select */
+  .selbox {
+    font: 500 10px/1 var(--sans); background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); border-radius: 3px; padding: 4px 6px;
+    display: inline-flex; align-items: center; gap: 20px; min-width: 150px;
+  }
+  .selbox .caret { margin-left: auto; color: var(--muted); font-size: 9px; }
+
+  /* current alert badges — the actual emoji, at the size they render */
+  .badges { display: flex; flex-direction: column; gap: 8px; }
+  .badge { font-family: var(--sans); font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+  .badge-info { color: #58a6ff; } .badge-warning { color: #e3b341; } .badge-alarm { color: #f78166; }
+
   section.block { margin-bottom: 58px; }
   .block-head { display: flex; align-items: baseline; gap: 14px; border-bottom: 1px solid var(--rule); padding-bottom: 12px; margin-bottom: 20px; }
   .block-head .id { font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: 0.1em; }
@@ -238,29 +274,92 @@
   </ol>
 </nav>
 
-<details class="settled">
-  <summary><span class="s-tag">Settled this round</span><span class="s-n">13 changes from your annotations — expand to check I read them right</span></summary>
-  <ul>
-    <li><strong>No centre line in the bubble.</strong> The ISA tag-split is gone.</li>
-    <li><strong>The name line is the title.</strong> The italic description above the tag is gone; the <span class="k">CPT-01</span> line is now the title, in its own formatting.</li>
-    <li><strong>Decimals are per object</strong> — display only, default 2, set in the editor. The wire value is untouched.</li>
-    <li><strong>Units are hidable</strong> per object.</li>
-    <li><strong>Unbound is grey, not red</strong> — dashed ring, italic text. A drawing mistake is not an alarm.</li>
-    <li><strong>No marker dot on alarm.</strong> Loud is a thickened ring and nothing else. Static, no pulse.</li>
-    <li><strong>Drawn marks, no emoji.</strong> The alert bar's icons become drawn SVG on the glyph grid.</li>
-    <li><strong>The state ring loses its number.</strong> Position is carried by the lit segment.</li>
-    <li><strong>Abort is just a state.</strong> Its colour comes from a raised alert, never from its name.</li>
-    <li><strong>Closed is 45°</strong> on I/O-position valves, and position feedback gets its own ring — drawn differently for continuous and limit-switched.</li>
-    <li><strong>Mismatch is not a look, it is an alert</strong> — a templated <em>valve not responding to command</em> rule.</li>
-    <li><strong>Selection is a white glow, not a state.</strong> It layers under the object, so an alarming object stays red while selected, and it works in the panel as well as the editor.</li>
-    <li><strong>The dropdown stays</strong>, rebuilt around the click count rather than replaced with a gesture.</li>
-  </ul>
-</details>
+<p class="note" style="margin:0 0 40px">
+  Thirteen changes from your annotations are already applied below — the bubble has no centre
+  line, the name line is the title, unbound is grey, alarm is a thickened ring and nothing else,
+  abort is an ordinary state, mismatch is an alert rather than a look, and selection is a glow
+  that layers under the object. Rather than list them, the permutations are drawn.
+</p>
+
+
+<section class="block" id="today">
+  <div class="block-head"><span class="id">TODAY</span><h2>What you have now</h2><span class="size">rebuilt from the real markup</span></div>
+  <p class="note">
+    Before choosing anything, here is the current article — the valve dropdown, the state-machine
+    picker and the alert badges as they render today, rebuilt from
+    <span class="k">valveDropdown.js</span>, <span class="k">pid.js</span> and
+    <span class="k">alerts.js</span> with the same CSS values. If one of these is already fine,
+    the honest answer is to keep it.
+  </p>
+  <div class="today">
+    <div class="t-cell">
+      <span class="t-lab">Valve dropdown — today</span>
+      <div class="vpanel">
+        <div class="vpanel-h">
+          <button class="vpanel-pin">Pin</button>
+          <span class="vpanel-t">OV-05 &mdash; LOX main</span>
+          <span class="vpanel-x">&#215;</span>
+        </div>
+        <div class="vpanel-r">
+          <span class="vpanel-lab">OV-05-CMD</span>
+          <span class="vpanel-btns"><button>Open</button><button>Close</button></span>
+        </div>
+        <div class="vpanel-r">
+          <span class="vpanel-lab">OV-05-FB</span>
+          <span class="vpanel-val">- -</span>
+        </div>
+      </div>
+      <span class="t-note">
+        Opens centred on the object. <strong>Pin</strong> is opt-in, so any click outside dismisses
+        it first time. One channel per row; the command sits in the row, not at the top.
+      </span>
+    </div>
+
+    <div class="t-cell">
+      <span class="t-lab">State machine — today</span>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">DAQ001</span>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--text)">State: safe</span>
+        <span class="selbox">-- transition -- <span class="caret">&#9662;</span></span>
+      </div>
+      <span class="t-note">
+        A native <span class="k">&lt;select&gt;</span> in a <span class="k">foreignObject</span>,
+        10&nbsp;px. It lists operator-legal targets, but a target refused by
+        <span class="k">operator from</span> gating looks identical to a legal one until the
+        server rejects it.
+      </span>
+    </div>
+
+    <div class="t-cell">
+      <span class="t-lab">Alert badges — today</span>
+      <div class="badges">
+        <span class="badge badge-info">&#8505;&#65039; 2</span>
+        <span class="badge badge-warning">&#9888;&#65039; 1</span>
+        <span class="badge badge-alarm">&#128680; 3</span>
+      </div>
+      <span class="t-note">
+        System emoji from <span class="k">_categoryIcon()</span>. They render differently on every
+        machine and ignore the palette — and the badge <em>pulses</em> whenever the count is above
+        zero, which is the one animation currently in the UI.
+      </span>
+    </div>
+  </div>
+</section>
 
 <section class="block" id="pick-bubble">
   <div class="block-head"><span class="id">BUBBLES</span><h2>Four interiors, no centre line</h2><span class="pick">pick one</span></div>
   <p class="note">Same circle and same ring in all four — only what sits inside changes. Each cell draws the option twice: a short tag, then the case that stresses it, a long one. <strong>B</strong> and <strong>C</strong> keep the P&amp;ID reading habit; <strong>A</strong> and <strong>D</strong> lean on the name line below to carry the tag.</p>
   <div class="matrix-scroll"><div class="matrix" id="bubbles"></div></div>
+
+  <p class="note" style="margin-top:22px"><strong>C and D in context.</strong> The two you are
+  leaning towards, drawn through the states rather than as a single specimen — C above, D below in
+  each cell. This is the comparison the page was missing.</p>
+  <div class="matrix-scroll"><div class="matrix" id="ctx"></div></div>
+
+  <p class="note" style="margin-top:22px"><strong>Every display permutation</strong>, so the
+  per-object toggles are visible rather than described: the glyph, the name line, units, and the
+  decimal places.</p>
+  <div class="matrix-scroll"><div class="matrix" id="perms"></div></div>
 </section>
 
 <section class="block">
@@ -763,6 +862,35 @@ const bubbleAlt = {
   D: (x, y, s) => bubbleD(x, y, s, 'temp'),
 };
 
+const CTX_STATES = [
+  ['live', 'Live'], ['stale', 'Stale'], ['range', 'Out of range'],
+  ['alarm', 'Alarm'], ['unbound', 'Unbound'],
+];
+
+const glyphC = (x, y, s) => bubbleC(x, y, s, 'PT');
+const glyphD = (x, y, s) => bubbleD(x, y, s, 'press');
+
+cells('ctx', CTX_STATES.map(([st, lab]) => cell(lab,
+  object({ state: st, glyph: glyphC, name: 'CPT-01', value: 412.63, units: 'psia', W: 176 }) +
+  object({ state: st, glyph: glyphD, name: 'CPT-01', value: 412.63, units: 'psia', W: 176 }),
+  st === 'unbound' ? 'C keeps its letters; D keeps its mark. Both go grey and italic.'
+                   : (st === 'alarm' ? 'Ring thickens. Nothing moves.' : ''))));
+
+const PERMS = [
+  ['glyph · name · units', { glyph: glyphC }],
+  ['glyph · name', { glyph: glyphC, units: '' }],
+  ['glyph only', { glyph: glyphC, showName: false, units: '' }],
+  ['name · units', {}],
+  ['name only', { units: '' }],
+  ['reading only', { showName: false, units: '' }],
+  ['0 dp', { glyph: glyphC, decimals: 0 }],
+  ['1 dp', { glyph: glyphC, decimals: 1 }],
+  ['3 dp', { glyph: glyphC, decimals: 3 }],
+];
+
+cells('perms', PERMS.map(([lab, extra]) => cell(lab,
+  object(Object.assign({ name: 'CPT-01', value: 412.63, units: 'psia', W: 176 }, extra)))));
+
 cells('bubbles', BUBBLE_OPTS.map(([id, nm, g, d]) => cell(
   id + ' — ' + nm,
   object({ glyph: g, name: 'CPT-01', value: 412.63, units: 'psia', W: 168 }) +
@@ -824,7 +952,7 @@ cells('sensor', SENSOR_STATES.map(([s, label, v, desc, sel]) => cell(label, obje
   value: v === null ? '- -' : v,
   decimals: 2,
   units: 'psia',
-}), desc));
+}), desc)));
 
 // ── Valve feedback ──────────────────────────────────────────────────────────
 cells('valvefb', [
@@ -860,7 +988,7 @@ cells('valve', VALVE_STATES.map(([s, label, pos, fb, text, sel]) => cell(label, 
   name: s === 'unbound' ? 'OV-99 ?' : 'OV-05',
   value: text,
   W: 200,
-}), label === 'Alarm' ? 'Commanded open, shut switch still made — the "valve not responding" alert is what makes it red.' : ''));
+}), label === 'Alarm' ? 'Commanded open, shut switch still made — the "valve not responding" alert is what makes it red.' : '')));
 
 // ── State machine ───────────────────────────────────────────────────────────
 const MACHINE_STATES = [
@@ -883,7 +1011,7 @@ cells('machine', MACHINE_STATES.map(([s, label, idx, text, mark, sel]) => cell(l
   value: text,
   W: 236,
 }), label === 'Abort' ? 'An ordinary state. Nothing red about the word itself.'
-   : label === 'Abort + alert' ? 'The same state with an alert raised — this is the only thing that makes it loud.' : ''));
+   : label === 'Abort + alert' ? 'The same state with an alert raised — this is the only thing that makes it loud.' : '')));
 
 // ── State-ring interior mark ────────────────────────────────────────────────
 const smRow = svgs =>
