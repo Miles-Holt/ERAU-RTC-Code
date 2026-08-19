@@ -1,0 +1,137 @@
+# Object Side Panel — work log
+
+Tracking doc for building out the object side panel. The design and the reasoning
+behind each decision live in `docs/design/object-side-panel.html` (published as an
+Artifact, with the decision threads in its comments). **This file is the status of
+the build**, not the design; when the two disagree, the HTML is the design of
+record and this file is wrong.
+
+Started 2026-08-18.
+
+## How the pieces fit
+
+- `WebClient/js/objectSidebar.js` — the panel as it exists today (163 lines): a
+  chart, every channel on the control, a regex box. Everything below either
+  extends it or replaces part of it.
+- `WebClient/js/` is the **source**. `controlnode/static/` is a mirrored copy that
+  the server embeds; the two are byte-identical today, and every change to a file
+  under `WebClient/` must be copied to its twin under `controlnode/static/`.
+  Editing `controlnode/static/` alone gets overwritten.
+- Alerts are evaluated server-side in `controlnode/alerts/` (`config.go` parses
+  the `.alert` DSL, `engine.go` evaluates, `registry.go` holds raised state). The
+  browser only renders what the server publishes. Anything on this list that
+  changes alert behaviour is a Go change first and a JS change second.
+- The wire format is documented in `docs/websocket-protocol.md`, mirrored into
+  `controlnode/webclient/embedded/websocket-protocol.md`. Protocol changes touch
+  both, plus `controlnode/webclient/protocol_test.go`.
+
+## Bugs
+
+Reported 2026-08-18. Fix these before the menu items.
+
+| # | Bug | Status |
+|---|-----|--------|
+| B1 | The P&ID **editor** sometimes renders a valve in a different spot from where the code thinks it is. Self-corrects on refresh or on any re-render, so it is a stale-render / transform desync rather than bad geometry. | not started |
+| B2 | Pipes do not leave sensors (all four sides) or the machine "SM" block (top and bottom) perpendicular to the edge — they exit at an angle or with an immediate kink. Suspected: sensor ports are computed off-grid (`PID.GRID` is 20, but the bubble sits at `R + 6 = 23`), and `portPos` in `WebClient/js/pidRender.js` has **no case for `type: 'machine'` at all**, so every machine port falls through to the object's top-left corner. | in progress |
+| B3 | Pinned actuation panels belong to the P&ID tab and correctly survive a tab switch, but they keep painting over the content of whatever tab you switch to. They should hide while P&ID is not the active tab and come back unchanged — still pinned, same binding — on return. | in progress |
+
+## Menu items
+
+Numbering matches the design doc and is deliberately stable — 10 and 13 are cut,
+not renumbered, so a reference to an item number means the same thing in the doc,
+in the Artifact comment threads, and here.
+
+### Make it behave like the rest of the panel
+
+| # | Item | Status |
+|---|------|--------|
+| 01 | Glow the object while its panel is open — wire the existing `.selected` class on open, clear on close | not started |
+| 02 | Esc and ✕ close it; a right-click on another object retargets rather than dismisses. **No pin** — side panels do not pin | not started |
+| 03 | Catch a missing control in the editor, not at right-click. Runtime stays silent; at load time walk the panel's declared controls and warn per key with no config entry, naming the control id and its location | not started |
+| 04 | Send aggregates, not every point — server-side per-bucket **min/max/last** at the requested resolution, raw points only for short windows | not started |
+| ~~10~~ | *Cut.* Command block in the panel — commanding stays in the command panel, one route to a command | — |
+
+### Show what the object is doing
+
+| # | Item | Status |
+|---|------|--------|
+| 05 | Live readings table under the chart — every channel with current value, units, per-object decimals | not started |
+| 06 | State line in the header — `LIVE / STALE / NO DATA / UNBOUND / ALARMING` as a pill, same vocabulary as the glyph | not started |
+| 07 | Raised alerts as rows, **no inline Ack**; a row opens a second right-side panel scoped to the alarm (plot, time-in-alarm, long description, Ack / Reset / Suppress) | not started |
+| 07a | A long description on the alert definition — optional `describe "…"` beside `message` in `config/alerts/alerts.alert`, same placeholder interpolation, rendered in the alarm panel | not started |
+| 07b | Somewhere to see what is suppressed — filter the alerts list by state, keep a suppressed count always visible, greyed row with a `Suppressed · until restart` pill | not started |
+| 08 | Which node owns it, and is that node up — `DAQ001 · connected 4m` in the header | not started |
+| 09 | A `channels` section on the alert declaring what its plot draws (`plot <ch>`, `line <value-or-channel> "<label>"`); the `bad_data` template becomes one consumer, emitting lines at validMin/validMax | not started |
+
+### Let the operator act
+
+| # | Item | Status |
+|---|------|--------|
+| 11 | Promote a channel to the Graph tab | not started |
+| 12 | Copy the **channel name** (not the refDes) from the readings table | not started |
+
+### Chart
+
+| # | Item | Status |
+|---|------|--------|
+| 14 | Plot `SM-<NAME>-STATE` as a step trace and render the index through `state_config` in the tooltip, so it reads `autoSequence` not `3` | not started |
+| 15 | Command and feedback as a pair — CMD and FB on one axis so lag is a visible gap | not started |
+| 16 | Freeze — stop the window advancing so a reading can be studied | not started |
+| ~~13~~ | *Cut.* Time presets — scroll-zoom is enough | — |
+
+## Decisions already made
+
+These were settled in the Artifact comment threads. Do not re-litigate them
+without going back to the user.
+
+- **Side panels never pin.** Pinning exists on the command panels; the side panel
+  does not get it.
+- **A control on the panel but not in the config fails silently at runtime.** The
+  editor is where that gets caught, at load time.
+- **Rebuilding the chart on every open is acceptable.** The refill is slow because
+  it ships raw points, so the fix is item 04 on the wire, not a client-side cache.
+  Do not build a warm-chart cache.
+- **Suppress is rule-level and volatile** — the rule stops evaluating until
+  someone unsuppresses it or the control node restarts.
+- **The valid band is not a feature of its own.** It is one alert declaring what
+  its plot needs (item 09).
+- **State transitions are a channel, not an annotation layer** (item 14), so they
+  pan, zoom, bucket and export like everything else.
+
+## Open questions
+
+Raised but not answered. Each blocks part of an item.
+
+1. **Does suppressing a currently-raised rule also resolve the standing alert?**
+   Leaving it standing keeps the record honest, but then Suppress alone does not
+   clear the red — and an operator will press it expecting exactly that. Blocks
+   the Suppress half of 07.
+2. **`channels` on the `every_daqnode` template needs `{refDes}` interpolation**,
+   since the template does not statically know which channel tripped. Blocks the
+   template half of 09.
+3. **What does an alert with a multi-channel condition plot by default?**
+   Suggested: make the `channels` section optional and fall back to the channels
+   named in the condition, so simple alerts need no config. Blocks 09.
+4. **Attribution does not exist.** `controlnode/alerts/registry.go` records only
+   `acked` and `resolved` — no operator identity, and the browser connects
+   anonymously. "Acked by" and "suppressed by" cannot be built without adding
+   identity first. Affects 07 and 07b.
+
+## Notes for a future session
+
+- Item 14 needs nothing new on the wire: `SM-<NAME>-STATE` already publishes the
+  state index in `data`, and `state_config` already ships `states[].name` with
+  `states[].index`. The enum-to-name rendering in the tooltip is the only new
+  work. The trace must **step, not interpolate** — a linear segment between index
+  3 and index 4 draws a state that never existed — it needs its own axis, and its
+  bucketing wants last-per-bucket rather than min/max.
+- Item 09's `line` value should be allowed to be a **channel**, not only a
+  literal. `LIM-CPT01-HIGH` is operator-settable, so a drawn limit that reads the
+  channel moves when the operator moves it and cannot disagree with the rule that
+  fired.
+- Item 04 and item 14 interact: state indices want last-per-bucket, ordinary
+  analogue channels want min/max-per-bucket. Bucketing needs to be per-channel,
+  not one global policy.
+- Item 04 and the cut of item 13 interact: with no time presets, the aggregate
+  request resolution has to come from the current pan/zoom window. That is the
+  right dependency — bucket size follows what is actually on screen.
