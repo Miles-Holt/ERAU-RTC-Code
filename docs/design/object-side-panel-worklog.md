@@ -88,7 +88,7 @@ in the Artifact comment threads, and here.
 | # | Item | Status |
 |---|------|--------|
 | 14 | Plot `SM-<NAME>-STATE` as a step trace and render the index through `state_config` in the tooltip | **done, awaiting validation** (`c96af5a`). Nothing new on the wire — the channel and state_config already carried what was needed. Own y-axis by default, tooltip falls back to the raw index when state_config hasn't arrived or the index is stale. |
-| 15 | Command and feedback as a pair — CMD and FB on one axis so lag is a visible gap | not started |
+| 15 | Command and feedback as a pair — CMD and FB on one axis so lag is a visible gap | **done, awaiting validation** (`c48c4fd`) — the "one axis" half was already true by construction (`graphDefaultYAxisId` only special-cases state channels); what was missing was stepped rendering. Generalised item 14's stepped-line check into `graphChannelIsDiscrete` (graph.js): true for state channels, any `cmd-bool` channel, and a valve's feedback channel when `ctrl.subType` says IO-FB (not POS-FB). Not runnable here — reasoned by hand against the four documented valve subTypes and the wire's 1/0 cmd-bool encoding. |
 | 16 | Freeze — stop the window advancing so a reading can be studied | not started |
 | ~~13~~ | *Cut.* Time presets — scroll-zoom is enough | — |
 
