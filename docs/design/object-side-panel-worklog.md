@@ -13,10 +13,12 @@ Started 2026-08-18.
 - `WebClient/js/objectSidebar.js` — the panel as it exists today (163 lines): a
   chart, every channel on the control, a regex box. Everything below either
   extends it or replaces part of it.
-- `WebClient/js/` is the **source**. `controlnode/static/` is a mirrored copy that
-  the server embeds; the two are byte-identical today, and every change to a file
-  under `WebClient/` must be copied to its twin under `controlnode/static/`.
-  Editing `controlnode/static/` alone gets overwritten.
+- `WebClient/js/` is the **source**. `controlnode/static/` is a mirrored copy the
+  server falls back to when `-webroot` is not pointed at `WebClient/`. It is
+  **gitignored**, so it never shows up in `git status` and is never committed —
+  which means a change that only lands in `WebClient/` looks complete in the diff
+  while the served copy is stale. Copy every touched file across, and do not
+  expect git to remind you.
 - Alerts are evaluated server-side in `controlnode/alerts/` (`config.go` parses
   the `.alert` DSL, `engine.go` evaluates, `registry.go` holds raised state). The
   browser only renders what the server publishes. Anything on this list that
@@ -33,7 +35,7 @@ Reported 2026-08-18. Fix these before the menu items.
 |---|-----|--------|
 | B1 | The P&ID **editor** sometimes renders a valve in a different spot from where the code thinks it is. Self-corrects on refresh or on any re-render, so it is a stale-render / transform desync rather than bad geometry. | not started |
 | B2 | Pipes do not leave sensors (all four sides) or the machine "SM" block (top and bottom) perpendicular to the edge — they exit at an angle or with an immediate kink. Suspected: sensor ports are computed off-grid (`PID.GRID` is 20, but the bubble sits at `R + 6 = 23`), and `portPos` in `WebClient/js/pidRender.js` has **no case for `type: 'machine'` at all**, so every machine port falls through to the object's top-left corner. | in progress |
-| B3 | Pinned actuation panels belong to the P&ID tab and correctly survive a tab switch, but they keep painting over the content of whatever tab you switch to. They should hide while P&ID is not the active tab and come back unchanged — still pinned, same binding — on return. | in progress |
+| B3 | Pinned actuation panels belong to the P&ID tab and correctly survive a tab switch, but they keep painting over the content of whatever tab you switch to. They should hide while P&ID is not the active tab and come back unchanged — still pinned, same binding — on return. | **fixed** (`fc39256`) — the panels are `position:fixed` on `document.body`, not inside a tab pane, so `activateTab`'s display toggle never reached them. Panels now carry their opening tab's id and `activateTab` asserts visibility. |
 
 ## Menu items
 
@@ -116,6 +118,13 @@ Raised but not answered. Each blocks part of an item.
    `acked` and `resolved` — no operator identity, and the browser connects
    anonymously. "Acked by" and "suppressed by" cannot be built without adding
    identity first. Affects 07 and 07b.
+
+## Known flakes
+
+- `controlnode/integration` `TestStateUpdateUndeliverableWhileDisconnected` failed
+  once inside a full-suite run and passed alone, then passed three consecutive
+  times under `-race`. Timing-sensitive and unrelated to the panel work, but it
+  is real — do not assume a one-off failure there is your change.
 
 ## Notes for a future session
 
