@@ -270,9 +270,9 @@ function renderPidAll(tab) {
 function renderPidObj(tab, obj) {
     const g = obj.type === 'graph'      ? makeGraphGroup(obj, tab)
             : obj.type === 'sensor'     ? makeSensorGroup(obj)
-            : obj.type === 'valve'      ? makeValveGroup(obj)
+            : obj.type === 'valve'      ? makeValveGroup(obj, tab)
             : obj.type === 'tank'       ? makeTankGroup(obj)
-            : obj.type === 'daqControl' ? makeDaqControlGroup(obj)
+            : obj.type === 'daqControl' ? makeDaqControlGroup(obj, tab)
             : makeNodeGroup(obj);
     tab.pid.gObjs.appendChild(g);
 }
@@ -342,7 +342,7 @@ function makeSensorGroup(obj) {
 // same glyph + name line + live-text construction the sensor/valve use, with
 // a machine interior (design: docs/design/sensor-object-options.html,
 // MACHINE). The old box-with-embedded-<select> widget is gone.
-function makeDaqControlGroup(obj) {
+function makeDaqControlGroup(obj, tab) {
     // daqRefDes holds the state MACHINE name (e.g. "fuelSeq"), matching
     // state_config machines[].name.  Layouts that predate machines have none.
     const machineName = obj.daqRefDes || '';
@@ -382,7 +382,7 @@ function makeDaqControlGroup(obj) {
         if (!machineName) return;   // unbound: nothing to command
         // The panel opens BELOW THE GLYPH, same rule as the valve panel.
         const rect = (built.refs.glyphG || g).getBoundingClientRect();
-        openMachineDropdown(obj, e.clientX, e.clientY, rect);
+        openMachineDropdown(obj, e.clientX, e.clientY, rect, tab.id);
     });
 
     return g;
@@ -467,7 +467,7 @@ function makeTankGroup(obj) {
 // (mirrored to W - (R + 6) for a left-sided one), so the group is translated by
 // the negative of that offset: the glyph centre then lands exactly on the grid
 // point every existing pipe already attaches to, and portPos is untouched.
-function makeValveGroup(obj) {
+function makeValveGroup(obj, tab) {
     const ctrl  = configControls.find(c => c.refDes === obj.controlRefDes);
     const info  = _valveSubtypeInfo(ctrl);
     const cmdCh = ctrl?.channels?.find(c => c.role === 'cmd-bool' || c.role === 'cmd-pct');
@@ -531,7 +531,7 @@ function makeValveGroup(obj) {
         // being commanded stays visible under its own panel. clientX/clientY
         // are passed through only as a fallback anchor point.
         const rect = (built.refs.glyphG || g).getBoundingClientRect();
-        openValveDropdown(obj, e.clientX, e.clientY, rect);
+        openValveDropdown(obj, e.clientX, e.clientY, rect, tab.id);
     });
 
     return g;

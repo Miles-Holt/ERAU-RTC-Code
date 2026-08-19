@@ -105,6 +105,14 @@ function activateTab(id) {
     if (prevTab && prevTab.type === 'frontPanel' && prevTab.id !== id) {
         closeObjectSidebar();
     }
+    // Pinned valve/machine command panels are position:fixed and appended to
+    // document.body, not to any tab-content pane — the display:none above
+    // never reaches them. Without this they keep painting over whichever tab
+    // is now active. They stay pinned (the record survives, only the DOM
+    // node's display toggles) and reappear exactly as left when their own
+    // P&ID tab comes back.
+    setValvePanelsTabVisibility(id);
+    setMachinePanelsTabVisibility(id);
     renderTabBar();
 }
 

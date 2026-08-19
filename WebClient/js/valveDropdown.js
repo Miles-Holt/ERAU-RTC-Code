@@ -78,7 +78,7 @@ document.addEventListener('keydown', e => {
 // glyphRect, when given, is the valve glyph's getBoundingClientRect() — the
 // panel is centred under it, a small gap below its bottom edge, so the glyph
 // stays visible under the panel that commands it.
-function openValveDropdown(valveObj, clientX, clientY, glyphRect) {
+function openValveDropdown(valveObj, clientX, clientY, glyphRect, tabId) {
     const already = _valvePanels.get(valveObj.id);
     if (already) {
         // Re-clicking the object must not move or rebuild the panel — moving it
@@ -202,6 +202,7 @@ function openValveDropdown(valveObj, clientX, clientY, glyphRect) {
     const rec = {
         el,
         valveId: valveObj.id,
+        tabId,
         pinned: false,
         valueEls,
         syncs,
@@ -412,6 +413,20 @@ function _vpRaise(rec) {
     _valveZTop += 1;
     rec.z = _valveZTop;
     rec.el.style.zIndex = String(_valveZTop);
+}
+
+// setValvePanelsTabVisibility runs on every tab switch (tabs.js activateTab).
+// The panels are position:fixed and appended to document.body — not inside
+// any tab-content element — so hiding a tab-content pane never touches them.
+// Without this they float on top of whatever tab is now active. Pin only
+// ever governed click-off/Esc dismissal, never this: a pinned panel must
+// still vanish while its P&ID tab is not on screen, then reappear untouched
+// (same binding, same position) when that tab comes back. This is visibility
+// only — the record, and the DOM node, are never destroyed by a tab switch.
+function setValvePanelsTabVisibility(activeTabId) {
+    for (const rec of _valvePanels.values()) {
+        rec.el.style.display = (rec.tabId === activeTabId) ? '' : 'none';
+    }
 }
 
 // =============================================================================

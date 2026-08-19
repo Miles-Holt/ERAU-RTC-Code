@@ -61,7 +61,7 @@ document.addEventListener('keydown', e => {
 // openMachineDropdown builds and places one panel for a daqControl object.
 // clientX/clientY are the fallback anchor; glyphRect (getBoundingClientRect
 // of the glyph) is preferred, same contract as openValveDropdown.
-function openMachineDropdown(obj, clientX, clientY, glyphRect) {
+function openMachineDropdown(obj, clientX, clientY, glyphRect, tabId) {
     const already = _machinePanels.get(obj.id);
     if (already) {
         // Re-clicking the object must not move or rebuild the panel.
@@ -139,6 +139,7 @@ function openMachineDropdown(obj, clientX, clientY, glyphRect) {
         el,
         objId: obj.id,
         machineName,
+        tabId,
         pinned: false,
         sync,
         z: 0,
@@ -282,6 +283,15 @@ function _mpRaise(rec) {
     _machineZTop += 1;
     rec.z = _machineZTop;
     rec.el.style.zIndex = String(_machineZTop);
+}
+
+// setMachinePanelsTabVisibility mirrors setValvePanelsTabVisibility in
+// valveDropdown.js — see the comment there for why this exists at all. Same
+// reasoning, separate function, because these panels track their own Map.
+function setMachinePanelsTabVisibility(activeTabId) {
+    for (const rec of _machinePanels.values()) {
+        rec.el.style.display = (rec.tabId === activeTabId) ? '' : 'none';
+    }
 }
 
 // =============================================================================
