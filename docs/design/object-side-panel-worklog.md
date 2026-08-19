@@ -57,12 +57,12 @@ in the Artifact comment threads, and here.
 
 | # | Item | Status |
 |---|------|--------|
-| 05 | Live readings table under the chart — every channel with current value, units, per-object decimals | in progress |
-| 06 | State line in the header — `LIVE / STALE / NO DATA / UNBOUND / ALARMING` as a pill, same vocabulary as the glyph | in progress |
+| 05 | Live readings table under the chart — every channel with current value, units, per-object decimals | **done, awaiting validation** — table renders under the chart, repainted from `channelBuffers` on the same interval as the DataView tab (`updateAllDataViews`/app.js), no timer of its own. Per-object decimals apply to the row for the specifically-clicked channel via `pidFormatValue`/`_sidebarFindPidObj`; other rows use its default. No browser available to confirm rendering. |
+| 06 | State line in the header — `LIVE / STALE / NO DATA / UNBOUND / ALARMING` as a pill, same vocabulary as the glyph | **done, awaiting validation** — the pill reads the SAME classList the glyph is colored from (`st-live`/`st-nodata`/`st-stale`/`st-unbound`/`alarmed`, via a `MutationObserver` on the clicked object's `<g>`), so it cannot disagree with the glyph by construction rather than by re-deriving state independently. Shares the glow's known limitation: a config/layout reload rebuilds the SVG groups and orphans the observed node. |
 | 07 | Raised alerts as rows, **no inline Ack**; a row opens a second right-side panel scoped to the alarm (plot, time-in-alarm, long description, Ack / Reset / Suppress) | not started |
 | 07a | A long description on the alert definition — optional `describe "…"` beside `message` in `config/alerts/alerts.alert`, same placeholder interpolation, rendered in the alarm panel | not started |
 | 07b | Somewhere to see what is suppressed — filter the alerts list by state, keep a suppressed count always visible, greyed row with a `Suppressed · until restart` pill | not started |
-| 08 | Which node owns it, and is that node up — `DAQ001 · connected 4m` in the header | in progress |
+| 08 | Which node owns it, and is that node up — `DAQ001 · connected 4m` in the header | **not implemented — half the data doesn't exist on the wire.** Node *ownership* is genuinely published: `controlnode/config/yaml.go`'s `webclientChannel.Node` (`json:"node"`) is set from `ch.RefDesDaq` and reaches the browser as `channel.node` in the `config` message (the browser stores it in `channelIndex[refDes].ch.node` — `pid.js` already reads it for `isNodeAlarmed`). But *node up/down and "connected 4m"* have no wire representation at all: there is no node-status message, and `lastSeen`/`everConnected` (`controlnode/alerts/engine.go`) never leave the server. The only browser-visible proxy is a disconnect/reconnect **alert**, and that's not a substitute — it depends on a `disconnect`/`reconnect` rule actually being configured per node (engine_test.go: "no disconnect rule configured, so nothing should be raised"), it conflates connectivity with ack state (an acked disconnect alert reads as not-alarmed even if the node is still down), and it carries no duration. Building "connected 4m" from that would be guessing dressed up as a feature. Left unimplemented per instruction; would need a new node-status message (refDes, connected bool, since-timestamp) built from the engine's existing `lastSeen`/`everConnected` maps — a protocol change, not a client one. |
 | 09 | A `channels` section on the alert declaring what its plot draws (`plot <ch>`, `line <value-or-channel> "<label>"`); the `bad_data` template becomes one consumer, emitting lines at validMin/validMax | not started |
 
 ### Let the operator act
@@ -70,7 +70,7 @@ in the Artifact comment threads, and here.
 | # | Item | Status |
 |---|------|--------|
 | 11 | Promote a channel to the Graph tab | not started |
-| 12 | Copy the **channel name** (not the refDes) from the readings table | in progress |
+| 12 | Copy the **channel name** (not the refDes) from the readings table | **done, awaiting validation** — clicking a row in the new readings table copies `ch.refDes` (never the header's control-level refDes) via `navigator.clipboard`, with an `execCommand` fallback, and flashes the row green/red as confirmation instead of swapping its text. |
 
 ### Chart
 
@@ -211,6 +211,12 @@ Not side-panel items, but done in the same push and worth knowing about.
   firing sequence fail loudly.
 
 ## Found while building, not fixed
+
+- **`docs/websocket-protocol.md`'s channel field table omits `node`.** It IS
+  published (`config.controls[].channels[].node`, from `webclientChannel.Node`
+  in `config/yaml.go`) and already consumed by `pid.js`. Doc-only fix, unrelated
+  to any item.
+
 
 - **The channel search dropdown can't find a softchan.** `createChannelSearchDropdown`
   (`WebClient/js/utils.js`) only searches `configControls[].channels`, never
