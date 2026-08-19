@@ -9,6 +9,28 @@
 const SIDEBAR_TAB_ID  = '__sidebar__';
 const SIDEBAR_CELL_IDX = 0;
 
+// The SVG group currently glowing to mark which object the panel is bound to.
+// Exactly one object may glow at a time, so this is a single slot, not a set —
+// openObjectSidebar clears it before adopting a new target and closeObjectSidebar
+// clears it on the way out. Tracked here (rather than reading '.selected' back
+// off the DOM) because a caller with no group at all — e.g. a graph object,
+// see openObjectSidebarForGraph in pid.js — legitimately opens the panel
+// without anything to glow.
+let sidebarGlowEl = null;
+
+// sidebarSetGlow retargets the glow to `el` (or clears it for `null`), leaving
+// every other class on the outgoing/incoming groups untouched. It deliberately
+// does not go through pidSetObjectState: that function also re-derives the
+// st-live/st-stale/alarmed axes from arguments this module doesn't have, and
+// calling it with placeholder values would clobber real state. 'selected' is
+// layered on top of those axes (see pidSetObjectState's own comment), so
+// toggling the class directly is the correct, narrower operation.
+function sidebarSetGlow(el) {
+    if (sidebarGlowEl && sidebarGlowEl !== el) sidebarGlowEl.classList.remove('selected');
+    sidebarGlowEl = el || null;
+    if (sidebarGlowEl) sidebarGlowEl.classList.add('selected');
+}
+
 // Build the sidebar DOM once at load time and register it in graphState.
 (function initObjectSidebar() {
     // ── Outer container ──────────────────────────────────────────────────────
@@ -99,7 +121,10 @@ const SIDEBAR_CELL_IDX = 0;
 // Open
 // =============================================================================
 
-function openObjectSidebar(refDes) {
+// objEl is the SVG group the caller right-clicked — passed through so the
+// panel can glow it (item 01) and clear the glow again on close or retarget.
+// Optional: openObjectSidebarForGraph has no such group and passes nothing.
+function openObjectSidebar(refDes, objEl) {
     const sidebarEl = document.getElementById('object-sidebar');
     if (!sidebarEl) return;
 
@@ -125,6 +150,11 @@ function openObjectSidebar(refDes) {
     sidebarEl._refdesEl.textContent = ctrl.refDes;
     sidebarEl._descEl.textContent   = ctrl.description ?? '';
 
+    // Retarget the glow. Runs after the ctrl lookup above so a right-click on
+    // an unbound/misconfigured object (silent failure, item 03) leaves the
+    // panel — and whatever it was already glowing — exactly as it was.
+    sidebarSetGlow(objEl);
+
     // Add ALL channels from this control
     for (const ch of (ctrl.channels ?? [])) {
         addChannelToCell(SIDEBAR_TAB_ID, SIDEBAR_CELL_IDX, ch.refDes);
@@ -140,10 +170,25 @@ function openObjectSidebar(refDes) {
 // Close
 // =============================================================================
 
-// Close the sidebar on any right-click outside it
-document.addEventListener('contextmenu', (e) => {
+// Esc closes the panel, matching the command panels (machinePanel.js,
+// valveDropdown.js). Side panels never pin — settled in the design doc — so
+// there is no "only if unpinned" guard to carry over from those.
+//
+// A right-click elsewhere does NOT close it any more. That used to be a
+// document-level 'contextmenu' listener that closed on any right-click whose
+// target wasn't inside the panel. Every object's own contextmenu handler
+// already calls e.stopPropagation(), so a right-click on ANOTHER object never
+// reached this listener at all — retargeting worked only because that handler
+// calls openObjectSidebar(refDes, g) directly (see pid.js) and overwrites the
+// panel in place, not because of anything this listener did. What the listener
+// actually did was close the panel on a right-click on empty canvas, blank UI,
+// or any other object type with no handler of its own — which is the real
+// defect item 02 fixes. Removing it, and keeping the per-object retarget call
+// and the new sidebarSetGlow() below, is the whole fix.
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
     const sidebarEl = document.getElementById('object-sidebar');
-    if (!sidebarEl?.contains(e.target)) closeObjectSidebar();
+    if (sidebarEl && sidebarEl.style.display !== 'none') closeObjectSidebar();
 });
 
 function closeObjectSidebar() {
@@ -151,6 +196,7 @@ function closeObjectSidebar() {
     if (!sidebarEl) return;
 
     sidebarEl.style.display = 'none';
+    sidebarSetGlow(null);
 
     const state = graphState[SIDEBAR_TAB_ID];
     if (!state) return;

@@ -331,7 +331,7 @@ function makeSensorGroup(obj) {
         g.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            openObjectSidebar(binding.ch.refDes);
+            openObjectSidebar(binding.ch.refDes, g);
         });
     }
 
@@ -522,7 +522,7 @@ function makeValveGroup(obj, tab) {
         e.preventDefault();
         e.stopPropagation();
         const refDes = fbCh?.refDes || cmdCh?.refDes;
-        if (refDes) openObjectSidebar(refDes);
+        if (refDes) openObjectSidebar(refDes, g);
     });
 
     g.addEventListener('click', (e) => {
@@ -1018,6 +1018,13 @@ function openObjectSidebarForGraph(obj) {
     // Header shows the graph's name
     sidebarEl._refdesEl.textContent = obj.name || 'Graph';
     sidebarEl._descEl.textContent   = '';
+
+    // A graph object has no glyph and no .po-glow element — it's a foreignObject
+    // embedding a live chart, not a pidBuildObject() row — so there is nothing
+    // to glow. Still must clear whatever the panel WAS glowing: otherwise
+    // retargeting from a sensor/valve to a graph object leaves that sensor lit
+    // while the panel it supposedly marks has moved on to different content.
+    sidebarSetGlow(null);
 
     // Add the graph's configured channels
     for (const line of (obj.lines || [])) {
