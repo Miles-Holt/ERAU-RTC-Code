@@ -37,6 +37,11 @@ Started 2026-08-18.
 - The wire format is documented in `docs/websocket-protocol.md`, mirrored into
   `controlnode/webclient/embedded/websocket-protocol.md`. Protocol changes touch
   both, plus `controlnode/webclient/protocol_test.go`.
+- As of item 04's server half, there's a THIRD source of channel data besides
+  the `data` websocket stream: `GET /api/history` (Part 3 of the protocol doc),
+  server-side bucketed history from `controlnode/history.Store`. `channelBuffers`
+  (WebClient/js) does not fetch from it yet — that's the client half, not yet
+  built. Once it is, `channelBuffers` stops being purely a live-stream buffer.
 
 ## Bugs
 
@@ -61,7 +66,7 @@ in the Artifact comment threads, and here.
 | 01 | Glow the object while its panel is open | **done, awaiting validation** (`9f8548a`) — glow was already built and simply never switched on. |
 | 02 | Esc and ✕ close it; a right-click elsewhere does not | **done, awaiting validation** (`9f8548a`) — the old document-level contextmenu listener never governed retargeting (object handlers stopPropagation); it only closed the panel on an empty-canvas right-click, which was the defect. |
 | 03 | Catch a missing control in the editor, not at right-click. Runtime stays silent; at load time walk the panel's declared controls and warn per key with no config entry, naming the control id and its location | done — the problem-list mechanism (`computeEdProblems`/`pidSensorUnboundReason`/warn dropdown) landed in `3e83f68`; this pass added the grid position to each row's detail text so a dangling binding is identifiable without clicking every row |
-| 04 | Send aggregates, not every point — server-side per-bucket **min/max/last** at the requested resolution, raw points only for short windows | not started |
+| 04 | Send aggregates, not every point — server-side per-bucket **min/max/last** at the requested resolution, raw points only for short windows | **server half done, awaiting validation** (`f114425`) — new `controlnode/history` package retains 25 min of raw samples per channel in memory, fed from `broker.Run`'s `dataIn` case at the DAQ's real sample rate; `GET /api/history?refDes=..&from=..&to=..&buckets=N` (repeatable `refDes`) buckets on request into min/max/last/n, omitting empty buckets, no separate raw-points code path (a short window naturally degenerates to 1-sample buckets). Discreteness classification (`last`-only vs min/max meaningful) mirrors `graphChannelIsDiscrete` (items 14/15) exactly, server-side, so client and server can never disagree about which channels are stepped. No auth, matching `/ws/data`. Documented in `docs/websocket-protocol.md` Part 3. **Client half not started** — no chart on the Graph tab or the object side panel fetches from this endpoint yet; `channelBuffers` is still purely the live-stream buffer described in "How the pieces fit" above. Verified with `go test -race` on the touched packages, not just `-count=1`. |
 | ~~10~~ | *Cut.* Command block in the panel — commanding stays in the command panel, one route to a command | — |
 
 ### Show what the object is doing
@@ -295,9 +300,15 @@ burn time attributing them to whatever it just changed.
   literal. `LIM-CPT01-HIGH` is operator-settable, so a drawn limit that reads the
   channel moves when the operator moves it and cannot disagree with the rule that
   fired.
-- Item 04 and item 14 interact: state indices want last-per-bucket, ordinary
+- ~~Item 04 and item 14 interact: state indices want last-per-bucket, ordinary
   analogue channels want min/max-per-bucket. Bucketing needs to be per-channel,
-  not one global policy.
+  not one global policy.~~ **Done, server half (`f114425`)** — `/api/history`'s
+  per-refDes `discrete` classification (mirrors `graphChannelIsDiscrete`
+  exactly) is exactly this per-channel policy: a discrete channel's `last` is
+  the one meaningful value, same as items 14/15's stepped rendering already
+  decided client-side. Still applies to the CLIENT half not yet built: when it
+  merges a bucket into a chart line, it must plot `last` for a `discrete:true`
+  channel, not average/interpolate min and max.
 - Item 04 and the cut of item 13 interact: with no time presets, the aggregate
   request resolution has to come from the current pan/zoom window. That is the
   right dependency — bucket size follows what is actually on screen.
