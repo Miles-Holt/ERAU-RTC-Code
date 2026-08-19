@@ -57,12 +57,12 @@ in the Artifact comment threads, and here.
 
 | # | Item | Status |
 |---|------|--------|
-| 05 | Live readings table under the chart — every channel with current value, units, per-object decimals | not started |
-| 06 | State line in the header — `LIVE / STALE / NO DATA / UNBOUND / ALARMING` as a pill, same vocabulary as the glyph | not started |
+| 05 | Live readings table under the chart — every channel with current value, units, per-object decimals | in progress |
+| 06 | State line in the header — `LIVE / STALE / NO DATA / UNBOUND / ALARMING` as a pill, same vocabulary as the glyph | in progress |
 | 07 | Raised alerts as rows, **no inline Ack**; a row opens a second right-side panel scoped to the alarm (plot, time-in-alarm, long description, Ack / Reset / Suppress) | not started |
 | 07a | A long description on the alert definition — optional `describe "…"` beside `message` in `config/alerts/alerts.alert`, same placeholder interpolation, rendered in the alarm panel | not started |
 | 07b | Somewhere to see what is suppressed — filter the alerts list by state, keep a suppressed count always visible, greyed row with a `Suppressed · until restart` pill | not started |
-| 08 | Which node owns it, and is that node up — `DAQ001 · connected 4m` in the header | not started |
+| 08 | Which node owns it, and is that node up — `DAQ001 · connected 4m` in the header | in progress |
 | 09 | A `channels` section on the alert declaring what its plot draws (`plot <ch>`, `line <value-or-channel> "<label>"`); the `bad_data` template becomes one consumer, emitting lines at validMin/validMax | not started |
 
 ### Let the operator act
@@ -70,13 +70,13 @@ in the Artifact comment threads, and here.
 | # | Item | Status |
 |---|------|--------|
 | 11 | Promote a channel to the Graph tab | not started |
-| 12 | Copy the **channel name** (not the refDes) from the readings table | not started |
+| 12 | Copy the **channel name** (not the refDes) from the readings table | in progress |
 
 ### Chart
 
 | # | Item | Status |
 |---|------|--------|
-| 14 | Plot `SM-<NAME>-STATE` as a step trace and render the index through `state_config` in the tooltip, so it reads `autoSequence` not `3` | not started |
+| 14 | Plot `SM-<NAME>-STATE` as a step trace and render the index through `state_config` in the tooltip, so it reads `autoSequence` not `3` | in progress |
 | 15 | Command and feedback as a pair — CMD and FB on one axis so lag is a visible gap | not started |
 | 16 | Freeze — stop the window advancing so a reading can be studied | not started |
 | ~~13~~ | *Cut.* Time presets — scroll-zoom is enough | — |
