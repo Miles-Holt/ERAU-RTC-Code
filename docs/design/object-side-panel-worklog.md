@@ -93,12 +93,15 @@ without going back to the user.
 - **Rebuilding the chart on every open is acceptable.** The refill is slow because
   it ships raw points, so the fix is item 04 on the wire, not a client-side cache.
   Do not build a warm-chart cache.
-- **Suppress targets the alert, not the rule.** The rule keeps evaluating —
-  a fresh trigger raises a new, unsuppressed alert — but the suppressed alert
-  clears its red immediately and drops out of every list except a
-  "View suppressed" filter, until unsuppressed or the control node restarts.
-  (Reverses an earlier rule-level version — see the open-questions note below
-  for why.)
+- **Suppress targets the alert, not the rule.** A rule and its alert are one
+  identity already — `Registry.RaiseFor` (registry.go) keys by rule id and
+  re-raising while the existing record is unacked/unresolved is a no-op — so
+  a retrigger of a suppressed rule re-asserts the same suppressed alert rather
+  than raising a new one. Suppressing clears the red immediately and the alert
+  stays gone through any number of re-triggers, dropping out of every list
+  except a "View suppressed" filter, until unsuppressed or the control node
+  restarts. (Reverses an earlier rule-level version — see the open-questions
+  note below for why.)
 - **The valid band is not a feature of its own.** It is one alert declaring what
   its plot needs (item 09).
 - **State transitions are a channel, not an annotation layer** (item 14), so they
