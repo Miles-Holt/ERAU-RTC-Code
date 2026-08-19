@@ -1051,10 +1051,14 @@ function computeEdProblems() {
         if (obj.type !== 'sensor') continue;
         const reason = pidSensorUnboundReason(obj, edConfigControls);
         if (!reason) continue;
+        // Location is spelled out in the detail (not just left to the
+        // click-to-select) because the dropdown is a scan-down-the-list UI —
+        // an operator reading it without clicking every row still needs to
+        // know which of several dangling bindings is which.
         items.push({
             objId: obj.id, connId: null,
             title: obj.controlRefDes || obj.refDes || obj.label || obj.id,
-            detail: reason,
+            detail: reason + ' (grid ' + obj.gridX + ',' + obj.gridY + ')',
         });
     }
     return items;

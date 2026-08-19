@@ -49,7 +49,7 @@ in the Artifact comment threads, and here.
 |---|------|--------|
 | 01 | Glow the object while its panel is open | **done, awaiting validation** (`9f8548a`) — glow was already built and simply never switched on. |
 | 02 | Esc and ✕ close it; a right-click elsewhere does not | **done, awaiting validation** (`9f8548a`) — the old document-level contextmenu listener never governed retargeting (object handlers stopPropagation); it only closed the panel on an empty-canvas right-click, which was the defect. |
-| 03 | Catch a missing control in the editor, not at right-click. Runtime stays silent; at load time walk the panel's declared controls and warn per key with no config entry, naming the control id and its location | in progress |
+| 03 | Catch a missing control in the editor, not at right-click. Runtime stays silent; at load time walk the panel's declared controls and warn per key with no config entry, naming the control id and its location | done — the problem-list mechanism (`computeEdProblems`/`pidSensorUnboundReason`/warn dropdown) landed in `3e83f68`; this pass added the grid position to each row's detail text so a dangling binding is identifiable without clicking every row |
 | 04 | Send aggregates, not every point — server-side per-bucket **min/max/last** at the requested resolution, raw points only for short windows | not started |
 | ~~10~~ | *Cut.* Command block in the panel — commanding stays in the command panel, one route to a command | — |
 
