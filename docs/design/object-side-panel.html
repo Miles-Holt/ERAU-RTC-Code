@@ -204,7 +204,7 @@
     </div></div>
     <div class="item"><span class="num">07</span><div>
       <div class="t">Raised alerts for this object, each row opening an alarm panel</div>
-      <div class="d">List alerts attributed to these channels or their node — rows only, no inline Ack. Clicking a row opens a second right-side panel built from the same template, scoped to the alarm rather than the object: the trend of the channel that tripped it, how long it has been raised, its long description, and Ack / Reset / Suppress. <em>Suppress is rule-level and volatile</em>: the rule stops evaluating until someone unsuppresses it or the control node restarts.</div>
+      <div class="d">List alerts attributed to these channels or their node — rows only, no inline Ack. Clicking a row opens a second right-side panel built from the same template, scoped to the alarm rather than the object: the trend of the channel that tripped it, how long it has been raised, its long description, and Ack / Reset / Suppress. <em>Suppress targets the alert, not the rule.</em> The rule keeps evaluating — a fresh trigger raises a new alert — but the suppressed one clears its red immediately and drops out of every list except a "View suppressed" filter, until it is unsuppressed or the control node restarts.</div>
       <div class="why">Ack is a decision, and one button on a one-line row is not enough to make it on. The row says <em>something is wrong</em>; the panel behind it is where you find out what and then act.</div>
     </div></div>
     <div class="item"><span class="num">07a</span><div>
@@ -214,8 +214,8 @@
     </div></div>
     <div class="item"><span class="num">07b</span><div>
       <div class="t">Somewhere to see what is suppressed</div>
-      <div class="d">Filter the alerts list by state — raised, unacknowledged, suppressed, cleared — and keep a suppressed count visible even when the filter is not on it. A suppressed rule keeps its row, greyed, with a <span class="k">Suppressed &middot; until restart</span> pill rather than disappearing from the board.</div>
-      <div class="why">Rule-level suppression is the one operator action that makes the system stop watching, so the failure mode to design against is a rule suppressed during a hold that nobody remembers before the next run. A count that never hides is what makes "we suppressed three things this morning" recoverable. Restart clearing it is a safe default, but it also means the board can look different after a restart with nobody having touched it — the pill says "until restart" for that reason.</div>
+      <div class="d">A suppressed alert leaves the default list entirely — no row, greyed or otherwise — and is surfaced only through a dedicated <span class="k">View suppressed</span> filter, with a standing count visible even when that filter is off. The rule underneath keeps evaluating, so a fresh trigger raises a fresh, unsuppressed alert; only the specific suppressed instance stays hidden, until someone unsuppresses it or the control node restarts.</div>
+      <div class="why">Making the alert disappear rather than grey it out is what the operator actually asked for — the red is the annoyance during a known, understood condition, and greying it out still leaves it in the way. The risk that trades for is a suppressed alert nobody remembers, so the standing count is load-bearing: it is the only thing on screen saying something is hidden at all. Restart clearing it is a safe default, but it also means the board can look different after a restart with nobody having touched it.</div>
       <div class="why" style="margin-top:6px">Note: the registry records only <span class="k">acked</span> and <span class="k">resolved</span> — no operator identity, and the browser connects anonymously. So "suppressed by" is not available without adding identity; time-of-suppression is.</div>
     </div></div>
     <div class="item"><span class="num">08</span><div>
@@ -335,7 +335,7 @@
           <span class="sp-btn">ACK</span>
           <span class="sp-btn quiet">RESET</span>
           <span class="sp-btn quiet">SUPPRESS</span>
-          <div class="sp-lab" style="margin:7px 0 0">Suppress stops the rule until restart</div>
+          <div class="sp-lab" style="margin:7px 0 0">Suppress hides this alert, not the rule, until restart</div>
         </div>
       </div>
     </div>

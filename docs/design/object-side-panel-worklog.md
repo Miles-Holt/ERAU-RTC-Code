@@ -59,9 +59,9 @@ in the Artifact comment threads, and here.
 |---|------|--------|
 | 05 | Live readings table under the chart — every channel with current value, units, per-object decimals | **done, awaiting validation** — table renders under the chart, repainted from `channelBuffers` on the same interval as the DataView tab (`updateAllDataViews`/app.js), no timer of its own. Per-object decimals apply to the row for the specifically-clicked channel via `pidFormatValue`/`_sidebarFindPidObj`; other rows use its default. No browser available to confirm rendering. |
 | 06 | State line in the header — `LIVE / STALE / NO DATA / UNBOUND / ALARMING` as a pill, same vocabulary as the glyph | **done, awaiting validation** — the pill reads the SAME classList the glyph is colored from (`st-live`/`st-nodata`/`st-stale`/`st-unbound`/`alarmed`, via a `MutationObserver` on the clicked object's `<g>`), so it cannot disagree with the glyph by construction rather than by re-deriving state independently. Shares the glow's known limitation: a config/layout reload rebuilds the SVG groups and orphans the observed node. |
-| 07 | Raised alerts as rows, **no inline Ack**; a row opens a second right-side panel scoped to the alarm (plot, time-in-alarm, long description, Ack / Reset / Suppress) | not started |
+| 07 | Raised alerts as rows, **no inline Ack**; a row opens a second right-side panel scoped to the alarm (plot, time-in-alarm, long description, Ack / Reset / Suppress) | not started — Suppress semantics settled 2026-08-19: targets the alert, not the rule (see Decisions) |
 | 07a | A long description on the alert definition — optional `describe "…"` beside `message` in `config/alerts/alerts.alert`, same placeholder interpolation, rendered in the alarm panel | not started |
-| 07b | Somewhere to see what is suppressed — filter the alerts list by state, keep a suppressed count always visible, greyed row with a `Suppressed · until restart` pill | not started |
+| 07b | Somewhere to see what is suppressed — a "View suppressed" filter plus a standing count; suppressed alerts have **no row** in the default list (not greyed — hidden) | not started |
 | 08 | Which node owns it, and is that node up — `DAQ001 · connected 4m` in the header | **not implemented — half the data doesn't exist on the wire.** Node *ownership* is genuinely published: `controlnode/config/yaml.go`'s `webclientChannel.Node` (`json:"node"`) is set from `ch.RefDesDaq` and reaches the browser as `channel.node` in the `config` message (the browser stores it in `channelIndex[refDes].ch.node` — `pid.js` already reads it for `isNodeAlarmed`). But *node up/down and "connected 4m"* have no wire representation at all: there is no node-status message, and `lastSeen`/`everConnected` (`controlnode/alerts/engine.go`) never leave the server. The only browser-visible proxy is a disconnect/reconnect **alert**, and that's not a substitute — it depends on a `disconnect`/`reconnect` rule actually being configured per node (engine_test.go: "no disconnect rule configured, so nothing should be raised"), it conflates connectivity with ack state (an acked disconnect alert reads as not-alarmed even if the node is still down), and it carries no duration. Building "connected 4m" from that would be guessing dressed up as a feature. Left unimplemented per instruction; would need a new node-status message (refDes, connected bool, since-timestamp) built from the engine's existing `lastSeen`/`everConnected` maps — a protocol change, not a client one. |
 | 09 | A `channels` section on the alert declaring what its plot draws (`plot <ch>`, `line <value-or-channel> "<label>"`); the `bad_data` template becomes one consumer, emitting lines at validMin/validMax | not started |
 
@@ -93,8 +93,12 @@ without going back to the user.
 - **Rebuilding the chart on every open is acceptable.** The refill is slow because
   it ships raw points, so the fix is item 04 on the wire, not a client-side cache.
   Do not build a warm-chart cache.
-- **Suppress is rule-level and volatile** — the rule stops evaluating until
-  someone unsuppresses it or the control node restarts.
+- **Suppress targets the alert, not the rule.** The rule keeps evaluating —
+  a fresh trigger raises a new, unsuppressed alert — but the suppressed alert
+  clears its red immediately and drops out of every list except a
+  "View suppressed" filter, until unsuppressed or the control node restarts.
+  (Reverses an earlier rule-level version — see the open-questions note below
+  for why.)
 - **The valid band is not a feature of its own.** It is one alert declaring what
   its plot needs (item 09).
 - **State transitions are a channel, not an annotation layer** (item 14), so they
@@ -104,10 +108,11 @@ without going back to the user.
 
 Raised but not answered. Each blocks part of an item.
 
-1. **Does suppressing a currently-raised rule also resolve the standing alert?**
-   Leaving it standing keeps the record honest, but then Suppress alone does not
-   clear the red — and an operator will press it expecting exactly that. Blocks
-   the Suppress half of 07.
+1. ~~Does suppressing a currently-raised rule also resolve the standing alert?~~
+   **Closed 2026-08-19.** Settled by moving Suppress to the alert instead of the
+   rule: suppressing an alert clears its red immediately by definition, and the
+   rule keeps evaluating underneath, so a fresh trigger raises a fresh alert.
+   The question doesn't arise in the alert-level model.
 2. **`channels` on the `every_daqnode` template needs `{refDes}` interpolation**,
    since the template does not statically know which channel tripped. Blocks the
    template half of 09.
