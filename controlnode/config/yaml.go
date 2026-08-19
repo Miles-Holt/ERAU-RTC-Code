@@ -453,8 +453,14 @@ type webclientControl struct {
 }
 
 type webclientChannel struct {
-	RefDes   string   `json:"refDes"`
-	Role     string   `json:"role"`
+	RefDes string `json:"refDes"`
+	Role   string `json:"role"`
+	// Node is the daqNode that owns this channel. The browser needs it to decide
+	// whether a NODE-level alert — a disconnect or a stale link, which names the
+	// node rather than listing every channel on it — puts this channel's object
+	// into alarm. Without it a node going down leaves every object it owns merely
+	// grey, when the design calls for red.
+	Node     string   `json:"node,omitempty"`
 	Units    string   `json:"units"`
 	ValidMin *float64 `json:"validMin"` // null if not configured
 	ValidMax *float64 `json:"validMax"` // null if not configured
@@ -487,6 +493,7 @@ func BuildWebClientConfigJSON(cfg *SystemConfig) (string, error) {
 		for _, ch := range ctrl.Channels {
 			channels = append(channels, webclientChannel{
 				RefDes:   ch.RefDes,
+				Node:     ch.RefDesDaq,
 				Role:     ch.Role,
 				Units:    ch.DaqMx.Units,
 				ValidMin: parseOptFloat(ch.ValidMin),

@@ -128,6 +128,7 @@ function buildFrontPanelContent(tab) {
     svg.addEventListener('pointerdown', e => {
         if (e.button !== 0) return;
         closeValveDropdown(false);
+        closeMachineDropdown(false);
         e.stopPropagation();
         startPidPan(tab, e);
     });
@@ -276,31 +277,54 @@ function renderPidObj(tab, obj) {
     tab.pid.gObjs.appendChild(g);
 }
 
+// pidObjRefs holds the live SVG nodes for each front-panel object, keyed by the
+// group element itself. A WeakMap rather than a field on tab.pid: the groups are
+// thrown away and rebuilt on every renderPid, and a map keyed by the element
+// cannot outlive them or go stale against a re-rendered layout.
+const pidObjRefs = new WeakMap();
+
+// makeSensorGroup builds one front-panel object — a bubble, a name line and a
+// line of live text (design: docs/design/sensor-object-options.html). The old
+// 120x50 box with stacked centred text is gone, and with it the italic control
+// description: the refDes line IS the title now.
 function makeSensorGroup(obj) {
-    const showRefDes = obj.showRefDes !== false;
-    const showUnits  = obj.showUnits  !== false;
-    const showName   = obj.showName   === true;
-    const rot        = obj.rotation   || 0;
-
-    const xf = 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')' +
-        (rot ? ' rotate(' + rot + ',' + (PID.SENSOR_W / 2) + ',' + (PID.SENSOR_H / 2) + ')' : '');
-    const g = svgN('g', {
-        class: 'pid-obj pid-sensor',
-        'data-pid-id': obj.id,
-        transform: xf,
-    });
-
-    g.appendChild(svgN('rect', {
-        x: 0, y: 0, width: PID.SENSOR_W, height: PID.SENSOR_H,
-        rx: 3, class: 'pid-sensor-rect',
-    }));
-
     // Objects reference controls, not channels: obj.controlRefDes (+ optional
     // obj.channelRefDes to pick one of several readable channels) is the
     // preferred binding; obj.refDes (a bare channel refDes) is the legacy
     // form kept for layouts saved before controls existed. Both resolve
     // through the same helper so display + live data agree.
     const binding = resolveSensorBinding(obj, configControls);
+
+    // The name line is free text defaulting to the bound refDes, so a layout
+    // that sets none draws exactly what it drew before.
+    const refDesText = binding?.ch.refDes || obj.refDes || obj.controlRefDes || '(no refDes)';
+    const built = pidBuildObject({
+        type:       'sensor',
+        name:       obj.label || refDesText,
+        showName:   obj.showRefDes !== false,
+        units:      obj.units || binding?.ch.units || '',
+        showUnits:  obj.showUnits !== false,
+        decimals:   obj.decimals,
+        bubbleText: obj.bubbleText,     // undefined → derived from the refDes
+        side:       obj.side || 'right',
+        glyph:      obj.showGlyph !== false,
+        dataCond:   binding ? 'nodata' : 'unbound',
+    });
+    const g = built.g;
+    pidObjRefs.set(g, built.refs);
+
+    // portPos has to put the pipe on the bubble, and the bubble's position on a
+    // left-sided object depends on the width the text block came out at, so the
+    // built width is cached back onto the layout object. Transient: pidToYaml
+    // serialises named fields only, so it never reaches the file.
+    obj._objW = built.refs.width;
+
+    const rot = obj.rotation || 0;
+    const xf = 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')' +
+        (rot ? ' rotate(' + rot + ',' + (built.refs.width / 2) + ',' + (built.refs.height / 2) + ')' : '');
+    g.classList.add('pid-obj');
+    g.setAttribute('data-pid-id', obj.id);
+    g.setAttribute('transform', xf);
 
     if (binding) {
         g.style.cursor = 'context-menu';
@@ -311,51 +335,14 @@ function makeSensorGroup(obj) {
         });
     }
 
-    // Dynamic Y layout: value is always shown; other elements are optional
-    // Box height = 50px. Layout items from top: name(opt), refDes(opt), value, units(opt)
-    const items = [];
-    if (showName) {
-        items.push({ type: 'name', text: binding?.ctrl.description || '' });
-    }
-    const refDesText = binding?.ch.refDes || obj.refDes || obj.controlRefDes || '(no refDes)';
-    if (showRefDes) items.push({ type: 'refdes', text: refDesText });
-    items.push({ type: 'value', text: '--' });
-    if (showUnits)  items.push({ type: 'units',  text: obj.units || binding?.ch.units || '' });
-
-    const step = PID.SENSOR_H / (items.length + 1);
-    const lx = obj.labelOffsetX || 0;
-    const ly = obj.labelOffsetY || 0;
-    for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const y = Math.round(step * (i + 1));
-        let cls;
-        if      (item.type === 'name')   cls = 'pid-sensor-name';
-        else if (item.type === 'refdes') cls = 'pid-sensor-label';
-        else if (item.type === 'value')  cls = 'pid-sensor-value stale';
-        else                             cls = 'pid-sensor-units';
-        if (item.type === 'refdes') {
-            // Wrap refDes label in its own group so it can be moved independently
-            const lblG = svgN('g', {
-                'data-label-id': obj.id,
-                transform: 'translate(' + (PID.SENSOR_W / 2 + lx) + ',' + (y + ly) + ')',
-            });
-            const el = svgN('text', { class: cls, x: 0, y: 0 });
-            el.textContent = item.text;
-            lblG.appendChild(el);
-            g.appendChild(lblG);
-        } else {
-            const el = svgN('text', { class: cls, x: PID.SENSOR_W / 2, y });
-            el.textContent = item.text;
-            g.appendChild(el);
-        }
-    }
-
     return g;
 }
 
+// makeDaqControlGroup builds one front-panel object for a state machine: the
+// same glyph + name line + live-text construction the sensor/valve use, with
+// a machine interior (design: docs/design/sensor-object-options.html,
+// MACHINE). The old box-with-embedded-<select> widget is gone.
 function makeDaqControlGroup(obj) {
-    const W = (obj.gridW || 10) * PID.GRID;
-    const H = (obj.gridH || 3)  * PID.GRID;
     // daqRefDes holds the state MACHINE name (e.g. "fuelSeq"), matching
     // state_config machines[].name.  Layouts that predate machines have none.
     const machineName = obj.daqRefDes || '';
@@ -363,62 +350,54 @@ function makeDaqControlGroup(obj) {
         console.warn('pid: daqControl object "' + obj.id +
             '" has no daqRefDes (state machine name) — widget is unbound and cannot command transitions');
     }
+    const machineConfig = machineName ? machineStateConfig[machineName] : null;
 
-    const g = svgN('g', {
-        class: 'pid-obj pid-daqctrl',
-        'data-pid-id': obj.id,
-        transform: 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')',
+    const nameText = obj.label || machineName || '(no refDes)';
+    const built = pidBuildObject({
+        type:        'machine',
+        name:        nameText,
+        showName:    obj.showRefDes !== false,
+        units:       '',
+        showUnits:   false,
+        side:        obj.side || 'right',
+        glyph:       obj.showGlyph !== false,
+        sampleValue: _machineSampleValue(machineConfig),
+        dataCond:    machineName ? 'nodata' : 'unbound',
+    });
+    const g = built.g;
+    pidObjRefs.set(g, built.refs);
+    obj._objW = built.refs.width;
+
+    const xf = 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')';
+    g.classList.add('pid-obj');
+    g.setAttribute('data-pid-id', obj.id);
+    g.setAttribute('transform', xf);
+    g.style.cursor = machineName ? 'pointer' : 'default';
+
+    // Stop left-click from reaching the SVG-level pan handler, same as valve.
+    g.addEventListener('pointerdown', e => { if (e.button === 0) e.stopPropagation(); });
+
+    g.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!machineName) return;   // unbound: nothing to command
+        // The panel opens BELOW THE GLYPH, same rule as the valve panel.
+        const rect = (built.refs.glyphG || g).getBoundingClientRect();
+        openMachineDropdown(obj, e.clientX, e.clientY, rect);
     });
 
-    // Background rect
-    g.appendChild(svgN('rect', {
-        class: 'pid-daqctrl-bg', x: 0, y: 0, width: W, height: H, rx: 4,
-    }));
-
-    // Top row: label (or machine name fallback) + connection status (right)
-    const labelEl = svgN('text', { class: 'pid-daqctrl-label', x: 8, y: 18 });
-    labelEl.textContent = obj.label || machineName || 'unbound';
-    g.appendChild(labelEl);
-
-    const connEl = svgN('text', { class: 'pid-daqctrl-conn', x: W - 8, y: 18 });
-    connEl.textContent = '---';
-    g.appendChild(connEl);
-
-    // Bottom row: state label (left) + dropdown (right via foreignObject)
-    const stateEl = svgN('text', { class: 'pid-daqctrl-state', x: 8, y: H - 12 });
-    stateEl.textContent = machineName ? 'State: ---' : 'State: unbound';
-    g.appendChild(stateEl);
-
-    // Dropdown in foreignObject
-    const foW = Math.min(110, W - 120);
-    if (foW > 40) {
-        const fo = svgN('foreignObject', { x: W - foW - 8, y: H - 30, width: foW, height: 24 });
-        const sel = document.createElement('select');
-        sel.className = 'pid-daqctrl-select';
-        sel.setAttribute('data-daqctrl-select', '');
-        sel.style.width = '100%';
-        // Only a bound widget is a command widget; an unbound one must stay
-        // disabled even after the operator logs in (updateCommandWidgets()
-        // re-enables everything tagged .cmd-widget).
-        if (machineName) markCmdWidget(sel);
-        else sel.disabled = true;
-
-        // Populate with initial placeholder
-        const placeholder = document.createElement('option');
-        placeholder.value = '';
-        placeholder.textContent = machineName ? '-- transition --' : '(unbound)';
-        placeholder.disabled = true;
-        placeholder.selected = true;
-        sel.appendChild(placeholder);
-
-        // The change handler is installed by _updateDaqControlState once
-        // state_config arrives (it needs the machine's targetRefDes).
-
-        fo.appendChild(sel);
-        g.appendChild(fo);
-    }
-
     return g;
+}
+
+// _machineSampleValue sizes the object for the longest realistic text it will
+// ever show: "<current> → <target>". Falls back to a generic placeholder
+// before state_config has arrived (config always precedes the first render
+// that needs it — applyStateConfig re-renders every front-panel tab).
+function _machineSampleValue(machineConfig) {
+    const states = machineConfig?.states || [];
+    if (!states.length) return 'autoSequence';
+    let longest = '';
+    for (const s of states) if (s.name.length > longest.length) longest = s.name;
+    return longest + ' → ' + longest;
 }
 
 function makeNodeGroup(obj) {
@@ -472,83 +451,69 @@ function makeTankGroup(obj) {
 // Valve helpers
 // =============================================================================
 
-// Returns SVG line attributes for the IO-CMD center line.
-// open (truthy) = horizontal (0°), closed (falsy) = vertical (90°).
 // Valve symbol geometry helpers (_valveLineAttrs, _valveArcPath, _valvePtrPos,
-// _valveSubtypeInfo) moved to pidRender.js — shared with the editor.
+// _valveSubtypeInfo) live in pidRender.js. Only _valveSubtypeInfo is still read
+// from here — the rest belong to the editor's own valve symbol, which has not
+// been redesigned yet.
 
+// makeValveGroup builds one front-panel object for a valve: the same glyph +
+// name line + live-text construction the sensor uses, with a valve interior
+// (design: docs/design/sensor-object-options.html, VALVE).
+//
+// GEOMETRY: a valve's pipe ports are computed around its CENTRE at
+// (gridX*GRID, gridY*GRID) by portPos, and most of a P&ID is valve pipes, so
+// that centre must not move. pidBuildObject lays the row out from its own
+// origin with the GLYPH centre at (R + 6, H / 2) for a right-sided object
+// (mirrored to W - (R + 6) for a left-sided one), so the group is translated by
+// the negative of that offset: the glyph centre then lands exactly on the grid
+// point every existing pipe already attaches to, and portPos is untouched.
 function makeValveGroup(obj) {
     const ctrl  = configControls.find(c => c.refDes === obj.controlRefDes);
     const info  = _valveSubtypeInfo(ctrl);
     const cmdCh = ctrl?.channels?.find(c => c.role === 'cmd-bool' || c.role === 'cmd-pct');
     const fbCh  = ctrl?.channels?.find(c => c.role === '' || c.role === 'sensor');
-    const L     = PID.VALVE_R - 3;
-    const showRefDes = obj.showRefDes !== false;
 
-    const g = svgN('g', {
-        class:         'pid-obj pid-valve',
-        'data-pid-id': obj.id,
-        transform:     'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')',
-        cursor:        'pointer',
+    // 'pct' is a continuously-positioned valve — arc for feedback, dot for
+    // command. Everything else is a two-position valve with a bore line.
+    const valveKind = (cmdCh?.role === 'cmd-pct') ? 'pct' : 'io';
+    // Limit switches exist only where the feedback is discrete. POS-FB is a
+    // number, not a pair of switches, so it gets the ring instead.
+    const hasLimits = !!(info.hasFb && !info.fbIsPct);
+
+    const refDesText = obj.controlRefDes || '(no refDes)';
+    const built = pidBuildObject({
+        type:        'valve',
+        valveKind:   valveKind,
+        hasLimits:   hasLimits,
+        // The bore and its limit ticks turn with the run; a percentage figure
+        // stays upright, which pidGlyphValve handles internally. So the row
+        // itself is never rotated — only the glyph interior is.
+        rot:         obj.rotation || 0,
+        name:        obj.label || refDesText,
+        showName:    obj.showRefDes !== false,
+        units:       obj.units || '',
+        showUnits:   obj.showUnits !== false,
+        decimals:    obj.decimals,
+        side:        obj.side || 'right',
+        glyph:       obj.showGlyph !== false,
+        sampleValue: valveKind === 'pct' ? 'CMD 100%' : 'CLOSED',
+        dataCond:    ctrl ? 'nodata' : 'unbound',
     });
+    const g = built.g;
+    pidObjRefs.set(g, built.refs);
+    obj._objW = built.refs.width;
 
-    // Invisible hit area (not rotated — valve is circular so rotation doesn't affect hit area)
-    g.appendChild(svgN('circle', { r: PID.VALVE_R, fill: 'none', 'pointer-events': 'all' }));
-
-    // Visual sub-group — rotated to orient the valve symbol
-    const rot = obj.rotation || 0;
-    const vis = svgN('g', rot ? { transform: 'rotate(' + rot + ')' } : {});
-    // Background fill to block pipe line behind valve
-    vis.appendChild(svgN('circle', { class: 'pid-valve-bg', r: PID.VALVE_R }));
-    // Outer ring (starts stale until data arrives)
-    vis.appendChild(svgN('circle', { class: 'pid-valve-ring stale', r: PID.VALVE_R }));
-
-    if (!ctrl) {
-        // Unconfigured: -45° dashed diagonal
-        vis.appendChild(svgN('line', { class: 'pid-valve-uncfg', x1: -L, y1: L, x2: L, y2: -L }));
-    } else {
-        // POS-FB arc + pointer (drawn first so center content is on top)
-        if (info.hasFb && info.fbIsPct) {
-            vis.appendChild(svgN('path',   { class: 'pid-valve-arc', 'data-vfb-arc': '' }));
-            vis.appendChild(svgN('circle', { class: 'pid-valve-ptr', r: 4, 'data-vfb-ptr': '' }));
-        }
-
-        // IO-CMD center line
-        if (info.hasCmd && cmdCh?.role === 'cmd-bool') {
-            const la = _valveLineAttrs(false); // default: closed
-            vis.appendChild(svgN('line', {
-                class: 'pid-valve-line', 'data-vcmd-line': '',
-                x1: la.x1, y1: la.y1, x2: la.x2, y2: la.y2,
-            }));
-            // IO-FB: dots on line ends
-            if (info.hasFb && !info.fbIsPct) {
-                vis.appendChild(svgN('circle', { class: 'pid-valve-dot', r: 4, cx: 0, cy: -L, 'data-vfb-dot-a': '' }));
-                vis.appendChild(svgN('circle', { class: 'pid-valve-dot', r: 4, cx: 0, cy:  L, 'data-vfb-dot-b': '' }));
-            }
-        }
-
-        // POS-CMD center text
-        if (info.hasCmd && cmdCh?.role === 'cmd-pct') {
-            const t = svgN('text', { class: 'pid-valve-pct', 'data-vcmd-pct': '' });
-            t.textContent = '--';
-            vis.appendChild(t);
-        }
-    }
-    g.appendChild(vis);
-
-    // Label — NOT rotated; moveable independently via labelOffsetX/Y
-    if (ctrl && showRefDes) {
-        const lx = obj.labelOffsetX || 0;
-        const ly = obj.labelOffsetY || 0;
-        const lblG = svgN('g', {
-            'data-label-id': obj.id,
-            transform: 'translate(' + lx + ',' + (PID.VALVE_R + 12 + ly) + ')',
-        });
-        const lbl = svgN('text', { class: 'pid-valve-label', x: 0, y: 0 });
-        lbl.textContent = obj.controlRefDes || '';
-        lblG.appendChild(lbl);
-        g.appendChild(lblG);
-    }
+    // Shift the row so the GLYPH centre — not the row origin — sits on the grid
+    // point. This is the constraint above: valve ports do not move.
+    const R = PID_OBJ.R;
+    const gx = (obj.showGlyph === false) ? 0
+             : (((obj.side || 'right') === 'right') ? R + 6 : built.refs.width - (R + 6));
+    const gy = PID_OBJ.H / 2;
+    g.classList.add('pid-obj');
+    g.setAttribute('data-pid-id', obj.id);
+    g.setAttribute('transform', 'translate(' +
+        (obj.gridX * PID.GRID - gx) + ',' + (obj.gridY * PID.GRID - gy) + ')');
+    g.style.cursor = 'pointer';
 
     // Stop left-click from reaching the SVG-level pan handler
     g.addEventListener('pointerdown', e => { if (e.button === 0) e.stopPropagation(); });
@@ -562,77 +527,14 @@ function makeValveGroup(obj) {
 
     g.addEventListener('click', (e) => {
         e.stopPropagation();
-        const rect = g.getBoundingClientRect();
-        openValveDropdown(obj, rect.left + rect.width / 2, rect.top + rect.height / 2);
+        // The panel opens BELOW THE GLYPH, not on the pointer, so the valve
+        // being commanded stays visible under its own panel. clientX/clientY
+        // are passed through only as a fallback anchor point.
+        const rect = (built.refs.glyphG || g).getBoundingClientRect();
+        openValveDropdown(obj, e.clientX, e.clientY, rect);
     });
 
     return g;
-}
-
-// SVG update helpers called from rebindPidLiveData
-function _updateValveCmdSvg(svgEl, id, role, value) {
-    const g = svgEl.querySelector('[data-pid-id="' + id + '"]');
-    if (!g) return;
-    if (role === 'cmd-bool') {
-        const line = g.querySelector('[data-vcmd-line]');
-        if (line) {
-            const la = _valveLineAttrs(value);
-            line.setAttribute('x1', la.x1); line.setAttribute('y1', la.y1);
-            line.setAttribute('x2', la.x2); line.setAttribute('y2', la.y2);
-        }
-        // IO-FB dots follow the line angle
-        const dotA = g.querySelector('[data-vfb-dot-a]');
-        const dotB = g.querySelector('[data-vfb-dot-b]');
-        if (dotA && dotB) {
-            const L = PID.VALVE_R - 3;
-            if (value) {
-                dotA.setAttribute('cx', -L); dotA.setAttribute('cy', 0);
-                dotB.setAttribute('cx',  L); dotB.setAttribute('cy', 0);
-            } else {
-                dotA.setAttribute('cx', 0); dotA.setAttribute('cy', -L);
-                dotB.setAttribute('cx', 0); dotB.setAttribute('cy',  L);
-            }
-        }
-    } else if (role === 'cmd-pct') {
-        const txt = g.querySelector('[data-vcmd-pct]');
-        if (txt) txt.textContent = (typeof value === 'number' ? Math.round(value) : '--') + '%';
-    }
-}
-
-function _updateValveFbSvg(svgEl, id, subType, value) {
-    const g = svgEl.querySelector('[data-pid-id="' + id + '"]');
-    if (!g) return;
-    const st = (subType || '').toUpperCase();
-    if (st.includes('POS-FB')) {
-        const pct = typeof value === 'number' ? value : 0;
-        const arc = g.querySelector('[data-vfb-arc]');
-        const ptr = g.querySelector('[data-vfb-ptr]');
-        if (arc) arc.setAttribute('d', _valveArcPath(pct));
-        if (ptr) {
-            const pos = _valvePtrPos(pct);
-            ptr.setAttribute('cx', pos.cx);
-            ptr.setAttribute('cy', pos.cy);
-        }
-    } else if (st.includes('IO-FB')) {
-        const line = g.querySelector('[data-vcmd-line]');
-        if (line) {
-            const la = _valveLineAttrs(value);
-            line.setAttribute('x1', la.x1); line.setAttribute('y1', la.y1);
-            line.setAttribute('x2', la.x2); line.setAttribute('y2', la.y2);
-        }
-        const dotA = g.querySelector('[data-vfb-dot-a]');
-        const dotB = g.querySelector('[data-vfb-dot-b]');
-        if (dotA && dotB) {
-            const L = PID.VALVE_R - 3;
-            if (value) {
-                dotA.setAttribute('cx', -L); dotA.setAttribute('cy', 0);
-                dotB.setAttribute('cx',  L); dotB.setAttribute('cy', 0);
-            } else {
-                dotA.setAttribute('cx', 0); dotA.setAttribute('cy', -L);
-                dotB.setAttribute('cx', 0); dotB.setAttribute('cy',  L);
-            }
-        }
-    }
 }
 
 function makeGraphGroup(obj, tab) {
@@ -807,12 +709,14 @@ function renderPidConn(tab, conn) {
 // DAQ Control helpers
 // =============================================================================
 
-// _updateDaqControlState renders the machine's current state into one widget.
+// _updateDaqControlState renders the machine's current state into every
+// rendered front-panel object bound to it (glyph text + accent ring) and, if
+// a machinePanel.js dropdown is open for this machine, syncs its rows too.
 // stateValue accepts BOTH shapes the server produces:
 //   • a string  — the state NAME, from the authoritative state_change message
 //   • a number  — the state INDEX, from the SM-<MACHINE>-STATE data channel,
 //                 resolved through machineStateConfig[].states[].index
-function _updateDaqControlState(svgEl, id, machineName, stateValue) {
+function _updateDaqControlState(machineName, stateValue) {
     const machineConfig = machineStateConfig[machineName];
     if (!machineConfig) return;
 
@@ -828,55 +732,68 @@ function _updateDaqControlState(svgEl, id, machineName, stateValue) {
     }
     machineCurrentState[machineName] = stateName;
 
-    // Update state text
-    const stateEl = svgEl.querySelector('[data-pid-id="' + id + '"] .pid-daqctrl-state');
-    if (stateEl) stateEl.textContent = 'State: ' + stateName;
-
-    // Update dropdown with operator-accessible states
-    const sel = svgEl.querySelector('[data-pid-id="' + id + '"] [data-daqctrl-select]');
-    if (!sel) return;
-
-    // Gate: a state with a non-empty `from` list is only offered while the
-    // machine is currently in one of those states; a state with no `from`
-    // (or an empty one) is always offered. If the current state isn't known
-    // yet (stateName falsy — e.g. widget just mounted, no state_change/data
-    // seen), we can't evaluate the gate at all, so fail open and show every
-    // operator state rather than guess; the server is the authority and will
-    // reject anything actually out of bounds.
-    const operatorStates = (machineConfig.states || []).filter(s => {
-        if (!s.operator) return false;
-        if (!stateName) return true;
-        if (!s.from || !s.from.length) return true;
-        return s.from.includes(stateName);
-    });
-    const targetRefDes = machineConfig.targetRefDes;
-
-    // Rebuild dropdown options
-    sel.innerHTML = '';
-    const placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.textContent = operatorStates.length ? '-- transition --' : '(no transitions)';
-    placeholder.disabled = true;
-    placeholder.selected = true;
-    sel.appendChild(placeholder);
-
-    for (const st of operatorStates) {
-        const opt = document.createElement('option');
-        opt.value = st.name;  // Send state NAME as string
-        opt.textContent = st.name;
-        sel.appendChild(opt);
+    // A pending target (see machinePendingTarget in state.js) is cleared the
+    // moment the machine reports the state we asked for.
+    const pendBefore = machinePendingTarget[machineName];
+    if (pendBefore && pendBefore.target === stateName) {
+        clearTimeout(pendBefore.timer);
+        delete machinePendingTarget[machineName];
     }
-    // Respect auth gating: rebuilding the dropdown must not hand an
-    // unauthenticated browser a live command control.
-    sel.disabled = operatorStates.length === 0 || !operatorName;
 
-    // Update the change handler to use the new targetRefDes and send as string
-    sel.onchange = () => {
-        const target = sel.value;
-        if (!target) return;
-        sendCommand(targetRefDes, target);  // Send as STRING, not number
-        sel.selectedIndex = 0;
+    _repaintMachineWidgets(machineName, stateName);
+}
+
+// _repaintMachineWidgets redraws every rendered daqControl object bound to
+// `machineName`, across all front-panel tabs, from the two already-known
+// facts — machineCurrentState and machinePendingTarget — WITHOUT resolving or
+// mutating either. Kept separate from _updateDaqControlState so a repaint
+// triggered by pidRequestMachineTarget (before any state_change has arrived)
+// can never overwrite machineCurrentState with a guess.
+function _repaintMachineWidgets(machineName, knownStateName) {
+    const stateName = knownStateName !== undefined ? knownStateName : machineCurrentState[machineName];
+    const pending = machinePendingTarget[machineName];
+    for (const tab of tabs) {
+        if (tab.type !== 'frontPanel' || !tab.pid || !tab.pid.svgEl) continue;
+        for (const obj of tab.pid.objects) {
+            if (obj.type !== 'daqControl' || obj.daqRefDes !== machineName) continue;
+            const g = tab.pid.svgEl.querySelector('[data-pid-id="' + obj.id + '"]');
+            const refs = g ? pidObjRefs.get(g) : null;
+            if (!g || !refs) continue;
+            const text = stateName === undefined ? '--'
+                : (pending ? (stateName + ' → ' + pending.target) : stateName);
+            pidSetObjectValue(refs, text);
+            pidSetMachineTarget(refs, !!pending);
+        }
+    }
+    if (typeof updateMachineDropdownState === 'function') updateMachineDropdownState(machineName);
+}
+
+// pidRequestMachineTarget sends a state-machine transition request and marks
+// it PENDING on this browser until a matching state_change arrives (or the
+// timeout below fires). See the machinePendingTarget comment in state.js for
+// why this is inferred client-side rather than read off the wire.
+const MACHINE_PENDING_TIMEOUT_MS = 15000;
+
+function pidRequestMachineTarget(machineName, targetRefDes, stateName) {
+    sendCommand(targetRefDes, stateName);   // string, not index — see server.go handleStateMachineTarget
+
+    const prior = machinePendingTarget[machineName];
+    if (prior) clearTimeout(prior.timer);
+    machinePendingTarget[machineName] = {
+        target: stateName,
+        timer: setTimeout(() => {
+            // No matching state_change arrived in time — most likely the
+            // request was rejected (out-of-gate, unknown state) and the only
+            // trace of that is a server pushAlert the operator may not have
+            // seen. Drop the accent ring rather than leave it lit forever on
+            // a command that silently failed.
+            delete machinePendingTarget[machineName];
+            _repaintMachineWidgets(machineName);
+        }, MACHINE_PENDING_TIMEOUT_MS),
     };
+    // Repaint immediately so the accent ring appears without waiting for the
+    // next state_change/data tick.
+    _repaintMachineWidgets(machineName);
 }
 
 // =============================================================================
@@ -887,86 +804,190 @@ function rebindPidLiveData(tab) {
     tab.channelUpdaters = {};
     for (const obj of tab.pid.objects) {
         if (obj.type === 'sensor') {
+            const g = tab.pid.svgEl.querySelector('[data-pid-id="' + obj.id + '"]');
+            const refs = g ? pidObjRefs.get(g) : null;
+            if (!g || !refs) continue;
             const binding = resolveSensorBinding(obj, configControls);
-            if (binding) {
-                const id = obj.id;
-                const el = () => tab.pid.svgEl.querySelector('[data-pid-id="' + id + '"] .pid-sensor-value');
-                const stale = makeStaleTimer(CONFIG.channelStaleMs, () => el()?.classList.add('stale'));
-                tab.channelUpdaters[binding.ch.refDes] = value => {
-                    const valEl = el();
-                    if (!valEl) return;
-                    valEl.textContent = typeof value === 'number'
-                        ? (Number.isInteger(value) ? String(value) : value.toFixed(2))
-                        : String(value);
-                    valEl.classList.remove('stale');
-                    stale.bump();
-                };
+            if (!binding) {
+                // Names nothing in the config. Grey, dashed and italic — not an
+                // alarm, because a drawing mistake is not a process fault.
+                pidSetObjectState(g, 'unbound', false);
+                pidSetObjectValue(refs, '--');
+                continue;
             }
+
+            // The alarm axis is an alert raised AND unacknowledged — real
+            // alert state, latching, attributed to this channel by the server.
+            // Two ways an object is alarmed: an alert naming its channel, or a
+            // node-level alert (disconnect, stale link) naming the node that
+            // owns it. The second is how "node offline" reaches the object at
+            // all — the alert lists the node, never the channels beneath it.
+            const alarmed = () => typeof isChannelAlarmed === 'function'
+                && (isChannelAlarmed(binding.ch.refDes)
+                 || isNodeAlarmed(binding.ch.node));
+
+            const stale = makeStaleTimer(CONFIG.channelStaleMs,
+                () => pidSetObjectState(g, 'stale', alarmed()));
+            // Nothing published since startup is its own condition, distinct
+            // from a reading that has gone quiet.
+            pidSetObjectState(g, 'nodata', alarmed());
+            tab.channelUpdaters[binding.ch.refDes] = value => {
+                pidSetObjectValue(refs, typeof value === 'number'
+                    ? pidFormatValue(value, obj.decimals) : String(value));
+                pidSetObjectState(g, 'live', alarmed());
+                stale.bump();
+            };
         }
-        if (obj.type === 'valve' && obj.controlRefDes) {
-            const ctrl = configControls.find(c => c.refDes === obj.controlRefDes);
-            if (!ctrl) continue;
+        if (obj.type === 'valve') {
+            const g = tab.pid.svgEl.querySelector('[data-pid-id="' + obj.id + '"]');
+            const refs = g ? pidObjRefs.get(g) : null;
+            if (!g || !refs) continue;
+            const ctrl = obj.controlRefDes
+                ? configControls.find(c => c.refDes === obj.controlRefDes) : null;
+            if (!ctrl) {
+                // Names nothing in the config. Grey, dashed and italic — not an
+                // alarm, because a drawing mistake is not a process fault.
+                pidSetObjectState(g, 'unbound', false);
+                pidSetObjectValue(refs, '--');
+                continue;
+            }
+            const info  = _valveSubtypeInfo(ctrl);
             const cmdCh = ctrl.channels?.find(c => c.role === 'cmd-bool' || c.role === 'cmd-pct');
             const fbCh  = ctrl.channels?.find(c => c.role === '' || c.role === 'sensor');
             const id = obj.id;
-            const fbStale = makeStaleTimer(CONFIG.channelStaleMs, () => {
-                const r = tab.pid.svgEl.querySelector('[data-pid-id="' + id + '"] .pid-valve-ring');
-                if (r && !r.classList.contains('bad')) r.classList.add('stale');
-            });
+            const hasLimits = !!(info.hasFb && !info.fbIsPct);
+            const isPct = cmdCh?.role === 'cmd-pct';
+
+            // The alarm axis is an alert raised AND unacknowledged — real
+            // alert state, latching, attributed to this channel by the server.
+            // A valve has two channels and either may be flagged, so either
+            // raises the one alarm axis the object has.
+            // A valve has two channels and either can be alarmed, plus the node
+            // that owns them.
+            const alarmed = () => typeof isChannelAlarmed === 'function'
+                && ((!!cmdCh && isChannelAlarmed(cmdCh.refDes))
+                 || (!!fbCh  && isChannelAlarmed(fbCh.refDes))
+                 || isNodeAlarmed((cmdCh || fbCh || {}).node));
+
+            const stale = makeStaleTimer(CONFIG.channelStaleMs,
+                () => pidSetObjectState(g, 'stale', alarmed()));
+            // Nothing published since startup is its own condition, distinct
+            // from a reading that has gone quiet.
+            pidSetObjectState(g, 'nodata', alarmed());
+
+            // Command and feedback arrive on separate channels at separate
+            // times, and the drawing needs both at once: the bore's colour is
+            // command AND switch together, and the ring is feedback AND command
+            // together. So the last of each is kept. They are kept as SEPARATE
+            // numbers — drawing one of them twice was the old bug.
+            const last = { isOpen: false, made: null, fbPct: null, cmdPct: null };
+
+            const repaintIo = () => {
+                pidSetLimitSwitch(refs, last.made);
+                // Green is earned by the SWITCH, not by the command; a valve
+                // with no feedback fitted counts as confirmed, because there
+                // the command is the only fact there is.
+                pidSetValveBore(refs, last.isOpen,
+                    pidValvePositionConfirmed(hasLimits, last.isOpen, last.made));
+                pidSetObjectValue(refs, last.isOpen ? 'OPEN' : 'CLOSED');
+            };
+            const repaintPct = () => {
+                pidSetValveFeedback(refs, last.fbPct, last.cmdPct);
+                pidSetObjectValue(refs, last.cmdPct === null
+                    ? 'CMD --' : 'CMD ' + Math.round(last.cmdPct) + '%');
+            };
 
             if (cmdCh) {
                 tab.channelUpdaters[cmdCh.refDes] = value => {
-                    _updateValveCmdSvg(tab.pid.svgEl, id, cmdCh.role, value);
+                    if (isPct) {
+                        last.cmdPct = typeof value === 'number' ? value : null;
+                        repaintPct();
+                    } else {
+                        last.isOpen = !!value;
+                        repaintIo();
+                    }
+                    pidSetObjectState(g, 'live', alarmed());
+                    stale.bump();
                     updateValveDropdownValue(id, cmdCh.refDes, value);
                 };
             }
             if (fbCh) {
                 tab.channelUpdaters[fbCh.refDes] = value => {
-                    _updateValveFbSvg(tab.pid.svgEl, id, ctrl.subType, value);
-                    updateValveDropdownValue(id, fbCh.refDes, value);
-                    const bad = typeof value === 'number' &&
-                        ((fbCh.validMin !== null && fbCh.validMin !== undefined && value < fbCh.validMin) ||
-                         (fbCh.validMax !== null && fbCh.validMax !== undefined && value > fbCh.validMax));
-                    const ring = tab.pid.svgEl.querySelector('[data-pid-id="' + id + '"] .pid-valve-ring');
-                    if (ring) {
-                        ring.classList.toggle('bad', bad);
-                        ring.classList.remove('stale');
+                    if (info.fbIsPct) {
+                        last.fbPct = typeof value === 'number' ? value : null;
+                        repaintPct();
+                    } else {
+                        // The IO feedback channel is a single boolean, and the
+                        // old drawing code read it exactly this way: truthy
+                        // moved the dots onto the open line, falsy onto the shut
+                        // one. One boolean cannot express "neither switch made",
+                        // so mid-travel is not representable on the wire today
+                        // and reads as shut. A non-numeric, non-boolean value
+                        // (nothing known) is the one case that maps to null.
+                        last.made = (value === null || value === undefined)
+                            ? null : (value ? 'open' : 'shut');
+                        repaintIo();
                     }
-                    fbStale.bump();
+                    pidSetObjectState(g, 'live', alarmed());
+                    stale.bump();
+                    updateValveDropdownValue(id, fbCh.refDes, value);
                 };
             }
         }
 
-        // ── daqControl: bind SM-<MACHINE>-STATE + connection staleness ──────────────
-        if (obj.type === 'daqControl' && obj.daqRefDes) {
-            const id = obj.id;
-            const machineName = obj.daqRefDes;  // daqRefDes now holds the machine name
+        // ── daqControl: bind SM-<MACHINE>-STATE ──────────────────────────────────
+        // The old widget also surfaced CTR001-daqConnected as a separate
+        // "Connected/Disconnected" line; that doesn't map onto the two-axis
+        // state vocabulary (design: STATES) and has no equivalent here — node
+        // connectivity now folds into the same nodata/stale/alarm axes every
+        // other object uses, not a bespoke third indicator.
+        if (obj.type === 'daqControl') {
+            const g = tab.pid.svgEl.querySelector('[data-pid-id="' + obj.id + '"]');
+            const refs = g ? pidObjRefs.get(g) : null;
+            if (!g || !refs) continue;
+            const machineName = obj.daqRefDes;
+            if (!machineName) {
+                // Names no machine. Grey, dashed and italic — not an alarm,
+                // because a drawing mistake is not a process fault.
+                pidSetObjectState(g, 'unbound', false);
+                pidSetObjectValue(refs, '--');
+                continue;
+            }
             const smStateRefDes = 'SM-' + machineName + '-STATE';
-            const connStale = makeStaleTimer(CONFIG.channelStaleMs, () => {
-                const connEl = tab.pid.svgEl.querySelector('[data-pid-id="' + id + '"] .pid-daqctrl-conn');
-                if (connEl) connEl.textContent = 'Stale';
-            });
+
+            // The alarm axis is an alert raised AND unacknowledged. Until the
+            // alert side of the redesign lands there is no such source, so
+            // this reads the server's bad_data flag on the state channel —
+            // see the identical comment on the sensor/valve branches above.
+            // Channel-level only. A machine's owning node is NOT on the wire —
+            // `state_config`'s machine entries carry name, targetRefDes and
+            // states, and no node — so a node-level disconnect cannot reach a
+            // machine object the way it reaches a sensor or valve. Adding a
+            // `node` field to stateConfigMachine would close it; guessing the
+            // node from the machine name would not.
+            const alarmed = () => typeof isChannelAlarmed === 'function'
+                && isChannelAlarmed(smStateRefDes);
+
+            const stale = makeStaleTimer(CONFIG.channelStaleMs,
+                () => pidSetObjectState(g, 'stale', alarmed()));
+            pidSetObjectState(g, 'nodata', alarmed());
 
             // Listen for SM-<MACHINE>-STATE (numeric index) to update current
-            // state + dropdown.  state_change (state NAME) drives the same
-            // function from ws.js — whichever arrives first wins.
+            // state.  state_change (state NAME) drives the same function from
+            // ws.js — whichever arrives first wins.
             tab.channelUpdaters[smStateRefDes] = value => {
-                _updateDaqControlState(tab.pid.svgEl, id, machineName, value);
+                _updateDaqControlState(machineName, value);
+                pidSetObjectState(g, 'live', alarmed());
+                stale.bump();
             };
 
             // A re-render (new layout, new state_config) must not blank the
             // widget: repaint the last known state immediately.
             if (machineCurrentState[machineName] !== undefined) {
-                _updateDaqControlState(tab.pid.svgEl, id, machineName, machineCurrentState[machineName]);
+                _updateDaqControlState(machineName, machineCurrentState[machineName]);
+                pidSetObjectState(g, 'live', alarmed());
+                stale.bump();
             }
-
-            // Track connection via CTR001-daqConnected
-            tab.channelUpdaters['CTR001-daqConnected'] = value => {
-                const connEl = tab.pid.svgEl.querySelector('[data-pid-id="' + id + '"] .pid-daqctrl-conn');
-                if (!connEl) return;
-                connEl.textContent = value >= 1 ? 'Connected' : 'Disconnected';
-                connStale.bump();
-            };
         }
     }
     rebuildActivePidChannels();

@@ -202,6 +202,10 @@ function resetStalenessTimer() {
 
 function markStale() {
     document.querySelectorAll('.value, .fb-label, .pid-sensor-value').forEach(el => el.classList.add('stale'));
+    // Front-panel objects carry state as a class pair rather than a `.stale`
+    // flag on one text node, so they are marked through the renderer. Without
+    // this a dropped link leaves every reading looking live.
+    if (typeof pidMarkAllObjectsStale === 'function') pidMarkAllObjectsStale();
     setStatus('stale', 'Data stale');
 }
 
@@ -270,20 +274,10 @@ function applyStateChange(msg) {
         console.warn('state_change: no state_config for machine', msg.machine);
         return;
     }
-    refreshDaqControlWidgets(msg.machine, msg.state);
-}
-
-// refreshDaqControlWidgets pushes a state name into every rendered daqControl
-// widget bound to the given machine, across all front-panel tabs.
-function refreshDaqControlWidgets(machineName, stateName) {
-    for (const tab of tabs) {
-        if (tab.type !== 'frontPanel' || !tab.pid || !tab.pid.svgEl) continue;
-        for (const obj of tab.pid.objects) {
-            if (obj.type === 'daqControl' && obj.daqRefDes === machineName) {
-                _updateDaqControlState(tab.pid.svgEl, obj.id, machineName, stateName);
-            }
-        }
-    }
+    // _updateDaqControlState (pid.js) resolves the state and repaints every
+    // rendered object bound to this machine across every front-panel tab —
+    // see _repaintMachineWidgets.
+    _updateDaqControlState(msg.machine, msg.state);
 }
 
 function applySoftchanConfig(msg) {

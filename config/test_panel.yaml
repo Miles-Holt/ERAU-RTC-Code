@@ -84,13 +84,13 @@ objects:
   - id: valve_1775290836830_555
     type: valve
     controlRefDes: NV-04
-    gridX: 65
+    gridX: 63
     gridY: 24
   - id: valve_1775290851155_4829
     type: valve
     controlRefDes: FV-01
-    gridX: 70
-    gridY: 28
+    gridX: 73
+    gridY: 30
   - id: valve_1775290874030_2125
     type: valve
     controlRefDes: OV-04
@@ -133,7 +133,7 @@ objects:
   - id: node_1775295890235_4182
     type: node
     gridX: 58
-    gridY: 22
+    gridY: 16
   - id: node_1775295903345_2517
     type: node
     gridX: 63
@@ -141,8 +141,8 @@ objects:
   - id: daqControl_1775676987239_5195
     type: daqControl
     daqRefDes: firingSequence
-    gridX: 24
-    gridY: 17
+    gridX: 28
+    gridY: 10
   - id: valve_1785101083871_7686
     type: valve
     gridX: 65
@@ -155,6 +155,14 @@ objects:
     type: valve
     gridX: 49
     gridY: 14
+  - id: node_1787110337329_5559
+    type: node
+    gridX: 22
+    gridY: 18
+  - id: sensor_1787110342716_3427
+    type: sensor
+    gridX: 23
+    gridY: 22
 connections:
   - id: conn_1775290523610_4251
     fromId: valve_1775290497269_639
@@ -284,3 +292,33 @@ connections:
     fromPort: right
     toId: valve_1785702358498_99
     toPort: top
+  - id: conn_1787110322300_9497
+    fromId: daqControl_1775676987239_5195
+    fromPort: bottom
+    toId: valve_1775290749444_2992
+    toPort: left
+  - id: conn_1787110325180_4822
+    fromId: daqControl_1775676987239_5195
+    fromPort: right
+    toId: valve_1775290749444_2992
+    toPort: left
+  - id: conn_1787110345644_1444
+    fromId: sensor_1787110342716_3427
+    fromPort: top
+    toId: node_1787110337329_5559
+    toPort: bottom
+  - id: conn_1787110348403_3038
+    fromId: sensor_1787110342716_3427
+    fromPort: right
+    toId: valve_1775290749444_2992
+    toPort: left
+  - id: conn_1787110355846_8231
+    fromId: daqControl_1775676987239_5195
+    fromPort: top
+    toId: valve_1775290749444_2992
+    toPort: left
+  - id: conn_1787110373633_5231
+    fromId: valve_1775290749444_2992
+    fromPort: left
+    toId: daqControl_1775676987239_5195
+    toPort: left

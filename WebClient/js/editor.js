@@ -67,6 +67,7 @@ const tab = {
         rsbEl: null,
         pickerEl: null,
         routingErrors: [],
+        problems: [],
         warnBtnEl: null,
         warnDropdownEl: null,
         selectedConnId: null,
@@ -116,11 +117,19 @@ function pidToYaml(layout) {
         } else if (o.type === 'daqControl') {
             if (o.daqRefDes)           y += '    daqRefDes: ' + q(o.daqRefDes) + '\n';
             if (o.label)               y += '    label: '     + q(o.label)     + '\n';
+            if (o.side && o.side !== 'right') y += '    side: ' + o.side + '\n';
             y +=                           '    gridX: ' + o.gridX + '\n';
             y +=                           '    gridY: ' + o.gridY + '\n';
             if (o.gridW && o.gridW !== 10) y += '    gridW: ' + o.gridW + '\n';
             if (o.gridH && o.gridH !== 3)  y += '    gridH: ' + o.gridH + '\n';
         } else {
+            // bubbleText, label, decimals, showUnits (existing) and side are the
+            // per-object display fields from docs/design/sensor-object-options.html.
+            // Every one of them is absent-safe: a layout saved before they existed
+            // must come back out of pidToYaml byte-identical, so each is only
+            // written when it differs from the default pidBuildObject already
+            // assumes when the key is missing (see pid.js's makeSensorGroup /
+            // makeValveGroup for what "missing" resolves to).
             if (o.refDes)              y += '    refDes: '        + q(o.refDes)        + '\n';
             if (o.units)               y += '    units: '         + q(o.units)         + '\n';
             if (o.controlRefDes)       y += '    controlRefDes: ' + q(o.controlRefDes) + '\n';
@@ -128,6 +137,15 @@ function pidToYaml(layout) {
             if (o.showRefDes === false) y += '    showRefDes: false\n';
             if (o.showUnits  === false) y += '    showUnits: false\n';
             if (o.showName   === true)  y += '    showName: true\n';
+            if (o.label)                y += '    label: '       + q(o.label)          + '\n';
+            // bubbleText: undefined = default (derived from refDes, omit the key);
+            // '' is a real, distinct value ("force an empty bubble") and must
+            // still round-trip, which is why this checks `!== undefined` rather
+            // than truthiness like the plain string fields above.
+            if (o.bubbleText !== undefined) y += '    bubbleText: ' + q(o.bubbleText)   + '\n';
+            if (typeof o.decimals === 'number' && o.decimals >= 0 && o.decimals <= 6 && o.decimals !== 2)
+                                        y += '    decimals: '      + o.decimals          + '\n';
+            if (o.side && o.side !== 'right') y += '    side: '   + o.side              + '\n';
             if (o.rotation)            y += '    rotation: '      + o.rotation          + '\n';
             y +=                            '    gridX: '         + o.gridX             + '\n';
             y +=                            '    gridY: '         + o.gridY             + '\n';
@@ -385,7 +403,7 @@ function buildEditorUI(rootEl) {
 
     const warnBtn = document.createElement('button');
     warnBtn.className = 'pid-warn-btn';
-    warnBtn.title = 'Routing warnings';
+    warnBtn.title = 'Problems';
     warnBtn.style.display = 'none';
     warnBtn.innerHTML =
         '<span class="pid-warn-icon">!</span>' +
@@ -497,6 +515,11 @@ function buildEditorUI(rootEl) {
     const gObjs  = svgN('g', { class: 'pid-g-objs'  });
     svg.append(gGrid, gConns, gObjs);
     canvasWrap.appendChild(svg);
+
+    // The selection glow (.selected .po-glow) needs its blur filter/gradient
+    // defs installed once; the viewer never selects anything so it never
+    // needed this, but the editor shows selection constantly.
+    pidEnsureObjDefs(svg);
 
     // Right sidebar
     const rsb = document.createElement('div');
@@ -734,77 +757,58 @@ function makeTankGroupEditor(obj) {
     return g;
 }
 
+// makeSensorGroup mirrors pid.js's makeSensorGroup (the object-system bubble +
+// name line + value row) but adds the edit-mode affordances the viewer never
+// needs: a full-row hit rectangle to drag by, port circles on all four sides,
+// and `.selected` driven off tab.pid.selectedId instead of live data.
 function makeSensorGroup(obj) {
-    const sel        = (tab.pid.selectedId === obj.id);
-    const showRefDes = obj.showRefDes !== false;
-    const showUnits  = obj.showUnits  !== false;
-    const showName   = obj.showName   === true;
-    const rot        = obj.rotation   || 0;
-
-    const xf = 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')' +
-        (rot ? ' rotate(' + rot + ',' + (PID.SENSOR_W / 2) + ',' + (PID.SENSOR_H / 2) + ')' : '');
-    const g = svgN('g', {
-        class: 'pid-obj pid-sensor' + (sel ? ' pid-selected' : ''),
-        'data-pid-id': obj.id,
-        transform: xf,
-        cursor: 'grab',
-    });
-
-    g.appendChild(svgN('rect', {
-        x: 0, y: 0, width: PID.SENSOR_W, height: PID.SENSOR_H,
-        rx: 3, class: 'pid-sensor-rect',
-    }));
-
-    // Dynamic layout matching view mode: value always shown; other elements optional
+    const sel = (tab.pid.selectedId === obj.id);
     const binding = resolveSensorBinding(obj, edConfigControls);
-    const items = [];
-    if (showName) {
-        items.push({ type: 'name', text: binding?.ctrl.description || '' });
-    }
     const refDesText = binding?.ch.refDes || obj.refDes || obj.controlRefDes || '(no refDes)';
-    if (showRefDes) items.push({ type: 'refdes', text: refDesText });
-    items.push({ type: 'value', text: '--' });
-    if (showUnits)  items.push({ type: 'units',  text: obj.units || binding?.ch.units || '' });
-
-    const step = PID.SENSOR_H / (items.length + 1);
-    const lx = obj.labelOffsetX || 0;
-    const ly = obj.labelOffsetY || 0;
-
-    for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const y = Math.round(step * (i + 1));
-        if (item.type === 'name') {
-            const el = svgN('text', { class: 'pid-sensor-name', x: PID.SENSOR_W / 2, y });
-            el.textContent = item.text;
-            g.appendChild(el);
-        } else if (item.type === 'refdes') {
-            // Moveable label group — cursor:move signals it can be dragged independently
-            const lblG = svgN('g', {
-                'data-label-id': obj.id,
-                transform: 'translate(' + (PID.SENSOR_W / 2 + lx) + ',' + (y + ly) + ')',
-                style: 'cursor:move',
-            });
-            const el = svgN('text', { class: 'pid-sensor-label', x: 0, y: 0 });
-            el.textContent = item.text;
-            lblG.appendChild(el);
-            g.appendChild(lblG);
-        } else if (item.type === 'value') {
-            const el = svgN('text', { class: 'pid-sensor-value stale', x: PID.SENSOR_W / 2, y });
-            el.textContent = item.text;
-            g.appendChild(el);
-        } else {
-            const el = svgN('text', { class: 'pid-sensor-units', x: PID.SENSOR_W / 2, y });
-            el.textContent = item.text;
-            g.appendChild(el);
-        }
-    }
-
-    const port = svgN('circle', {
-        class: 'pid-port',
-        'data-obj-id': obj.id, 'data-port': 'bottom',
-        cx: PID.SENSOR_W / 2, cy: PID.SENSOR_H, r: PID.PORT_R,
+    const built = pidBuildObject({
+        type:       'sensor',
+        name:       obj.label || refDesText,
+        showName:   obj.showRefDes !== false,
+        units:      obj.units || binding?.ch.units || '',
+        showUnits:  obj.showUnits !== false,
+        decimals:   obj.decimals,
+        bubbleText: obj.bubbleText,
+        side:       obj.side || 'right',
+        glyph:      obj.showGlyph !== false,
+        dataCond:   binding ? 'nodata' : 'unbound',
     });
-    g.appendChild(port);
+    const g = built.g;
+    // Transient render cache — never serialised (pidToYaml only ever writes
+    // named fields), but portPos and the router need to know the drawn width.
+    obj._objW = built.refs.width;
+
+    const rot = obj.rotation || 0;
+    const ox = obj.gridX * PID.GRID, oy = obj.gridY * PID.GRID;
+    const xf = 'translate(' + ox + ',' + oy + ')' +
+        (rot ? ' rotate(' + rot + ',' + (built.refs.width / 2) + ',' + (built.refs.height / 2) + ')' : '');
+    g.classList.add('pid-obj');
+    g.setAttribute('data-pid-id', obj.id);
+    g.setAttribute('transform', xf);
+    g.style.cursor = 'grab';
+    pidSetObjectState(g, binding ? 'nodata' : 'unbound', false, sel);
+
+    // Full-row hit rectangle: the object-system row is mostly unpainted space
+    // (text has pointer-events:none per style.css), so without this an
+    // unglyphed or blank-area click could not start a drag.
+    const hit = svgN('rect', {
+        class: 'pid-obj-hit', x: 0, y: 0,
+        width: built.refs.width, height: built.refs.height, fill: 'transparent',
+    });
+    g.insertBefore(hit, g.firstChild);
+
+    for (const pname of ['top', 'right', 'bottom', 'left']) {
+        const pp = portPos(obj, pname);
+        g.appendChild(svgN('circle', {
+            class: 'pid-port',
+            'data-obj-id': obj.id, 'data-port': pname,
+            cx: pp.x - ox, cy: pp.y - oy, r: PID.PORT_R,
+        }));
+    }
     return g;
 }
 
@@ -830,139 +834,120 @@ function makeNodeGroup(obj) {
     return g;
 }
 
+// makeValveGroupEditor mirrors pid.js's makeValveGroup (the object-system
+// bubble + name line + value row, valve interior) plus the edit-mode
+// affordances: a full-row hit rectangle, port circles, and `.selected`.
+// GEOMETRY: see the long comment on pid.js's makeValveGroup — the glyph
+// centre must land exactly on (gridX*GRID, gridY*GRID) because that's where
+// every existing pipe already attaches (portPos is unaware of the row).
 function makeValveGroupEditor(obj) {
-    const sel        = (tab.pid.selectedId === obj.id);
-    const ctrl       = edConfigControls.find(c => c.refDes === obj.controlRefDes);
-    const showRefDes = obj.showRefDes !== false;
-    const L          = PID.VALVE_R - 3;
+    const sel   = (tab.pid.selectedId === obj.id);
+    const ctrl  = edConfigControls.find(c => c.refDes === obj.controlRefDes);
+    const info  = _valveSubtypeInfo(ctrl);
+    const cmdCh = ctrl?.channels?.find(c => c.role === 'cmd-bool' || c.role === 'cmd-pct');
 
-    const g = svgN('g', {
-        class:         'pid-obj pid-valve' + (sel ? ' pid-selected' : ''),
-        'data-pid-id': obj.id,
-        transform:     'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')',
-        cursor:        'grab',
+    const valveKind = (cmdCh?.role === 'cmd-pct') ? 'pct' : 'io';
+    const hasLimits = !!(info.hasFb && !info.fbIsPct);
+
+    const refDesText = obj.controlRefDes || '(no refDes)';
+    const built = pidBuildObject({
+        type:        'valve',
+        valveKind:   valveKind,
+        hasLimits:   hasLimits,
+        rot:         obj.rotation || 0,
+        name:        obj.label || refDesText,
+        showName:    obj.showRefDes !== false,
+        units:       obj.units || '',
+        showUnits:   obj.showUnits !== false,
+        decimals:    obj.decimals,
+        side:        obj.side || 'right',
+        glyph:       obj.showGlyph !== false,
+        sampleValue: valveKind === 'pct' ? 'CMD 100%' : 'CLOSED',
+        dataCond:    ctrl ? 'nodata' : 'unbound',
     });
+    const g = built.g;
+    obj._objW = built.refs.width;
 
-    // Invisible hit area (not rotated — valve is circular)
-    g.appendChild(svgN('circle', { r: PID.VALVE_R, fill: 'none', 'pointer-events': 'all' }));
+    // Shift the row so the GLYPH centre — not the row origin — sits on the
+    // grid point (same constraint as pid.js's makeValveGroup).
+    const R = PID_OBJ.R;
+    const gx = (obj.showGlyph === false) ? 0
+             : (((obj.side || 'right') === 'right') ? R + 6 : built.refs.width - (R + 6));
+    const gy = PID_OBJ.H / 2;
+    const ox = obj.gridX * PID.GRID - gx, oy = obj.gridY * PID.GRID - gy;
+    g.classList.add('pid-obj');
+    g.setAttribute('data-pid-id', obj.id);
+    g.setAttribute('transform', 'translate(' + ox + ',' + oy + ')');
+    g.style.cursor = 'grab';
+    pidSetObjectState(g, ctrl ? 'nodata' : 'unbound', false, sel);
 
-    // Visual sub-group with rotation applied
-    const rot = obj.rotation || 0;
-    const vis = svgN('g', rot ? { transform: 'rotate(' + rot + ')' } : {});
-    vis.appendChild(svgN('circle', { class: 'pid-valve-bg', r: PID.VALVE_R }));
-    vis.appendChild(svgN('circle', { class: 'pid-valve-ring stale', r: PID.VALVE_R }));
-    if (!ctrl) {
-        vis.appendChild(svgN('line', { class: 'pid-valve-uncfg', x1: -L, y1: L, x2: L, y2: -L }));
-    } else {
-        const info = _valveSubtypeInfo(ctrl);
-        // POS-FB arc + pointer at default (closed) position
-        if (info.hasFb && info.fbIsPct) {
-            vis.appendChild(svgN('path',   { class: 'pid-valve-arc', d: _valveArcPath(0) }));
-            const pos = _valvePtrPos(0);
-            vis.appendChild(svgN('circle', { class: 'pid-valve-ptr', r: 4, cx: pos.cx, cy: pos.cy }));
-        }
-        // IO-CMD center line (default: closed = vertical)
-        if (info.hasCmd && info.cmdRole === 'cmd-bool') {
-            const la = _valveLineAttrs(false);
-            vis.appendChild(svgN('line', {
-                class: 'pid-valve-line',
-                x1: la.x1, y1: la.y1, x2: la.x2, y2: la.y2,
-            }));
-            // IO-FB: dots on line ends
-            if (info.hasFb && !info.fbIsPct) {
-                vis.appendChild(svgN('circle', { class: 'pid-valve-dot', r: 4, cx: 0, cy: -L }));
-                vis.appendChild(svgN('circle', { class: 'pid-valve-dot', r: 4, cx: 0, cy:  L }));
-            }
-        }
-        // POS-CMD: percentage text
-        if (info.hasCmd && info.cmdRole === 'cmd-pct') {
-            const t = svgN('text', { class: 'pid-valve-pct' });
-            t.textContent = '--';
-            vis.appendChild(t);
-        }
-        // Fallback for configured valve with no recognized cmd type
-        if (!info.hasCmd && !info.hasFb) {
-            vis.appendChild(svgN('line', { class: 'pid-valve-line', x1: -L, y1: 0, x2: L, y2: 0 }));
-        }
-    }
-    g.appendChild(vis);
+    const hit = svgN('rect', {
+        class: 'pid-obj-hit', x: 0, y: 0,
+        width: built.refs.width, height: built.refs.height, fill: 'transparent',
+    });
+    g.insertBefore(hit, g.firstChild);
 
-    // Label — NOT rotated; moveable independently
-    if (showRefDes) {
-        const lx = obj.labelOffsetX || 0;
-        const ly = obj.labelOffsetY || 0;
-        const lblG = svgN('g', {
-            'data-label-id': obj.id,
-            transform: 'translate(' + lx + ',' + (PID.VALVE_R + 12 + ly) + ')',
-            style: 'cursor:move',
-        });
-        const lbl = svgN('text', { class: 'pid-valve-label', x: 0, y: 0 });
-        lbl.textContent = obj.controlRefDes || '(no control)';
-        lblG.appendChild(lbl);
-        g.appendChild(lblG);
-    }
-
-    const off = PID.VALVE_PORT_OFF;
-    const valvePorts = { top: [0, -off], right: [off, 0], bottom: [0, off], left: [-off, 0] };
-    for (const [pname, [px, py]] of Object.entries(valvePorts)) {
+    for (const pname of ['top', 'right', 'bottom', 'left']) {
+        const pp = portPos(obj, pname);
         g.appendChild(svgN('circle', {
             class: 'pid-port',
             'data-obj-id': obj.id, 'data-port': pname,
-            cx: px, cy: py, r: PID.PORT_R,
+            cx: pp.x - ox, cy: pp.y - oy, r: PID.PORT_R,
         }));
     }
     return g;
 }
 
+// makeDaqControlGroupEditor mirrors pid.js's makeDaqControlGroup (the
+// object-system bubble + name line + value row, machine/diamond interior)
+// plus the edit-mode affordances: a full-row hit rectangle, port circles and
+// `.selected`. NOTE: portPos's 'daqControl' case still sizes ports off
+// obj.gridW/gridH (the old box), which no longer matches this row's drawn
+// extent (now text-sized, like sensor/valve) — that mismatch lives in the
+// shared portPos() in pidRender.js and predates this change; ports here use
+// portPos as the single source of truth the router also uses, so editor and
+// viewer still agree with each other even though the dots may sit off the
+// visible glyph. Flagged rather than silently patched, since portPos also
+// drives the live viewer's routing.
 function makeDaqControlGroupEditor(obj) {
     const sel = (tab.pid.selectedId === obj.id);
-    const W = (obj.gridW || 10) * PID.GRID;
-    const H = (obj.gridH || 3)  * PID.GRID;
-
-    const g = svgN('g', {
-        class: 'pid-obj pid-daqctrl' + (sel ? ' pid-selected' : ''),
-        'data-pid-id': obj.id,
-        transform: 'translate(' + (obj.gridX * PID.GRID) + ',' + (obj.gridY * PID.GRID) + ')',
-        cursor: 'grab',
+    const machineName = obj.daqRefDes || '';
+    const nameText = obj.label || machineName || '(no refDes)';
+    const built = pidBuildObject({
+        type:        'machine',
+        name:        nameText,
+        showName:    obj.showRefDes !== false,
+        units:       '',
+        showUnits:   false,
+        side:        obj.side || 'right',
+        glyph:       obj.showGlyph !== false,
+        sampleValue: 'autoSequence → autoSequence',
+        dataCond:    machineName ? 'nodata' : 'unbound',
     });
+    const g = built.g;
+    obj._objW = built.refs.width;
 
-    g.appendChild(svgN('rect', {
-        class: 'pid-daqctrl-bg', x: 0, y: 0, width: W, height: H, rx: 4,
-    }));
+    const ox = obj.gridX * PID.GRID, oy = obj.gridY * PID.GRID;
+    g.classList.add('pid-obj');
+    g.setAttribute('data-pid-id', obj.id);
+    g.setAttribute('transform', 'translate(' + ox + ',' + oy + ')');
+    g.style.cursor = 'grab';
+    pidSetObjectState(g, machineName ? 'nodata' : 'unbound', false, sel);
 
-    const labelEl = svgN('text', { class: 'pid-daqctrl-label', x: 8, y: 18 });
-    labelEl.textContent = obj.label || obj.daqRefDes || 'unbound';
-    g.appendChild(labelEl);
+    const hit = svgN('rect', {
+        class: 'pid-obj-hit', x: 0, y: 0,
+        width: built.refs.width, height: built.refs.height, fill: 'transparent',
+    });
+    g.insertBefore(hit, g.firstChild);
 
-    const connEl = svgN('text', { class: 'pid-daqctrl-conn', x: W - 8, y: 18 });
-    connEl.textContent = '---';
-    g.appendChild(connEl);
-
-    const stateEl = svgN('text', { class: 'pid-daqctrl-state', x: 8, y: H - 12 });
-    stateEl.textContent = 'State: ---';
-    g.appendChild(stateEl);
-
-    // Connection ports on all four sides
-    const ports = {
-        top:    [W / 2, 0],
-        right:  [W, H / 2],
-        bottom: [W / 2, H],
-        left:   [0, H / 2],
-    };
-    for (const [pname, [px, py]] of Object.entries(ports)) {
+    for (const pname of ['top', 'right', 'bottom', 'left']) {
+        const pp = portPos(obj, pname);
         g.appendChild(svgN('circle', {
             class: 'pid-port',
             'data-obj-id': obj.id, 'data-port': pname,
-            cx: px, cy: py, r: PID.PORT_R,
+            cx: pp.x - ox, cy: pp.y - oy, r: PID.PORT_R,
         }));
     }
-
-    // Resize handle (bottom-right)
-    g.appendChild(svgN('rect', {
-        class: 'pid-resize-handle',
-        x: W - 8, y: H - 8, width: 8, height: 8, cursor: 'nwse-resize',
-        'data-obj-id': obj.id,
-    }));
 
     return g;
 }
@@ -1020,41 +1005,103 @@ function updateConnsTouching() {
 }
 
 // =============================================================================
-// Routing warning indicator
+// Problem list — a DRAWING check, not a config check (design:
+// docs/design/sensor-object-options.html, EDITOR).
+//
+// ONE FLAT LIST. No severities, no categories, no icons per row — with no
+// severities an icon could only ever say "problem" on a list where every row
+// is a problem. Every row is a location plus a one-line reason, and clicking
+// a row selects the offending element.
+//
+// Fed from two sources: tab.pid.routingErrors (unroutable pipes — the only
+// thing this list held before) and every sensor object whose binding
+// resolveSensorBinding(...) cannot resolve (both of its null cases: the
+// control isn't found, and the control is found but has no readable
+// channel) — previously invisible, reaching no list at all.
 // =============================================================================
+
+// pidSensorUnboundReason walks the same two paths resolveSensorBinding does
+// (pidRender.js) but returns why it failed, for display, rather than null.
+function pidSensorUnboundReason(obj, controls) {
+    if (obj.controlRefDes) {
+        const ctrl = controls.find(c => c.refDes === obj.controlRefDes);
+        if (!ctrl) return 'controlRefDes names nothing.';
+        const readable = (ctrl.channels ?? []).filter(pidIsReadableChannel);
+        if (!readable.length) return 'Control has no readable channel.';
+        return null;
+    }
+    if (obj.refDes) {
+        for (const ctrl of controls) {
+            if (ctrl.channels?.find(c => c.refDes === obj.refDes)) return null;
+        }
+        return 'refDes names no channel.';
+    }
+    return 'Not bound to a control.';
+}
+
+function computeEdProblems() {
+    const items = [];
+    for (const err of tab.pid.routingErrors) {
+        const from = tab.pid.objects.find(o => o.id === err.fromId);
+        const to   = tab.pid.objects.find(o => o.id === err.toId);
+        const fromName = from ? (from.refDes || from.controlRefDes || from.daqRefDes || from.type) : err.fromId;
+        const toName   = to   ? (to.refDes   || to.controlRefDes   || to.daqRefDes   || to.type)   : err.toId;
+        items.push({
+            objId: null, connId: err.connId,
+            title: fromName + ':' + err.fromPort + ' → ' + toName + ':' + err.toPort,
+            detail: err.message,
+        });
+    }
+    for (const obj of tab.pid.objects) {
+        if (obj.type !== 'sensor') continue;
+        const reason = pidSensorUnboundReason(obj, edConfigControls);
+        if (!reason) continue;
+        items.push({
+            objId: obj.id, connId: null,
+            title: obj.controlRefDes || obj.refDes || obj.label || obj.id,
+            detail: reason,
+        });
+    }
+    return items;
+}
 
 function renderPidWarning() {
     const btn = tab.pid.warnBtnEl;
     if (!btn) return;
-    const errs = tab.pid.routingErrors;
-    btn.style.display = errs.length > 0 ? '' : 'none';
+    const items = computeEdProblems();
+    tab.pid.problems = items;
+    btn.style.display = items.length > 0 ? '' : 'none';
     const countEl = btn.querySelector('.pid-warn-count');
-    if (countEl) countEl.textContent = errs.length > 1 ? String(errs.length) : '';
+    if (countEl) countEl.textContent = items.length > 1 ? String(items.length) : '';
     if (btn.classList.contains('pid-warn-open')) renderPidWarnDropdown();
 }
 
 function renderPidWarnDropdown() {
     const dropdown = tab.pid.warnDropdownEl;
     if (!dropdown) return;
-    const errs = tab.pid.routingErrors;
-    if (!errs.length) { dropdown.innerHTML = ''; return; }
+    const items = tab.pid.problems || [];
+    dropdown.innerHTML = '';
+    if (!items.length) return;
 
-    let html = '<div class="pid-warn-title">Routing errors (' + errs.length + ')</div>';
-    for (const err of errs) {
-        const from     = tab.pid.objects.find(o => o.id === err.fromId);
-        const to       = tab.pid.objects.find(o => o.id === err.toId);
-        const fromName = from ? (from.refDes || from.type) : err.fromId;
-        const toName   = to   ? (to.refDes   || to.type)  : err.toId;
-        html +=
-            '<div class="pid-warn-item">' +
-                '<div class="pid-warn-conn">' +
-                    pidEsc(fromName) + ':' + err.fromPort + ' → ' +
-                    pidEsc(toName)   + ':' + err.toPort +
-                '</div>' +
-                '<div class="pid-warn-msg">' + pidEsc(err.message) + '</div>' +
-            '</div>';
+    const title = document.createElement('div');
+    title.className = 'pid-warn-title';
+    title.textContent = 'Problems (' + items.length + ')';
+    dropdown.appendChild(title);
+
+    for (const item of items) {
+        const row = document.createElement('div');
+        row.className = 'pid-warn-item';
+        row.style.cursor = 'pointer';
+        row.innerHTML =
+            '<div class="pid-warn-conn">' + pidEsc(item.title)  + '</div>' +
+            '<div class="pid-warn-msg">'  + pidEsc(item.detail) + '</div>';
+        row.addEventListener('click', () => {
+            if (item.objId)       selectPidObject(item.objId);
+            else if (item.connId) selectPidConn(item.connId);
+            tab.pid.warnBtnEl.classList.remove('pid-warn-open');
+        });
+        dropdown.appendChild(row);
     }
-    dropdown.innerHTML = html;
 }
 
 // =============================================================================
@@ -1063,10 +1110,15 @@ function renderPidWarnDropdown() {
 
 function selectPidObject(id) {
     tab.pid.selectedId = id;
-    tab.pid.gObjs.querySelectorAll('.pid-selected').forEach(el => el.classList.remove('pid-selected'));
+    // '.pid-selected' drives the old boxed-object CSS (still used by tank,
+    // node, graph); '.selected' drives the object system's glow (sensor,
+    // valve, daqControl — see pidSetObjectState in pidRender.js). Both are
+    // toggled here so selection works regardless of which system an object
+    // uses; each is inert on the other's markup.
+    tab.pid.gObjs.querySelectorAll('.pid-selected, .selected').forEach(el => el.classList.remove('pid-selected', 'selected'));
     if (id) {
         const el = tab.pid.gObjs.querySelector('[data-pid-id="' + id + '"]');
-        if (el) el.classList.add('pid-selected');
+        if (el) el.classList.add('pid-selected', 'selected');
     }
     // Clear any pipe selection
     tab.pid.selectedConnId = null;
@@ -1219,7 +1271,10 @@ function renderPidRsb(objId) {
                   ).join('')
                 : null;
 
-            const curRot = obj.rotation || 0;
+            const curRot    = obj.rotation || 0;
+            const curSide   = obj.side || 'right';
+            const hasBubble = obj.bubbleText !== undefined;
+            const curDec    = (typeof obj.decimals === 'number') ? obj.decimals : 2;
             c.innerHTML =
                 '<div class="pid-sb-heading">Sensor</div>' +
                 '<div class="pid-sb-field"><label>Control</label>' +
@@ -1231,10 +1286,21 @@ function renderPidRsb(objId) {
                 '<select class="pid-sensor-channel-sel"></select></div>' +
                 '<div class="pid-sb-field"><label>Units</label>' +
                 '<input class="pid-units-inp" type="text" value="' + pidEsc(obj.units || '') + '" placeholder="(auto from channel)"></div>' +
+                '<div class="pid-sb-field"><label>Label</label>' +
+                '<input class="pid-label-inp" type="text" value="' + pidEsc(obj.label || '') + '" placeholder="(default: refDes)"></div>' +
+                '<div class="pid-sb-check"><label><input type="checkbox" class="pid-bubble-custom"' + (hasBubble ? ' checked' : '') + '> Custom bubble text</label></div>' +
+                '<div class="pid-sb-field"><label>Bubble text</label>' +
+                '<input class="pid-bubble-inp" type="text" value="' + pidEsc(obj.bubbleText || '') + '" placeholder="(default: from refDes)"' + (hasBubble ? '' : ' disabled') + '></div>' +
+                '<div class="pid-sb-field"><label>Decimals</label>' +
+                '<input class="pid-decimals-inp" type="number" min="0" max="6" value="' + curDec + '"></div>' +
+                '<div class="pid-sb-field"><label>Side</label>' +
+                '<select class="pid-side-sel">' +
+                    '<option value="right"' + (curSide === 'right' ? ' selected' : '') + '>Right</option>' +
+                    '<option value="left"'  + (curSide === 'left'  ? ' selected' : '') + '>Left</option>' +
+                '</select></div>' +
                 '<div class="pid-sb-heading pid-sb-heading--sm">Front Panel Display</div>' +
-                '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-refdes"' + (obj.showRefDes !== false ? ' checked' : '') + '> Show refDes</label></div>' +
+                '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-refdes"' + (obj.showRefDes !== false ? ' checked' : '') + '> Show name line</label></div>' +
                 '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-units"'  + (obj.showUnits  !== false ? ' checked' : '') + '> Show units</label></div>' +
-                '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-name"'   + (obj.showName   === true  ? ' checked' : '') + '> Show name (description)</label></div>' +
                 '<div class="pid-sb-field"><label>Rotation</label>' +
                 '<select class="pid-sensor-rotation">' +
                     '<option value="0"'   + (curRot === 0   ? ' selected' : '') + '>0\u00b0</option>'   +
@@ -1242,7 +1308,6 @@ function renderPidRsb(objId) {
                     '<option value="180"' + (curRot === 180 ? ' selected' : '') + '>180\u00b0</option>' +
                     '<option value="270"' + (curRot === 270 ? ' selected' : '') + '>270\u00b0</option>' +
                 '</select></div>' +
-                '<button class="pid-reset-label-btn">Reset label position</button>' +
                 '<button class="pid-apply-btn">Apply</button>' +
                 '<button class="pid-delete-btn">Remove</button>';
 
@@ -1251,6 +1316,9 @@ function renderPidRsb(objId) {
             const chField = c.querySelector('.pid-sensor-channel-field');
             const chSel   = c.querySelector('.pid-sensor-channel-sel');
             const uinp    = c.querySelector('.pid-units-inp');
+            const bubbleChk = c.querySelector('.pid-bubble-custom');
+            const bubbleInp = c.querySelector('.pid-bubble-inp');
+            bubbleChk.addEventListener('change', () => { bubbleInp.disabled = !bubbleChk.checked; });
 
             // Rebuild the channel sub-picker for whichever control is
             // currently chosen; shown only when there's a real choice to make
@@ -1276,16 +1344,6 @@ function renderPidRsb(objId) {
             if (ctrlSel) ctrlSel.addEventListener('change', refreshSensorChannelSel);
             if (ctrlInp) ctrlInp.addEventListener('input', refreshSensorChannelSel);
 
-            c.querySelector('.pid-reset-label-btn').addEventListener('click', () => {
-                obj.labelOffsetX = 0;
-                obj.labelOffsetY = 0;
-                const existing = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
-                if (existing) existing.remove();
-                renderPidObj(obj);
-                const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
-                if (updated) updated.classList.add('pid-selected');
-            });
-
             c.querySelector('.pid-apply-btn').addEventListener('click', () => {
                 const ctrlRefDes = ctrlSel ? ctrlSel.value : (ctrlInp ? ctrlInp.value.trim() : '');
                 if (ctrlRefDes) {
@@ -1298,9 +1356,15 @@ function renderPidRsb(objId) {
                     delete obj.channelRefDes;
                 }
                 obj.units      = uinp.value.trim();
+                const labelVal = c.querySelector('.pid-label-inp').value.trim();
+                if (labelVal) obj.label = labelVal; else delete obj.label;
+                if (bubbleChk.checked) obj.bubbleText = bubbleInp.value; else delete obj.bubbleText;
+                const decVal = parseInt(c.querySelector('.pid-decimals-inp').value, 10);
+                if (!isNaN(decVal) && decVal >= 0 && decVal <= 6 && decVal !== 2) obj.decimals = decVal; else delete obj.decimals;
+                const sideVal = c.querySelector('.pid-side-sel').value;
+                if (sideVal === 'left') obj.side = 'left'; else delete obj.side;
                 obj.showRefDes = c.querySelector('.pid-show-refdes').checked;
                 obj.showUnits  = c.querySelector('.pid-show-units').checked;
-                obj.showName   = c.querySelector('.pid-show-name').checked;
                 obj.rotation   = parseInt(c.querySelector('.pid-sensor-rotation').value) || 0;
                 // Re-render the object in place to reflect display flag changes
                 const existing = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
@@ -1308,7 +1372,7 @@ function renderPidRsb(objId) {
                 renderPidObj(obj);
                 // Re-apply selection highlight
                 const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
-                if (updated) updated.classList.add('pid-selected');
+                if (updated) updated.classList.add('pid-selected', 'selected');
                 // Re-bind live display to the new binding
                 const binding = resolveSensorBinding(obj, edConfigControls);
                 edLiveRefDes = binding?.ch.refDes || null;
@@ -1321,6 +1385,9 @@ function renderPidRsb(objId) {
                 } else if (edLiveEl) {
                     edLiveEl.textContent = '--';
                 }
+                // A binding edit can resolve or introduce an unbound-sensor
+                // problem row.
+                renderPidWarning();
             });
 
             // ── Live value row ──
@@ -1479,7 +1546,7 @@ function renderPidRsb(objId) {
                 if (existing) existing.remove();
                 renderPidObj(obj);
                 const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
-                if (updated) updated.classList.add('pid-selected');
+                if (updated) updated.classList.add('pid-selected', 'selected');
                 tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
                 for (const conn of tab.pid.connections) renderPidConn(conn);
                 renderPidWarning();
@@ -1496,7 +1563,9 @@ function renderPidRsb(objId) {
                   ).join('')
                 : null;
 
-            const curRot = obj.rotation || 0;
+            const curRot  = obj.rotation || 0;
+            const curSide = obj.side || 'right';
+            const curDec  = (typeof obj.decimals === 'number') ? obj.decimals : 2;
             c.innerHTML =
                 '<div class="pid-sb-heading">Valve</div>' +
                 '<div class="pid-sb-field"><label>Control</label>' +
@@ -1504,40 +1573,47 @@ function renderPidRsb(objId) {
                     ? '<select class="pid-valve-ctrl-sel"><option value="">-- pick --</option>' + opts + '</select>'
                     : '<input class="pid-valve-ctrl-inp" type="text" value="' + pidEsc(obj.controlRefDes || '') + '" placeholder="e.g. NV-03">') +
                 '</div>' +
+                '<div class="pid-sb-field"><label>Units</label>' +
+                '<input class="pid-units-inp" type="text" value="' + pidEsc(obj.units || '') + '" placeholder="(optional)"></div>' +
+                '<div class="pid-sb-field"><label>Label</label>' +
+                '<input class="pid-label-inp" type="text" value="' + pidEsc(obj.label || '') + '" placeholder="(default: control refDes)"></div>' +
+                '<div class="pid-sb-field"><label>Decimals</label>' +
+                '<input class="pid-decimals-inp" type="number" min="0" max="6" value="' + curDec + '"></div>' +
+                '<div class="pid-sb-field"><label>Side</label>' +
+                '<select class="pid-side-sel">' +
+                    '<option value="right"' + (curSide === 'right' ? ' selected' : '') + '>Right</option>' +
+                    '<option value="left"'  + (curSide === 'left'  ? ' selected' : '') + '>Left</option>' +
+                '</select></div>' +
                 '<div class="pid-sb-heading pid-sb-heading--sm">Display</div>' +
-                '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-refdes"' + (obj.showRefDes !== false ? ' checked' : '') + '> Show refDes label</label></div>' +
+                '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-refdes"' + (obj.showRefDes !== false ? ' checked' : '') + '> Show name line</label></div>' +
+                '<div class="pid-sb-check"><label><input type="checkbox" class="pid-show-units"'  + (obj.showUnits  !== false ? ' checked' : '') + '> Show units</label></div>' +
                 '<div class="pid-sb-field"><label>Rotation</label>' +
                 '<select class="pid-valve-rotation">' +
-                    '<option value="0"'   + (curRot === 0   ? ' selected' : '') + '>0°</option>'   +
-                    '<option value="90"'  + (curRot === 90  ? ' selected' : '') + '>90°</option>'  +
-                    '<option value="180"' + (curRot === 180 ? ' selected' : '') + '>180°</option>' +
-                    '<option value="270"' + (curRot === 270 ? ' selected' : '') + '>270°</option>' +
+                    '<option value="0"'  + (curRot === 0  ? ' selected' : '') + '>0°</option>'  +
+                    '<option value="90"' + (curRot === 90 ? ' selected' : '') + '>90°</option>' +
                 '</select></div>' +
-                '<button class="pid-reset-label-btn">Reset label position</button>' +
                 '<button class="pid-apply-btn">Apply</button>' +
                 '<button class="pid-delete-btn">Remove</button>';
-
-            c.querySelector('.pid-reset-label-btn').addEventListener('click', () => {
-                obj.labelOffsetX = 0;
-                obj.labelOffsetY = 0;
-                const existing = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
-                if (existing) existing.remove();
-                renderPidObj(obj);
-                const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
-                if (updated) updated.classList.add('pid-selected');
-            });
 
             c.querySelector('.pid-apply-btn').addEventListener('click', () => {
                 const sel = c.querySelector('.pid-valve-ctrl-sel');
                 const inp = c.querySelector('.pid-valve-ctrl-inp');
                 obj.controlRefDes = sel ? sel.value : (inp ? inp.value.trim() : '');
+                obj.units         = c.querySelector('.pid-units-inp').value.trim();
+                const labelVal = c.querySelector('.pid-label-inp').value.trim();
+                if (labelVal) obj.label = labelVal; else delete obj.label;
+                const decVal = parseInt(c.querySelector('.pid-decimals-inp').value, 10);
+                if (!isNaN(decVal) && decVal >= 0 && decVal <= 6 && decVal !== 2) obj.decimals = decVal; else delete obj.decimals;
+                const sideVal = c.querySelector('.pid-side-sel').value;
+                if (sideVal === 'left') obj.side = 'left'; else delete obj.side;
                 obj.showRefDes    = c.querySelector('.pid-show-refdes').checked;
+                obj.showUnits     = c.querySelector('.pid-show-units').checked;
                 obj.rotation      = parseInt(c.querySelector('.pid-valve-rotation').value) || 0;
                 const existing = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
                 if (existing) existing.remove();
                 renderPidObj(obj);
                 const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
-                if (updated) updated.classList.add('pid-selected');
+                if (updated) updated.classList.add('pid-selected', 'selected');
                 tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
                 for (const conn of tab.pid.connections) renderPidConn(conn);
                 renderPidWarning();
@@ -1577,7 +1653,7 @@ function renderPidRsb(objId) {
                 if (existing) existing.remove();
                 renderPidObj(obj);
                 const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
-                if (updated) updated.classList.add('pid-selected');
+                if (updated) updated.classList.add('pid-selected', 'selected');
             });
 
             c.querySelector('.pid-apply-btn').addEventListener('click', () => {
@@ -1591,7 +1667,7 @@ function renderPidRsb(objId) {
                 if (existing) existing.remove();
                 renderPidObj(obj);
                 const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
-                if (updated) updated.classList.add('pid-selected');
+                if (updated) updated.classList.add('pid-selected', 'selected');
                 tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
                 for (const conn of tab.pid.connections) renderPidConn(conn);
                 renderPidWarning();
@@ -1609,6 +1685,11 @@ function renderPidRsb(objId) {
                 '</div>' +
                 '<div class="pid-sb-field"><label>Label</label>' +
                 '<input class="pid-daqctrl-label" type="text" value="' + pidEsc(obj.label || '') + '" placeholder="(optional display name)"></div>' +
+                '<div class="pid-sb-field"><label>Side</label>' +
+                '<select class="pid-side-sel">' +
+                    '<option value="right"' + ((obj.side || 'right') === 'right' ? ' selected' : '') + '>Right</option>' +
+                    '<option value="left"'  + (obj.side === 'left'                ? ' selected' : '') + '>Left</option>' +
+                '</select></div>' +
                 '<div class="pid-sb-field pid-sb-field--row">' +
                     '<div><label>Width (cells)</label>' +
                     '<input class="pid-daqctrl-w" type="number" min="4" max="100" value="' + (obj.gridW || 10) + '"></div>' +
@@ -1622,13 +1703,15 @@ function renderPidRsb(objId) {
                 const inp = c.querySelector('.pid-daqctrl-inp');
                 obj.daqRefDes = inp ? inp.value.trim() : '';
                 obj.label     = c.querySelector('.pid-daqctrl-label').value.trim();
+                const sideVal = c.querySelector('.pid-side-sel').value;
+                if (sideVal === 'left') obj.side = 'left'; else delete obj.side;
                 obj.gridW     = parseInt(c.querySelector('.pid-daqctrl-w').value) || 10;
                 obj.gridH     = parseInt(c.querySelector('.pid-daqctrl-h').value) || 3;
                 const existing = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
                 if (existing) existing.remove();
                 renderPidObj(obj);
                 const updated = tab.pid.gObjs.querySelector('[data-pid-id="' + objId + '"]');
-                if (updated) updated.classList.add('pid-selected');
+                if (updated) updated.classList.add('pid-selected', 'selected');
                 tab.pid._routedPaths = new Map(); tab.pid.routingErrors = [];
                 for (const conn of tab.pid.connections) renderPidConn(conn);
                 renderPidWarning();
@@ -1739,20 +1822,11 @@ function startLabelDrag(objId, e) {
     const startLX  = obj.labelOffsetX || 0;
     const startLY  = obj.labelOffsetY || 0;
 
+    // Sensor and valve no longer have an independently-positioned label — the
+    // object-system name line lives inside the row pidBuildObject draws, so
+    // those two cases are gone. Tank still draws its label as a free-standing,
+    // draggable text and keeps this.
     function labelDefaultPos(o) {
-        if (o.type === 'sensor') {
-            const showRefDes = o.showRefDes !== false;
-            const showUnits  = o.showUnits  !== false;
-            const items = [];
-            if (showRefDes) items.push('refdes');
-            items.push('value');
-            if (showUnits)  items.push('units');
-            const step = PID.SENSOR_H / (items.length + 1);
-            const idx = items.indexOf('refdes');
-            const y = idx >= 0 ? Math.round(step * (idx + 1)) : 0;
-            return { dx: PID.SENSOR_W / 2, dy: y };
-        }
-        if (o.type === 'valve') return { dx: 0, dy: PID.VALVE_R + 12 };
         if (o.type === 'tank') {
             const W = (o.gridW || 5) * PID.GRID;
             const H = (o.gridH || 8) * PID.GRID;

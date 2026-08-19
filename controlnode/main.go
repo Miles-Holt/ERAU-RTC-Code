@@ -200,12 +200,36 @@ func main() {
 	// alert message interpolation outside a tick.
 	channelSpace := &engineReader{b: b, sc: sc}
 
+	// Every SENSOR channel with a validMin/validMax band gets an auto-generated,
+	// latching out-of-range alarm — no .alert file involved.  Command channels
+	// (role cmd-*) are excluded: a setpoint the operator typed is not a reading,
+	// and a band on it would describe the command, not the plant.
+	var sensorAlerts []alerts.SensorChannel
+	for _, ctrl := range cfg.ControlList.Controls {
+		if !ctrl.Enabled {
+			continue
+		}
+		for _, ch := range ctrl.Channels {
+			if ch.Role != "" {
+				continue // command channel, not a sensor
+			}
+			bounds, ok := cfgBounds[ch.RefDes]
+			if !ok {
+				continue // no validMin/validMax configured — no alert at all
+			}
+			sensorAlerts = append(sensorAlerts, alerts.SensorChannel{
+				RefDes: ch.RefDes, Min: bounds.Min, Max: bounds.Max,
+			})
+		}
+	}
+
 	alertRegistry := alerts.NewRegistry()
 	alertEngine, err := alerts.NewEngine(alerts.EngineConfig{
 		Config:        alertCfg,
 		Registry:      alertRegistry,
 		Nodes:         daqNodeNames,
 		Values:        channelSpace,
+		Sensors:       sensorAlerts,
 		KnownChannels: knownChannels,
 		OnError: func(e error) {
 			log.Printf("alerts: %v", e)
@@ -220,6 +244,12 @@ func main() {
 	log.Printf("alerts: %d rule(s) from %d file(s), template=%v, %d daqNode(s), stale timeout %d ms",
 		len(alertCfg.Rules), len(alertFiles), alertCfg.Template != nil,
 		len(daqNodeNames), alertEngine.StaleMs())
+	sensorIDs := alertEngine.SensorAlerts()
+	log.Printf("alerts: %d auto-generated sensor out-of-range alarm(s) from validMin/validMax bounds",
+		len(sensorIDs))
+	if len(sensorIDs) > 0 {
+		log.Printf("alerts: sensor bounds alarms: %s", strings.Join(sensorIDs, " "))
+	}
 
 	// ── Create the state machine engine ────────────────────────────────────
 	// daqClients is filled in below and read from the engine's OnDaqStateEnter

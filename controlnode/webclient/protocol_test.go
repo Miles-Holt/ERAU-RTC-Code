@@ -476,11 +476,20 @@ func TestContractAlertRegistry(t *testing.T) {
 		t.Fatal("server should expose the registry it publishes for")
 	}
 
-	// A raise from the alert engine (stable id) reaches the browser as `alert`.
+	// A raise from the alert engine (stable id) reaches the browser as `alert`,
+	// carrying the channels it concerns. The panel colours objects from that
+	// attribution: without it a rule alarm could not be matched to the object it
+	// is about, and the object would sit grey while the board showed red.
 	raw := captureBroadcast(t, b, "alert", func() {
-		reg.Raise("rule:CHAMBER-HIGH", alerts.SeverityAlarm, "Chamber pressure high: 500 psia")
+		reg.RaiseFor("rule:CHAMBER-HIGH", alerts.SeverityAlarm,
+			"Chamber pressure high: 500 psia", []string{"CPT-01"}, "")
 	})
-	m := requireType(t, "alert", raw, "alert", "id", "category", "message", "timestamp", "acked")
+	m := requireType(t, "alert", raw, "alert", "id", "category", "message", "timestamp", "acked", "resolved", "channels")
+	// isChannelAlarmed() in alerts.js reads this array by name.
+	chans, ok := m["channels"].([]interface{})
+	if !ok || len(chans) != 1 || chans[0] != "CPT-01" {
+		t.Errorf("alert channels = %v, want [CPT-01]", m["channels"])
+	}
 	if m["id"] != "rule:CHAMBER-HIGH" {
 		t.Errorf("alert id = %v, want the engine's stable id", m["id"])
 	}
@@ -490,11 +499,31 @@ func TestContractAlertRegistry(t *testing.T) {
 	if m["acked"] != false {
 		t.Errorf("a freshly raised alert must arrive un-acked, got %v", m["acked"])
 	}
+	if m["resolved"] != false {
+		t.Errorf("a freshly raised alert must arrive un-resolved, got %v", m["resolved"])
+	}
 
-	// A non-latching rule going false CLEARS the alert, and the browser learns
-	// about it through the existing alert_acked message.
+	// A condition RECOVERING is not an ack.  It republishes the row as an
+	// `alert` with resolved=true and acked still false, which is how the browser
+	// tells "recovered, nobody has looked yet" from "a person has seen this" —
+	// and why a latched object stays red after the value comes back.
+	resolvedRaw := captureBroadcast(t, b, "alert", func() {
+		reg.Resolve("rule:CHAMBER-HIGH")
+	})
+	resolvedMsg := requireType(t, "alert", resolvedRaw, "alert",
+		"id", "category", "message", "timestamp", "acked", "resolved")
+	if resolvedMsg["id"] != "rule:CHAMBER-HIGH" {
+		t.Errorf("resolved alert id = %v", resolvedMsg["id"])
+	}
+	if resolvedMsg["resolved"] != true || resolvedMsg["acked"] != false {
+		t.Errorf("resolved alert = resolved:%v acked:%v, want true/false",
+			resolvedMsg["resolved"], resolvedMsg["acked"])
+	}
+
+	// A rule whose author left `latch` off asked for the row to clear itself, so
+	// that one path does still ack, over the existing alert_acked message.
 	ackRaw := captureBroadcast(t, b, "alert_acked", func() {
-		reg.Clear("rule:CHAMBER-HIGH")
+		reg.ResolveAndAck("rule:CHAMBER-HIGH")
 	})
 	ackMsg := requireType(t, "alert_acked", ackRaw, "alert_acked", "id")
 	if ackMsg["id"] != "rule:CHAMBER-HIGH" {
@@ -516,7 +545,7 @@ func TestContractAlertRegistry(t *testing.T) {
 		t.Fatalf("alert_snapshot entries = %d, want 2", len(snapMsg.Alerts))
 	}
 	for _, entry := range snapMsg.Alerts {
-		for _, f := range []string{"id", "category", "message", "timestamp", "acked"} {
+		for _, f := range []string{"id", "category", "message", "timestamp", "acked", "resolved"} {
 			if _, ok := entry[f]; !ok {
 				t.Errorf("alert_snapshot entry %v: missing field %q that ingestAlert reads", entry["id"], f)
 			}

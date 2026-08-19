@@ -941,7 +941,9 @@ events raise nothing.</p>`)
 		b.WriteString(`<div class="scroll"><table><tr><th>Event</th><th>Severity</th><th>Message</th><th>When</th></tr>`)
 		order := []struct{ ev, when string }{
 			{alerts.EventDisconnect, "the node's WebSocket link drops"},
-			{alerts.EventReconnect, "the link comes back (never on the first connect — nothing was lost)"},
+			{alerts.EventReconnect, "the link comes back (never on the first connect — nothing was lost). " +
+				"Usually left undeclared: on reconnect the disconnect alarm goes inactive but stays on the " +
+				"board until an operator acknowledges it"},
 			{alerts.EventBadData, "a channel value leaves its validMin/validMax band"},
 			{alerts.EventStale, "a connected node stops delivering data for the stale timeout"},
 		}
@@ -988,9 +990,17 @@ acknowledges it.</p>`)
 			esc(r.Message) + "</td><td class=\"mono\">" + esc(fmt.Sprintf("%s:%d", r.File, r.Line)) + "</td></tr>")
 	}
 	b.WriteString("</table></div>")
+	b.WriteString(`<h2>Sensor bounds</h2>`)
+	b.WriteString(`<p class="hint">Every sensor channel with a <code>validMin</code>/<code>validMax</code> band
+also gets an alert generated from it — no <code>.alert</code> file involved, id <code>sensor:&lt;refDes&gt;</code>.
+Out of range is an <span class="tag alarm">alarm</span>, and it latches: when the value comes back inside the
+band the alert goes <em>resolved</em> but stays un-acknowledged, so the object stays red until a person
+acknowledges it. A channel with no usable bounds generates nothing.</p>`)
 	b.WriteString(`<p class="hint">Every alert reaches the browser as an <code>alert</code> message and is
 re-sent in the 1 Hz <code>alert_snapshot</code>; acknowledging one sends <code>ack_alert</code> back on
-<code>/ws/ctrl</code>. See the <a href="/docs/protocol">protocol page</a>.</p>`)
+<code>/ws/ctrl</code>. Each row carries <code>acked</code> and <code>resolved</code>: un-acked and un-resolved
+is live, resolved and un-acked is "recovered, nobody has looked yet", acked is done.
+See the <a href="/docs/protocol">protocol page</a>.</p>`)
 	return b.String()
 }
 

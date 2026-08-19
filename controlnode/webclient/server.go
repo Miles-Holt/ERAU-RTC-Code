@@ -143,10 +143,13 @@ type alertAckedMsg struct {
 	ID   string `json:"id"`
 }
 
-// AlertAckedJSON builds the alert_acked broadcast.  It is sent both when an
-// operator acks an alert and when the server RESOLVES one (a non-latching rule
-// going false, a node reconnecting): to the browser, "resolved" and
-// "acknowledged" render identically — the row stops flashing.
+// AlertAckedJSON builds the alert_acked broadcast.  It means a person has
+// acknowledged the alert — or, for a rule whose author left `latch` off, that the
+// server acked on their behalf because the config asked the row to clear itself.
+//
+// A condition merely RECOVERING no longer comes through here.  That is a
+// resolved-but-unacked row, published as an `alert` carrying resolved=true, so a
+// spike that came back down on its own stays red until somebody looks at it.
 func AlertAckedJSON(id string) []byte {
 	payload, err := json.Marshal(alertAckedMsg{Type: "alert_acked", ID: id})
 	if err != nil {
@@ -157,8 +160,11 @@ func AlertAckedJSON(id string) []byte {
 }
 
 // alertMsg is one alert row pushed to the browser.  The record fields are
-// inlined at the top level (id/category/message/timestamp/acked) because
-// WebClient/js/alerts.js ingestAlert reads them straight off the message.
+// inlined at the top level (id/category/message/timestamp/acked/resolved)
+// because WebClient/js/alerts.js ingestAlert reads them straight off the
+// message.  `resolved` distinguishes "the condition recovered but nobody has
+// acknowledged it" from "a person has seen this", which the panel needs in order
+// to keep a latched object red without pretending the value is still bad.
 type alertMsg struct {
 	Type string `json:"type"`
 	alerts.Record
@@ -379,6 +385,24 @@ func (s *Server) ServeWsData(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Subscribe BEFORE sending the snapshots below.
+	//
+	// This used to sit after them, which opened a window: a broadcast landing
+	// between the last snapshot write and Subscribe() was fanned out to a
+	// subscriber set that did not yet contain this connection, so the client
+	// never received it and had no way to know. The snapshot describes state at
+	// the moment it was built, so anything raised microseconds later was simply
+	// lost — for an alert on a control panel, silently.
+	//
+	// Subscribing first cannot lose a message; at worst the client sees a change
+	// twice, once in the snapshot and once as a broadcast. Alerts are keyed by
+	// id and bad_data is idempotent, so a duplicate is harmless where a drop is
+	// not. It also removes a genuine test flake: nothing a client could observe
+	// proved registration had happened, so a test that dialled and immediately
+	// triggered a broadcast raced the handler goroutine.
+	broadcastCh, unsub := s.b.Subscribe()
+	defer unsub()
+
 	// Send alert snapshot so the client sees existing alerts immediately.
 	if snap := s.alertSnapshot(); snap != nil {
 		if err := conn.WriteMessage(websocket.TextMessage, snap); err != nil {
@@ -394,10 +418,6 @@ func (s *Server) ServeWsData(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
-	// Subscribe to broker and forward all broadcasts.
-	broadcastCh, unsub := s.b.Subscribe()
-	defer unsub()
 
 	errCh := make(chan error, 1)
 	go func() {

@@ -1,0 +1,365 @@
+<title>Object Side Panel</title>
+<style>
+  :root {
+    --canvas:  #080808;
+    --surface: #101010;
+    --object:  #181818;
+    --border:  #242424;
+    --rule:    #1b1b1b;
+    --text:    #d0d8d8;
+    --muted:   #909898;
+    --dim:     #5c6464;
+    --accent:  #58a6ff;
+    --ok:      #3fb950;
+    --warn:    #e3b341;
+    --bad:     #f85149;
+    --sans: ui-sans-serif, "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--canvas); color: var(--text);
+         font-family: var(--sans); font-size: 15px; line-height: 1.55; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 48px 28px 88px; }
+
+  header.page { border-bottom: 1px solid var(--rule); padding-bottom: 22px; margin-bottom: 26px; }
+  .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+             text-transform: uppercase; color: var(--dim); margin: 0 0 10px; }
+  h1 { font-size: 28px; line-height: 1.15; font-weight: 600; margin: 0 0 10px; letter-spacing: -0.01em; }
+  .lede { color: var(--muted); max-width: 68ch; margin: 0; font-size: 14px; }
+  h2 { font-size: 19px; font-weight: 600; margin: 0; }
+  p { margin: 0 0 12px; max-width: 76ch; }
+  code, .k { font-family: var(--mono); font-size: 0.88em; color: var(--text);
+             background: #141414; border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; }
+
+  section.block { margin-bottom: 44px; }
+  .block-head { display: flex; align-items: baseline; gap: 14px; border-bottom: 1px solid var(--rule);
+                padding-bottom: 10px; margin-bottom: 16px; }
+  .block-head .id { font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: 0.1em; }
+  .block-head .size { margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: var(--dim); }
+  .note { font-size: 13px; color: var(--muted); }
+  .note strong { color: var(--text); font-weight: 600; }
+
+  /* Panel mockups */
+  .row { display: flex; flex-wrap: wrap; gap: 26px; align-items: flex-start; margin: 16px 0; }
+  .sp { width: 300px; border: 1px solid var(--border); background: var(--surface); }
+  .sp-head { display: flex; align-items: baseline; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--rule); }
+  .sp-ref { font-family: var(--mono); font-size: 12px; color: var(--text); }
+  .sp-desc { font-size: 11px; color: var(--dim); }
+  .sp-x { margin-left: auto; color: var(--dim); font-size: 13px; }
+  .sp-chart { height: 96px; margin: 8px; border: 1px solid var(--rule); position: relative; overflow: hidden; }
+  .sp-sec { border-top: 1px solid var(--rule); padding: 7px 10px; }
+  .sp-lab { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.12em;
+            text-transform: uppercase; color: var(--dim); margin-bottom: 5px; }
+  .sp-r { display: flex; align-items: baseline; gap: 8px; font-size: 12px; padding: 2px 0; }
+  .sp-r .n { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .sp-r .v { margin-left: auto; font-family: var(--mono); color: var(--text);
+             font-variant-numeric: tabular-nums; }
+  .sp-r .u { font-size: 9.5px; color: var(--dim); }
+  .sp-r.bad .v { color: var(--bad); }
+  .sp-r.stale .v { color: var(--warn); }
+  .pill { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase;
+          border: 1px solid var(--border); padding: 1px 6px; color: var(--muted); }
+  .pill.bad { color: var(--bad); border-color: #4a1f21; background: #2a1517; }
+  .pill.warn { color: var(--warn); border-color: #4a3f1f; background: #2a2411; }
+  .sp-btn { display: inline-block; font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+            background: #2b3131; color: var(--text); padding: 6px 10px; border: 0; }
+  .sp-btn.quiet { background: var(--canvas); color: var(--dim); box-shadow: inset 0 0 0 1px #1c2020; }
+  .cap { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em;
+         text-transform: uppercase; color: var(--dim); margin-bottom: 8px; }
+
+  /* Menu */
+  .menu { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .item { background: var(--surface); padding: 12px 16px; display: grid;
+          grid-template-columns: 30px 1fr; gap: 12px; align-items: start; }
+  .item .num { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+  .item .t { font-weight: 600; font-size: 14px; }
+  .item .d { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+  .item .why { font-size: 12px; color: var(--dim); margin-top: 4px; }
+  .grp { background: var(--canvas); padding: 9px 16px; font-family: var(--mono); font-size: 10px;
+         letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
+
+  .gaps { border: 1px solid var(--border); border-left: 3px solid var(--bad);
+          background: var(--surface); padding: 14px 20px; margin: 0 0 26px; }
+  .gaps ul { margin: 0; padding-left: 18px; }
+  .gaps li { font-size: 13px; color: var(--muted); margin-bottom: 5px; }
+  .gaps li:last-child { margin-bottom: 0; }
+  .gaps strong { color: var(--text); font-weight: 600; }
+
+  footer.page { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--rule);
+                font-size: 12.5px; color: var(--dim); }
+</style>
+
+<div class="wrap">
+
+<header class="page">
+  <p class="eyebrow">P&amp;ID front panel · right-click side panel</p>
+  <h1>Object Side Panel</h1>
+  <p class="lede">
+    What right-clicking an object opens. Today it is a graph; the question is whether it should be
+    the place an operator goes to understand one object. Numbered so you can reply with digits.
+  </p>
+</header>
+
+<section class="block">
+  <div class="block-head"><span class="id">TODAY</span><h2>What it is now</h2><span class="size">objectSidebar.js, 163 lines</span></div>
+  <p class="note">
+    Right-click a sensor or valve and a panel opens on the right: the control's refDes and
+    description, a chart pre-loaded with <em>every</em> channel on that control, and a regex box to
+    add more. It reuses the Graph tab's chart, pan, zoom and tooltip wholesale — which is why it
+    got good behaviour for free.
+  </p>
+  <div class="row">
+    <div>
+      <div class="cap">Today</div>
+      <div class="sp">
+        <div class="sp-head"><span class="sp-ref">OV-05</span><span class="sp-desc">LOX main valve</span><span class="sp-x">&#215;</span></div>
+        <div class="sp-chart"></div>
+        <div class="sp-sec">
+          <div class="sp-lab">Channels on the chart</div>
+          <div class="sp-r"><span class="n">OV-05-CMD</span></div>
+          <div class="sp-r"><span class="n">OV-05-FB</span></div>
+        </div>
+        <div class="sp-sec"><span class="sp-lab">Add channel (regex)…</span></div>
+      </div>
+    </div>
+    <div style="max-width:44ch">
+      <p class="note">
+        It answers one question well — <em>what has this been doing?</em> — and no others. It cannot
+        tell you what the object reads right now, whether it is in alarm, which node owns it, or let
+        you do anything about any of that.
+      </p>
+      <p class="note">
+        Everything below is a menu, not a plan. Pick what is worth building.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="block-head"><span class="id">GAPS</span><h2>Problems in the current panel</h2><span class="size">from the code</span></div>
+  <div class="gaps">
+    <ul>
+      <li><strong>It never marks its object selected.</strong> You asked for exactly this earlier —
+        "is there selected highlighting in the panel too, if I click a sensor to make the right side
+        panel come up". The white selection glow was built for it and is not wired, so with two
+        similar objects nearby there is nothing saying which one you opened.</li>
+      <li><strong>It fails silently.</strong> <span class="k">if (!ctrl) return;</span> — right-click
+        an object whose control is not in the config and nothing happens at all. No panel, no
+        message. It is a real case, not a hypothetical: a config key gets renamed or deleted while
+        the panel markup still binds the old one, a copy-pasted panel section brings its controls
+        along without the matching config entries, or a control is only registered under a mode or
+        feature flag while the panel draws it unconditionally.
+        <em>Decided: the runtime may stay silent — the editor catches it instead</em>, warning at
+        load time for every declared control with no config entry, named by id and location.</li>
+      <li><strong>It behaves unlike the command panels.</strong> They now close on
+        <span class="k">Esc</span> and stack. This one closes on any right-click anywhere — even a
+        right-click on a different object — and cannot be kept alongside another.
+        <em>Decided: side panels do not pin.</em></li>
+      <li><strong>It rebuilds on every open.</strong> Channels are removed and re-added each time,
+        so the chart starts empty and refills — the history you opened it to see arrives a moment
+        late. <em>Decided: acceptable for now.</em> The refill is only slow because it ships every
+        raw point; the work worth doing is on the wire, not the cache — see 04.</li>
+      <li><strong>The header is thin.</strong> refDes and description only: no value, no units, no
+        state, no node.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block">
+  <div class="block-head"><span class="id">MENU</span><h2>Design changes to pick from</h2><span class="size">reply with numbers</span></div>
+
+  <div class="menu">
+    <div class="grp">Make it behave like the rest of the panel</div>
+    <div class="item"><span class="num">01</span><div>
+      <div class="t">Glow the object while its panel is open</div>
+      <div class="d">Wire the existing <span class="k">.selected</span> class when the panel opens, clear it on close.</div>
+      <div class="why">Already built and already asked for. Nothing else here matters if you cannot tell which object you are looking at.</div>
+    </div></div>
+    <div class="item"><span class="num">02</span><div>
+      <div class="t">Esc closes it; a right-click elsewhere does not</div>
+      <div class="d">Esc and ✕ close it. A right-click on another object retargets the panel instead of dismissing it. No pin — side panels stay unpinned.</div>
+      <div class="why">One set of habits for every panel, rather than two, without adding a pin state to carry around.</div>
+    </div></div>
+    <div class="item"><span class="num">03</span><div>
+      <div class="t">Catch the missing control in the editor, not at right-click</div>
+      <div class="d">Leave the runtime silent. At load time walk the panel's declared controls and warn for each key with no config entry, with the control id and where it sits.</div>
+      <div class="why">The person who can fix a dangling binding is the one editing the drawing, not the operator right-clicking it during a test.</div>
+    </div></div>
+    <div class="item"><span class="num">04</span><div>
+      <div class="t">Send aggregates, not every point</div>
+      <div class="d">History for a panel that is 300 px wide does not need one sample per acquisition tick. Downsample server-side into per-bucket min/max/last at the resolution the request asks for, and send that. Raw points only when the window is short enough to want them.</div>
+      <div class="why">Chosen over caching the chart between opens: the refill is slow because of what crosses the wire, so bucketing fixes the open, the pan, the zoom and the preset switch at once, and it gets cheaper as the buffer gets longer rather than more expensive.</div>
+    </div></div>
+
+    <div class="grp">Show what the object is doing</div>
+    <div class="item"><span class="num">05</span><div>
+      <div class="t">Live readings table under the chart</div>
+      <div class="d">Every channel with its current value, units and per-object decimals — coloured on the same two axes as the object.</div>
+      <div class="why">The panel currently shows history but not the present.</div>
+    </div></div>
+    <div class="item"><span class="num">06</span><div>
+      <div class="t">State line in the header</div>
+      <div class="d">The object's data condition and alarm as a pill: LIVE, STALE, NO DATA, UNBOUND, ALARMING.</div>
+      <div class="why">Same vocabulary as the glyph, so the panel and the object cannot disagree.</div>
+    </div></div>
+    <div class="item"><span class="num">07</span><div>
+      <div class="t">Raised alerts for this object, each row opening an alarm panel</div>
+      <div class="d">List alerts attributed to these channels or their node — rows only, no inline Ack. Clicking a row opens a second right-side panel built from the same template, scoped to the alarm rather than the object: the trend of the channel that tripped it, how long it has been raised, its long description, and Ack / Reset / Suppress. <em>Suppress is rule-level and volatile</em>: the rule stops evaluating until someone unsuppresses it or the control node restarts.</div>
+      <div class="why">Ack is a decision, and one button on a one-line row is not enough to make it on. The row says <em>something is wrong</em>; the panel behind it is where you find out what and then act.</div>
+    </div></div>
+    <div class="item"><span class="num">07a</span><div>
+      <div class="t">A long description on the alert definition</div>
+      <div class="d">Alerts carry a one-line <span class="k">message</span> today, sized for the board. Add an optional long form on the definition — <span class="k">describe "…"</span> alongside <span class="k">message</span> in <span class="k">config/alerts/alerts.alert</span>, same placeholder interpolation — and render it in the alarm panel.</div>
+      <div class="why">"OV-05 not responding to command" is the right length for a list and the wrong length for deciding what to do about it. The person who wrote the rule knows what it means; this is where they write it down.</div>
+    </div></div>
+    <div class="item"><span class="num">07b</span><div>
+      <div class="t">Somewhere to see what is suppressed</div>
+      <div class="d">Filter the alerts list by state — raised, unacknowledged, suppressed, cleared — and keep a suppressed count visible even when the filter is not on it. A suppressed rule keeps its row, greyed, with a <span class="k">Suppressed &middot; until restart</span> pill rather than disappearing from the board.</div>
+      <div class="why">Rule-level suppression is the one operator action that makes the system stop watching, so the failure mode to design against is a rule suppressed during a hold that nobody remembers before the next run. A count that never hides is what makes "we suppressed three things this morning" recoverable. Restart clearing it is a safe default, but it also means the board can look different after a restart with nobody having touched it — the pill says "until restart" for that reason.</div>
+      <div class="why" style="margin-top:6px">Note: the registry records only <span class="k">acked</span> and <span class="k">resolved</span> — no operator identity, and the browser connects anonymously. So "suppressed by" is not available without adding identity; time-of-suppression is.</div>
+    </div></div>
+    <div class="item"><span class="num">08</span><div>
+      <div class="t">Which node owns it, and is that node up</div>
+      <div class="d">"DAQ001 · connected 4m" in the header.</div>
+      <div class="why">Node offline is half the reason an object goes quiet, and nothing on the panel says which node it was.</div>
+    </div></div>
+    <div class="item"><span class="num">09</span><div>
+      <div class="t">A <span class="k">channels</span> section on the alert, declaring what its plot draws</div>
+      <div class="d">Give an alert definition a block saying which channels its panel plots and what reference lines go behind them — <span class="k">line &lt;value-or-channel&gt; "&lt;label&gt;"</span>, where the value may be a literal, a channel (so an operator-settable limit moves with it), or a per-channel property. The <span class="k">bad_data</span> template becomes one consumer: it emits two lines at that channel's validMin and validMax. Nothing is drawn on the object panel's plot — only on the alarm's.</div>
+      <div class="why">Your call, and the right generalisation: the valid band is not a special feature, it is one alert saying what context its plot needs. The same mechanism then covers a rate-of-change limit, a setpoint the reading was supposed to hold, or a companion channel worth seeing beside the one that tripped — without a new rendering path each time. On an object plot a band is decoration on a trace nobody is questioning; on the alarm plot it is the evidence for why the alert exists. Inert until bounds are actually configured — none are today.</div>
+      <div class="why" style="margin-top:8px;color:var(--muted)">
+        <span class="k">alert CHAMBER-HIGH</span><br>
+        &nbsp;&nbsp;<span class="k">if CPT-01 &gt; LIM-CPT01-HIGH</span><br>
+        &nbsp;&nbsp;<span class="k">channels</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="k">plot CPT-01</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="k">line LIM-CPT01-HIGH "abort limit"</span>
+      </div>
+    </div></div>
+
+    <div class="grp">Let the operator act</div>
+    <div class="item"><span class="num">11</span><div>
+      <div class="t">Promote a channel to the Graph tab</div>
+      <div class="d">One click sends the channel you are looking at to a real graph cell.</div>
+      <div class="why">The side panel is for a glance; the Graph tab is for study. Nothing bridges them now.</div>
+    </div></div>
+    <div class="item"><span class="num">12</span><div>
+      <div class="t">Copy the channel name</div>
+      <div class="d">Click a channel in the readings table to copy its name. The refDes names the object; the channel is what config, alert rules and graph cells actually reference.</div>
+      <div class="why">Small, and every config edit starts with typing one of these by hand — and typing the wrong one of the two is its own class of bug.</div>
+    </div></div>
+
+    <div class="item"><span class="num">&mdash;</span><div>
+      <div class="t" style="color:var(--dim);font-weight:400">Cut: 10, command block in the panel</div>
+      <div class="d">Commanding stays in the command panel — one route to a command, not two.</div>
+    </div></div>
+
+    <div class="grp">Chart, for a test rather than a glance</div>
+    <div class="item"><span class="num">&mdash;</span><div>
+      <div class="t" style="color:var(--dim);font-weight:400">Cut: 13, time presets</div>
+      <div class="d">Scroll-zoom is enough for choosing the window; presets are not worth the chrome.</div>
+    </div></div>
+    <div class="item"><span class="num">14</span><div>
+      <div class="t">Plot the state channel itself, and name the states in the tooltip</div>
+      <div class="d">Rather than drawing separate transition rules, add <span class="k">SM-&lt;NAME&gt;-STATE</span> to the chart as a step trace — it is already a real channel carrying the state index. The tooltip renders the index through the <span class="k">state_config</span> table, so it reads "autoSequence", not "3".</div>
+      <div class="why">The single most useful thing on this list during a firing sequence: it puts a reading in the context of what the sequence was doing. Doing it as a channel rather than as annotations means it pans, zooms, buckets and exports like everything else on the chart, and it needs no new message — the index is already in <span class="k">data</span> and the names are already in <span class="k">state_config</span>. The enum-to-name rendering is the only new work.</div>
+    </div></div>
+    <div class="item"><span class="num">15</span><div>
+      <div class="t">Command and feedback as a pair</div>
+      <div class="d">For a valve, draw CMD and FB on one axis, so lag is a visible gap.</div>
+      <div class="why">Same idea as the dot-versus-arc on the glyph, at history scale.</div>
+    </div></div>
+    <div class="item"><span class="num">16</span><div>
+      <div class="t">Freeze</div>
+      <div class="d">A button that stops the window advancing so a reading can be studied without chasing it.</div>
+      <div class="why">Pan already does this implicitly; a button says so.</div>
+    </div></div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="block-head"><span class="id">SHAPE</span><h2>What it could look like</h2><span class="size">items 01, 05, 06, 07, 07a</span></div>
+  <p class="note">
+    One assembled example, not a further proposal — the header carries state, the readings sit under
+    the chart, and the object glows on the canvas while it is open. The raised alert is a row, not a
+    button: clicking it opens the alarm beside it, same template, different subject.
+  </p>
+  <div class="row">
+    <div>
+      <div class="cap">Assembled</div>
+      <div class="sp">
+        <div class="sp-head">
+          <span class="sp-ref">OV-05</span><span class="sp-desc">LOX main</span>
+          <span class="sp-x">&#215;</span>
+        </div>
+        <div class="sp-sec" style="border-top:0;display:flex;gap:6px;align-items:center">
+          <span class="pill bad">Alarming</span><span class="pill">DAQ001 · up</span>
+        </div>
+        <div class="sp-chart"></div>
+        <div class="sp-sec">
+          <div class="sp-lab">Now</div>
+          <div class="sp-r"><span class="n">OV-05-CMD</span><span class="v">OPEN</span></div>
+          <div class="sp-r bad"><span class="n">OV-05-FB</span><span class="v">CLOSED</span></div>
+        </div>
+        <div class="sp-sec">
+          <div class="sp-lab">Raised</div>
+          <div class="sp-r"><span class="n" style="color:var(--bad)">OV-05 not responding to command</span><span class="v" style="color:var(--dim)">&rsaquo;</span></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="cap">Click the row &rarr; the alarm</div>
+      <div class="sp">
+        <div class="sp-head">
+          <span class="sp-ref">OV-05-STUCK</span><span class="sp-desc">alarm</span>
+          <span class="sp-x">&#215;</span>
+        </div>
+        <div class="sp-sec" style="border-top:0;display:flex;gap:6px;align-items:center">
+          <span class="pill bad">Raised 00:41</span><span class="pill">Unacknowledged</span>
+        </div>
+        <div class="sp-sec">
+          <div class="sp-lab">Message</div>
+          <div class="sp-r"><span class="n" style="color:var(--bad)">OV-05 not responding to command</span></div>
+          <p class="note" style="margin:6px 0 0;font-size:11.5px">
+            Feedback has disagreed with command for longer than the valve's travel time. Check
+            actuator air before assuming the valve is stuck; if air is good, abort the sequence
+            before the next LOX step.
+          </p>
+        </div>
+        <div class="sp-chart"></div>
+        <div class="sp-sec">
+          <div class="sp-lab">Condition</div>
+          <div class="sp-r"><span class="n">OV-05-CMD</span><span class="v">OPEN</span></div>
+          <div class="sp-r bad"><span class="n">OV-05-FB</span><span class="v">CLOSED</span></div>
+        </div>
+        <div class="sp-sec">
+          <span class="sp-btn">ACK</span>
+          <span class="sp-btn quiet">RESET</span>
+          <span class="sp-btn quiet">SUPPRESS</span>
+          <div class="sp-lab" style="margin:7px 0 0">Suppress stops the rule until restart</div>
+        </div>
+      </div>
+    </div>
+    <div style="max-width:40ch">
+      <p class="note">
+        The alarm reads three ways on the object panel — the pill, the red feedback value, and the
+        raised row — for the same reason the object does: it is the one thing that must not be missed.
+      </p>
+      <p class="note">
+        The alarm panel is the same template with a different subject: header, state pills, a plot,
+        a table, actions. Time-in-alarm and acked state sit where the node pill sat; the long
+        description comes from <span class="k">describe</span> on the alert definition; Ack, Reset
+        and Suppress are together at the bottom, away from anything you click by reflex.
+      </p>
+      <p class="note">
+        Nothing above is built. Reply with the numbers worth doing and I will scope them.
+      </p>
+    </div>
+  </div>
+</section>
+
+<footer class="page">
+  Companion to the front panel object system. Colours are the tokens from
+  <span class="k">WebClient/css/style.css</span>. Dark only.
+</footer>
+
+</div>

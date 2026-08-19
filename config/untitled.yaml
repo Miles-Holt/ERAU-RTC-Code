@@ -15,7 +15,7 @@ objects:
     type: sensor
     refDes: OT-02
     units: Deg F
-    gridX: 10
+    gridX: 5
     gridY: 10
   - id: sensor_1775091865101_9104
     type: sensor
@@ -25,8 +25,11 @@ objects:
     gridY: 15
   - id: sensor_1775091866277_2714
     type: sensor
-    refDes: CTR001-uptime
     units: s
+    controlRefDes: CTR001
+    channelRefDes: CTR001-uptime
+    showUnits: false
+    decimals: 0
     gridX: 35
     gridY: 14
   - id: sensor_1775091867852_4019
@@ -39,8 +42,8 @@ objects:
     type: sensor
     refDes: LCC-01-01
     units: Pounds
-    gridX: 27
-    gridY: 9
+    gridX: 32
+    gridY: 7
 connections:
   - id: conn_1775091870218_2314
     fromId: sensor_1775091865101_9104

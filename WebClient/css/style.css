@@ -36,6 +36,10 @@
     --status-reconnecting: #e3b341;
     --status-connecting:   #58a6ff;
     --status-stale:        #e3b341;
+    /* Body tint for an object in trouble: a hue, not a highlight. Dark enough
+       that the interior text stays legible. */
+    --tint-alarm:          #2a1517;
+    --tint-stale:          #2a2411;
 
     /* LED colors */
     --led-open:     #3fb950;
@@ -64,6 +68,8 @@
     --status-reconnecting: #9a6700;
     --status-connecting:   #0969da;
     --status-stale:        #9a6700;
+    --tint-alarm:          #fdecec;
+    --tint-stale:          #fdf4e0;
 
     /* LED colors */
     --led-open:     #1a7f37;
@@ -360,7 +366,7 @@ header h1 {
 .btn:disabled              { opacity: 0.3; cursor: not-allowed; }
 
 /* Universal disabled styling for any auth-gated command widget (markCmdWidget).
-   Covers non-.btn controls too: valve-panel buttons, number inputs, selects. */
+   Covers non-.btn controls too: valve command panel buttons, number inputs, selects. */
 .cmd-widget:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .btn-open  { border-color: var(--led-open);   color: var(--led-open); }
@@ -616,154 +622,325 @@ header h1 {
 }
 
 /* =============================================================================
-   Valve dropdown panel
+   Valve command panel
+   =============================================================================
+   Design: docs/design/sensor-object-options.html, section COMMAND.
+   Class structure follows that page's DOM mockup (.vp, .vp-head, .seg,
+   .is-now / .is-next, .vp-rows); the generic names are all scoped under .vp.
+
+   Colours come from the theme tokens rather than the design page's literals,
+   which are dark-only. The segmented pair is deliberately NOT green: green
+   reads as "good" when all it means is "current". It is a light/dark pair —
+   quiet where the valve already is, forward where you can act.
+
+   NO RULE HERE MAY CHANGE A BOX'S SIZE BETWEEN .is-now AND .is-next. The whole
+   redesign rests on the control not moving when the state changes, so the two
+   states differ in background, colour and inset shadow only — same padding,
+   same border, same font, same weight, same flex basis.
    ============================================================================= */
 
-.valve-panel {
+.vp {
     position: fixed;
     z-index: 700;
+    width: 240px;               /* fixed: the panel can never resize under the cursor */
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 6px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.45);
-    min-width: 220px;
-    max-width: 300px;
 }
 
-.valve-panel-header {
+[data-theme="light"] .vp { box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+
+.vp-head {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 8px;
+    gap: 8px;
+    padding: 7px 10px;
     border-bottom: 1px solid var(--border);
 }
 
-.valve-pin-btn {
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--muted);
-    cursor: pointer;
-    padding: 2px 7px;
-    font-size: 11px;
-    flex-shrink: 0;
-    transition: color 0.1s, border-color 0.1s;
-}
-
-.valve-pin-btn:hover { color: var(--text); }
-
-.valve-pin-btn.pinned {
-    color: var(--accent);
-    border-color: var(--accent);
-}
-
-.valve-panel-title {
-    flex: 1;
-    font-size: 12px;
-    font-weight: 600;
+.vp-title {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 11.5px;
     color: var(--text);
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.vp-desc {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 11px;
+    color: var(--muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.valve-close-btn {
+.vp-pin {
+    flex: 0 0 auto;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 2px 6px;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+}
+
+.vp-pin:hover { color: var(--text); }
+
+/* Pinned means one thing: a click off the panel leaves it open. */
+.vp-pin.pinned { color: var(--accent); border-color: var(--accent); }
+
+.vp-x {
+    flex: 0 0 auto;
     background: none;
     border: none;
     color: var(--muted);
     cursor: pointer;
-    font-size: 18px;
+    font-size: 13px;
     line-height: 1;
     padding: 0 2px;
-    flex-shrink: 0;
 }
 
-.valve-close-btn:hover { color: var(--text); }
+.vp-x:hover { color: var(--text); }
 
-.valve-panel-rows {
-    padding: 4px;
+/* ── Command block — first thing under the header, always ─────────────────── */
+
+.vp-cmd {
+    padding: 10px;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 7px;
 }
 
-.valve-panel-hint {
-    padding: 8px;
-    font-size: 12px;
+.vp-cmd-label {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
     color: var(--muted);
 }
 
-.valve-panel-row {
+.vp .seg {
+    display: flex;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.vp .seg button {
+    flex: 1 1 0;
+    min-width: 0;
+    appearance: none;
+    border: 0;
+    border-radius: 0;
+    cursor: pointer;
+    padding: 11px 8px;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+}
+
+/* Dark/quiet: where the valve is. */
+.vp .seg button.is-now {
+    background: var(--bg);
+    color: var(--muted);
+    box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* Light/forward: what you can do. */
+.vp .seg button.is-next {
+    background: var(--card-bg);
+    color: var(--text);
+}
+
+.vp .seg button.is-next:hover:not(:disabled) { background: var(--border); }
+
+/* ── Positionable valve: presets plus a typed entry, and no slider ────────── */
+
+.vp-pos {
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    padding: 5px 8px;
-    border-radius: 4px;
+    gap: 7px;
 }
 
-.valve-panel-row:hover { background: var(--card-bg); }
-
-.valve-row-label { font-size: 11px; color: var(--muted); }
-.valve-row-refdes { font-family: monospace; font-size: 11px; }
-.valve-row-units  { font-size: 10px; color: var(--muted); }
-
-.valve-row-value {
-    font-size: 13px;
-    font-weight: 700;
-    font-family: monospace;
-    color: var(--text);
-}
-
-.valve-row-value.stale {
-    color: var(--status-stale);
-    opacity: 0.7;
-}
-
-.valve-row-cmds {
+.vp-entry {
     display: flex;
-    gap: 4px;
-    margin-top: 2px;
-}
-
-.valve-btn-open,
-.valve-btn-close {
-    flex: 1;
-    padding: 4px 0;
-    font-size: 12px;
-    border-radius: 4px;
+    gap: 1px;
+    background: var(--border);
     border: 1px solid var(--border);
-    cursor: pointer;
-    background: var(--card-bg);
-    color: var(--text);
-    transition: border-color 0.1s, color 0.1s;
-}
-
-.valve-btn-open:hover  { border-color: var(--status-connected);    color: var(--status-connected); }
-.valve-btn-close:hover { border-color: var(--status-disconnected); color: var(--status-disconnected); }
-
-.valve-btn-set {
-    padding: 3px 10px;
-    font-size: 12px;
     border-radius: 4px;
-    border: 1px solid var(--border);
-    cursor: pointer;
-    background: var(--card-bg);
-    color: var(--text);
+    overflow: hidden;
 }
 
-.valve-btn-set:hover { border-color: var(--accent); color: var(--accent); }
-
-.valve-cmd-input {
-    width: 70px;
+.vp-entry-input {
+    flex: 1 1 0;
+    min-width: 0;
     background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
+    border: 0;
     color: var(--text);
-    padding: 3px 6px;
+    padding: 9px 10px;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 12px;
+    -moz-appearance: textfield;
+}
+
+.vp-entry-input:focus { outline: none; box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* Spinners appear on hover and would change the field's usable width. */
+.vp-entry-input::-webkit-outer-spin-button,
+.vp-entry-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.vp-set {
+    flex: 0 0 64px;
+    appearance: none;
+    border: 0;
+    cursor: pointer;
+    background: var(--card-bg);
+    color: var(--text);
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+}
+
+.vp-set:hover:not(:disabled) { background: var(--border); }
+
+.vp-hint {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 10.5px;
+    color: var(--muted);
+}
+
+.vp-none {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 2px 0;
+}
+
+/* ── Live channel rows — read-only, and BELOW the command ─────────────────── */
+/* They sit below, so a value that grows a digit cannot move the command block:
+   the panel's top-left is fixed and everything here grows downward. */
+
+.vp-rows { border-top: 1px solid var(--border); }
+
+.vp-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 5px 10px;
     font-size: 12px;
 }
 
-.valve-cmd-input:focus { outline: none; border-color: var(--accent); }
+.vp-row + .vp-row { border-top: 1px solid var(--border); }
+
+.vp-row .r {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.vp-row .v {
+    margin-left: auto;
+    flex: 0 0 auto;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 12px;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+
+.vp-row .v.stale { color: var(--status-stale); opacity: 0.7; }
+
+/* =============================================================================
+   State machine command panel — machinePanel.js
+   =============================================================================
+   Reuses the valve panel shell wholesale (.vp, .vp-head, .vp-cmd, .vp-hint,
+   .vp-none) — see docs/design/sensor-object-options.html, COMMAND: "The state
+   machine gets the same panel instead of the native <select>." Only the
+   command control itself is new: a vertical list of state rows in place of
+   the segmented pair, because a machine can have more than two targets.
+   ============================================================================= */
+
+.vp-states {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.vp-state {
+    appearance: none;
+    border: 0;
+    border-radius: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 10px;
+    background: var(--card-bg);
+    color: var(--text);
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 12px;
+    text-align: left;
+}
+
+.vp-state:hover:not(.now):not(.gated):not(:disabled) { background: var(--border); }
+
+.vp-state-mark {
+    flex: 0 0 auto;
+}
+
+.vp-state-mark path {
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 1.6;
+    stroke-linejoin: round;
+}
+
+.vp-state-name { flex: 0 0 auto; }
+
+/* The row you are already in: quiet, same as .is-now on the valve segment. */
+.vp-state.now {
+    background: var(--bg);
+    color: var(--muted);
+    cursor: default;
+    box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* Blocked by an `operator from …` gate — dimmed WITH THE REASON, never
+   silently accepted and refused server-side. This is the thing the old
+   <select> could not do. */
+.vp-state.gated {
+    color: var(--muted);
+    cursor: default;
+    opacity: 0.55;
+}
+
+.vp-state.gated .vp-state-mark path,
+.vp-state.now .vp-state-mark path { stroke: var(--muted); }
+
+.vp-state .why {
+    margin-left: auto;
+    flex: 0 0 auto;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
 
 /* =============================================================================
    Front Panel tab
@@ -2904,3 +3081,146 @@ header h1 {
 .ed-auth-submit:hover { opacity: 0.85; }
 .ed-auth-submit:disabled { opacity: 0.5; cursor: default; }
 
+
+/* =============================================================================
+   Front-panel object system — sensor / valve / state machine as one construction
+   =============================================================================
+   Design: docs/design/sensor-object-options.html
+
+   State is TWO independent axes, never one enum:
+     data condition — .st-live | .st-nodata | .st-stale | .st-unbound
+     alarm          — .alarmed, meaning an alert raised AND unacknowledged
+   `range` and `offline` are deliberately absent: out of range is live+alarmed,
+   node offline is nodata+alarmed.
+
+   Colours come from the theme tokens rather than literals so the panel keeps
+   working in light mode; the design page is dark-only and its hex values must
+   not be copied in.
+   ========================================================================== */
+
+.pid-object { pointer-events: all; }
+.pid-object text { pointer-events: none; }
+
+/* ── Glyph ring ───────────────────────────────────────────────────────────── */
+.pid-object .po-ring {
+    fill: var(--card-bg);
+    stroke: var(--border);
+    stroke-width: 1.5;
+}
+.pid-object.st-stale   .po-ring { stroke: var(--status-stale); }
+.pid-object.st-unbound .po-ring { stroke: var(--muted); stroke-dasharray: 3 2; }
+/* An alarm takes the ring outright, so it is never hidden behind amber. */
+.pid-object.alarmed    .po-ring { stroke: var(--status-disconnected); }
+/* Body tint. Same two axes as everything else: alarm wins over stale, so the
+   fill and the ring can never disagree. */
+.pid-object.st-stale   .po-ring { fill: var(--tint-stale); }
+.pid-object.alarmed    .po-ring { fill: var(--tint-alarm); }
+
+/* Bubble interior text — option C, the instrument type set large. */
+.pid-object .po-bub {
+    text-anchor: middle;
+    font-family: ui-monospace, Consolas, monospace;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    fill: var(--muted);
+}
+.pid-object.st-unbound .po-bub { fill: var(--muted); }
+
+/* ── Text block ───────────────────────────────────────────────────────────── */
+.pid-object .po-name {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    fill: var(--muted);
+}
+.pid-object .po-value {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 17px;
+    font-weight: 700;
+    fill: var(--text);
+}
+.pid-object .po-units {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 9.5px;
+    fill: var(--muted);
+}
+.pid-object.st-nodata  .po-value { fill: var(--muted); }
+.pid-object.st-stale   .po-value { fill: var(--status-stale); }
+.pid-object.st-unbound .po-value,
+.pid-object.st-unbound .po-name  { fill: var(--muted); font-style: italic; }
+/* An alarm takes the number only where there IS a number: dashes stay dim. */
+.pid-object.alarmed.st-live  .po-value,
+.pid-object.alarmed.st-stale .po-value { fill: var(--status-disconnected); }
+
+/* ── Valve ────────────────────────────────────────────────────────────────── */
+/* Green is a claim about NOW, so it follows the data axis rather than being a
+   constant: a valve whose node went quiet stops asserting it is open. */
+/* Green is earned by the switch, not by the command: an unconfirmed body stays
+   grey, so "commanded open, not yet open" cannot read as open. */
+.pid-object .po-bore { stroke: var(--muted); stroke-width: 2.5; stroke-linecap: round; }
+.pid-object .po-bore.po-confirmed { stroke: var(--text); }
+.pid-object .po-bore.po-confirmed.po-bore-open { stroke: var(--led-open); }
+
+/* A made switch is a FILLED dot, so its colour is a fill, not a stroke. Green
+   still follows the data axis: a stale valve stops asserting it is open. */
+.pid-object .po-tick-made.po-tick-open { fill: var(--led-open); }
+.pid-object .po-tick-made.po-tick-shut { fill: var(--text); }
+.pid-object.st-stale   .po-tick-made.po-tick-open,
+.pid-object.st-stale   .po-tick-made.po-tick-shut { fill: var(--status-stale); }
+.pid-object.st-nodata  .po-tick-made,
+.pid-object.st-unbound .po-tick-made { fill: var(--muted); }
+/* The data axis still outranks all of it: a stale valve asserts nothing. */
+.pid-object.st-stale   .po-bore,
+.pid-object.st-stale   .po-bore.po-confirmed,
+.pid-object.st-stale   .po-bore.po-confirmed.po-bore-open { stroke: var(--status-stale); }
+.pid-object.st-nodata  .po-bore.po-confirmed.po-bore-open,
+.pid-object.st-unbound .po-bore.po-confirmed.po-bore-open,
+.pid-object.st-nodata  .po-bore, .pid-object.st-unbound .po-bore { stroke: var(--muted); }
+
+/* An alarm takes the valve's own marks, not just the ring around them. The
+   sensor's value and the machine's mark already did this; the valve did not, so
+   the object type most likely to matter was the one under-reporting it. Written
+   last and at 3-4 class specificity so it outranks the confirmed/open colours
+   above without disturbing them. */
+.pid-object.alarmed.st-live  .po-bore,
+.pid-object.alarmed.st-live  .po-bore.po-confirmed,
+.pid-object.alarmed.st-live  .po-bore.po-confirmed.po-bore-open,
+.pid-object.alarmed.st-stale .po-bore,
+.pid-object.alarmed.st-stale .po-bore.po-confirmed,
+.pid-object.alarmed.st-stale .po-bore.po-confirmed.po-bore-open { stroke: var(--status-disconnected); }
+.pid-object.alarmed.st-live  .po-tick-made,
+.pid-object.alarmed.st-stale .po-tick-made { fill: var(--status-disconnected); }
+
+/* Filled is fact, hollow is intent: a made switch fills, an unmade one outlines,
+   and the commanded position (po-fb-cmd) is always a hollow ring. */
+.pid-object .po-tick      { fill: none; stroke: var(--border); stroke-width: 1.5; }
+.pid-object .po-tick-made { stroke: none; }
+
+.pid-object .po-fb-track { stroke: var(--border); stroke-width: 2; fill: none; stroke-linecap: round; }
+.pid-object .po-fb-live  { stroke: var(--led-open); stroke-width: 2.5; fill: none; stroke-linecap: round; }
+.pid-object.st-stale  .po-fb-live { stroke: var(--status-stale); }
+.pid-object.st-nodata .po-fb-live { stroke: var(--muted); }
+.pid-object .po-fb-cmd   { fill: var(--card-bg); stroke: var(--text); stroke-width: 1.8; }
+.pid-object.st-unbound .po-fb-cmd { stroke: var(--muted); }
+
+/* ── State machine ────────────────────────────────────────────────────────── */
+/* Same circle as the sensor. An unreached target adds a concentric accent ring,
+   and nothing at all is added when the machine is where it was told to be. */
+.pid-object .po-target { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.pid-object .po-mark   { fill: none; stroke: var(--text); stroke-width: 1.8; stroke-linejoin: round; }
+.pid-object.st-nodata  .po-mark,
+.pid-object.st-unbound .po-mark { stroke: var(--muted); }
+.pid-object.st-stale   .po-mark { stroke: var(--status-stale); }
+.pid-object.alarmed.st-live .po-mark { stroke: var(--status-disconnected); }
+
+/* ── Selection ────────────────────────────────────────────────────────────── */
+/* A glow layered UNDER the object, not a state: an alarming object stays red
+   while selected. Dashed is reserved for unbound and means nothing else. */
+.pid-object .po-glow { display: none; }
+.pid-object.selected .po-glow { display: inline; }
+.pid-object .po-glow-bloom { fill: url(#po-glow-grad); }
+.pid-object .po-glow-blur  { fill: none; stroke: #ffffff; stroke-width: 3.5;
+                             stroke-opacity: 0.8; filter: url(#po-glow-blur); }
+.pid-object .po-glow-core  { fill: none; stroke: #ffffff; stroke-width: 1.1; stroke-opacity: 0.9; }
+[data-theme="light"] .pid-object .po-glow-blur,
+[data-theme="light"] .pid-object .po-glow-core { stroke: var(--accent); }

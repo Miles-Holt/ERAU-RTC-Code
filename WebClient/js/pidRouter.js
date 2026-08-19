@@ -49,8 +49,15 @@ function pidObstacleRects(objects) {
                 y2: o.gridY * PID.GRID + (o.gridH || 10) * PID.GRID + M,
             });
         } else if (o.type === 'valve') {
-            const x = o.gridX * PID.GRID, y = o.gridY * PID.GRID, R = PID.VALVE_R;
-            rects.push({ x1: x-R-M, y1: y-R-M, x2: x+R+M, y2: y+R+M });
+            // The valve is a glyph plus a text block, not a bare circle, so the
+            // obstacle is the whole drawn row — otherwise pipes route straight
+            // through the name and reading.
+            const x = o.gridX * PID.GRID, y = o.gridY * PID.GRID;
+            const b = pidValveBox(o);
+            rects.push({
+                x1: x + b.dx - M, y1: y + b.dy - M,
+                x2: x + b.dx + b.w + M, y2: y + b.dy + b.h + M,
+            });
         } else if (o.type === 'daqControl') {
             rects.push({
                 x1: o.gridX * PID.GRID - M,
@@ -59,11 +66,14 @@ function pidObstacleRects(objects) {
                 y2: o.gridY * PID.GRID + (o.gridH || 3) * PID.GRID + M,
             });
         } else if (o.type === 'sensor') {
+            // The front-panel object is wider and taller than the old 120x50
+            // box, so the obstacle has to come from the same measurement the
+            // renderer uses or pipes route straight through the text block.
             rects.push({
                 x1: o.gridX * PID.GRID - M,
                 y1: o.gridY * PID.GRID - M,
-                x2: o.gridX * PID.GRID + PID.SENSOR_W + M,
-                y2: o.gridY * PID.GRID + PID.SENSOR_H + M,
+                x2: o.gridX * PID.GRID + pidSensorBoxW(o) + M,
+                y2: o.gridY * PID.GRID + PID_OBJ.H + M,
             });
         }
     }

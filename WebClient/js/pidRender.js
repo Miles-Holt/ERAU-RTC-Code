@@ -186,7 +186,21 @@ function portPos(obj, port) {
     const x = obj.gridX * PID.GRID;
     const y = obj.gridY * PID.GRID;
     if (obj.type === 'sensor') {
-        if (port === 'bottom') return { x: x + PID.SENSOR_W / 2, y: y + PID.SENSOR_H };
+        // The pipe attaches to the BUBBLE, not to the old box: the bubble is the
+        // instrument and the text block beside it is only its label, so a pipe
+        // that met the label would be drawn to the wrong thing. Flipping `side`
+        // moves the bubble across the object, and the ports go with it.
+        const R = PID_OBJ.R;
+        const w = pidSensorBoxW(obj);
+        const bx = ((obj.side || 'right') === 'right') ? R + 6 : w - (R + 6);
+        const by = PID_OBJ.H / 2;
+        const off = R + 3;
+        if (port === 'top')   return { x: x + bx,       y: y + by - off };
+        if (port === 'right') return { x: x + bx + off, y: y + by };
+        if (port === 'left')  return { x: x + bx - off, y: y + by };
+        // 'bottom' is the only port name old layouts carry, so it stays the
+        // fallback as well as a case: every existing pipe must still resolve.
+        return { x: x + bx, y: y + by + off };
     }
     if (obj.type === 'node') {
         return { x, y };
@@ -323,4 +337,408 @@ function _valveSubtypeInfo(ctrl) {
     const hasFb   = st.includes('IO-FB') || st.includes('POS-FB');
     const fbIsPct = st.includes('POS-FB');
     return { hasCmd, cmdRole, hasFb, fbIsPct };
+}
+
+// =============================================================================
+// Front-panel object system — shared by viewer and editor
+// =============================================================================
+// Design: docs/design/sensor-object-options.html
+//
+// A sensor, a valve and a state machine are ONE construction: an optional
+// glyph, a name line and a line of live text. Only the glyph interior differs.
+//
+// State is two independent axes, never one enum:
+//   data condition — 'live' | 'nodata' | 'stale' | 'unbound'
+//   alarm          — an alert raised AND unacknowledged
+// There is deliberately no 'range' state (out of range is live + alarm) and no
+// 'offline' state (node offline is nodata + alarm).
+//
+// Colours live in CSS (style.css), driven by the classes set here, because the
+// app has a light theme that the dark-only design page does not.
+// =============================================================================
+
+const PID_OBJ = {
+    R:      17,     // glyph radius — one number for all three families
+    TK_R:   13,     // limit marks — inside the circle, at the bore-line end
+    TK_DOT: 2.9,
+    RIN:    13,     // continuous position — inside the circle
+    H:      64,     // row height (the selection bloom needs the room)
+    GAP:    16,     // glyph edge to text block
+    CHAR_W: 10.3,   // monospace advance at the 17px value size
+};
+
+// pidObjStateClass maps the two axes onto the classes CSS keys off.
+function pidObjStateClass(dataCond, alarmed) {
+    const known = ['live', 'nodata', 'stale', 'unbound'];
+    const d = known.indexOf(dataCond) >= 0 ? dataCond : 'live';
+    return 'st-' + d + (alarmed ? ' alarmed' : '');
+}
+
+// pidEnsureObjDefs installs the selection-glow filter/gradient once per page.
+// The ids are document-global, so a second canvas reuses the first one's.
+function pidEnsureObjDefs(svgEl) {
+    if (!svgEl || document.getElementById('po-glow-blur')) return;
+    const defs = svgN('defs', {});
+    const f = svgN('filter', {
+        id: 'po-glow-blur', x: '-100%', y: '-100%', width: '300%', height: '300%',
+    });
+    f.appendChild(svgN('feGaussianBlur', { stdDeviation: 3.4 }));
+    defs.appendChild(f);
+    const grad = svgN('radialGradient', { id: 'po-glow-grad' });
+    const stops = [['42%', 0.34], ['72%', 0.12], ['100%', 0]];
+    for (const st of stops) {
+        grad.appendChild(svgN('stop', {
+            offset: st[0], 'stop-color': '#ffffff', 'stop-opacity': st[1],
+        }));
+    }
+    defs.appendChild(grad);
+    svgEl.insertBefore(defs, svgEl.firstChild);
+}
+
+// The bubble interior is a per-object text field, so it has to hold whatever is
+// typed. Empty draws an empty bubble, which makes "no text" a setting rather
+// than a second widget.
+function pidBubbleFontSize(n) {
+    if (n <= 2) return 14;
+    if (n === 3) return 11.5;
+    if (n === 4) return 9.5;
+    if (n === 5) return 8.5;
+    return 7.5;
+}
+
+// pidDefaultBubbleText derives the value shown until an object sets its own:
+// the leading letters of the refDes, so "CPT-01" gives "CPT".
+function pidDefaultBubbleText(refDes) {
+    const m = String(refDes || '').match(/^[A-Za-z]+/);
+    return m ? m[0].slice(0, 4) : '';
+}
+
+// ── Geometry ────────────────────────────────────────────────────────────────
+
+const PID_A_SHUT = Math.PI / 4;    // along the 45° shut line
+const PID_A_OPEN = 0;              // along the horizontal open line
+const PID_FB0    = Math.PI * 0.75; // gauge sweep start
+const PID_FBSPAN = Math.PI * 1.5;  // gauge sweep extent
+
+function pidPolar(r, a) { return { x: Math.cos(a) * r, y: Math.sin(a) * r }; }
+
+function pidArcPath(r, a0, a1) {
+    const p0 = pidPolar(r, a0), p1 = pidPolar(r, a1);
+    const large = (a1 - a0) > Math.PI ? 1 : 0;
+    return 'M ' + p0.x + ' ' + p0.y + ' A ' + r + ' ' + r + ' 0 ' + large + ' 1 ' + p1.x + ' ' + p1.y;
+}
+
+// ── Glyph interiors ─────────────────────────────────────────────────────────
+
+function pidGlyphSensor(g, spec, refs) {
+    const raw = (spec.bubbleText === undefined || spec.bubbleText === null)
+        ? pidDefaultBubbleText(spec.name) : String(spec.bubbleText);
+    if (raw === '') return;
+    const size = pidBubbleFontSize(raw.length);
+    const el = svgN('text', { class: 'po-bub', x: 0, y: size * 0.36, 'font-size': size });
+    el.textContent = raw;
+    refs.bubbleText = el;
+    g.appendChild(el);
+}
+
+// Shut lies across the bore at 45°, open along it. `rot` turns the bore and the
+// limit ticks together for a top-to-bottom run — they have to move together,
+// since each tick sits at the end of the line it reports on. A percentage
+// figure stays upright: a number read sideways is not a reading.
+function pidGlyphValve(g, spec, refs) {
+    const l = PID_OBJ.R - 5, d = l * 0.72;
+    const rotG = svgN('g', spec.rot ? { transform: 'rotate(' + spec.rot + ')' } : {});
+    refs.rotG = rotG;
+    if (spec.valveKind === 'pct') {
+        pidBuildFbRing(g, refs);                       // inside the circle
+        const t = svgN('text', {
+            class: 'po-value', x: 0, y: 4, 'font-size': 11, 'text-anchor': 'middle',
+        });
+        t.textContent = '--';
+        refs.pctText = t;
+        g.appendChild(t);                              // upright, unrotated
+    } else {
+        const line = svgN('line', { class: 'po-bore', x1: -d, y1: -d, x2: d, y2: d });
+        refs.bore = line;
+        refs.boreGeom = { l: l, d: d };
+        rotG.appendChild(line);
+        if (spec.hasLimits) pidBuildLimitTicks(rotG, refs);
+    }
+    g.appendChild(rotG);
+}
+
+function pidGlyphMachine(g, spec, refs) {
+    const s = 5.5;
+    refs.mark = svgN('path', {
+        class: 'po-mark',
+        d: 'M 0 ' + (-s) + ' L ' + s + ' 0 L 0 ' + s + ' L ' + (-s) + ' 0 Z',
+    });
+    g.appendChild(refs.mark);
+}
+
+// ── Valve feedback ──────────────────────────────────────────────────────────
+// Two rules keep the valve's two readings separable now that both live inside
+// the circle:
+//   FILLED IS FACT, HOLLOW IS INTENT — a made switch fills, an unmade one
+//     outlines, and a commanded position is always a hollow ring.
+//   A SWITCH IS A PAIR — one dot at each END of the bore line it reports on, so
+//     it reads as that line's endpoints rather than as a mark sitting nearby.
+//     The command ring is single and rides between them, so shape alone tells
+//     them apart; neither weight nor colour has to carry it.
+
+function pidBuildLimitTicks(parent, refs) {
+    refs.ticks = {};
+    const at = [['shut', PID_A_SHUT], ['open', PID_A_OPEN]];
+    for (const pair of at) {
+        const key = pair[0];
+        const dots = [];
+        for (const ang of [pair[1], pair[1] + Math.PI]) {
+            const p = pidPolar(PID_OBJ.TK_R, ang);
+            const dot = svgN('circle', {
+                class: 'po-tick po-tick-' + key, cx: p.x, cy: p.y, r: PID_OBJ.TK_DOT,
+            });
+            parent.appendChild(dot);
+            dots.push(dot);
+        }
+        refs.ticks[key] = { dots: dots };
+    }
+}
+
+function pidBuildFbRing(g, refs) {
+    refs.fbTrack = svgN('path', {
+        class: 'po-fb-track',
+        d: pidArcPath(PID_OBJ.RIN, PID_FB0, PID_FB0 + PID_FBSPAN),
+    });
+    refs.fbLive = svgN('path', { class: 'po-fb-live', d: '' });
+    refs.fbCmd  = svgN('circle', { class: 'po-fb-cmd', cx: 0, cy: 0, r: 2.8 });
+    refs.fbCmd.style.display = 'none';
+    g.appendChild(refs.fbTrack);
+    g.appendChild(refs.fbLive);
+    g.appendChild(refs.fbCmd);
+}
+
+// pidSetValveFeedback drives the ring from the two numbers it carries: the ARC
+// is feedback (where the valve is) and the DOT is command (where it was told to
+// be). When they agree the dot caps the arc; when they disagree the gap between
+// them is the fault, which is the whole reason to draw a ring rather than print
+// a number.
+function pidSetValveFeedback(refs, fbPct, cmdPct) {
+    if (!refs.fbLive) return;
+    const fb = typeof fbPct === 'number' ? Math.max(0, Math.min(100, fbPct)) : null;
+    refs.fbLive.setAttribute('d', (fb === null || fb <= 0.001) ? ''
+        : pidArcPath(PID_OBJ.RIN, PID_FB0, PID_FB0 + PID_FBSPAN * (fb / 100)));
+    if (typeof cmdPct === 'number') {
+        const c = Math.max(0, Math.min(100, cmdPct));
+        const p = pidPolar(PID_OBJ.RIN, PID_FB0 + PID_FBSPAN * (c / 100));
+        refs.fbCmd.setAttribute('cx', p.x);
+        refs.fbCmd.setAttribute('cy', p.y);
+        refs.fbCmd.style.display = '';
+    } else {
+        refs.fbCmd.style.display = 'none';
+    }
+    if (refs.pctText) refs.pctText.textContent = (fb === null) ? '--' : String(Math.round(fb));
+}
+
+// pidSetValveBore turns the bore line: across the bore at 45° when shut, along
+// it when open.
+//
+// `confirmed` decides whether the line may take its live colour at all. On a
+// limit-switched valve green is earned by the SWITCH, not by the command: asking
+// for open tells you only that you asked, so the body stays grey until the open
+// pair lights. Mid-travel neither switch is made, which is grey for the same
+// reason rather than as a special case. A valve with no feedback fitted passes
+// confirmed=true, because there the command is the only fact there is.
+function pidSetValveBore(refs, isOpen, confirmed) {
+    if (!refs.bore) return;
+    const l = refs.boreGeom.l, d = refs.boreGeom.d;
+    const a = isOpen ? { x1: -l, y1: 0, x2: l, y2: 0 }
+                     : { x1: -d, y1: -d, x2: d, y2: d };
+    for (const k of Object.keys(a)) refs.bore.setAttribute(k, a[k]);
+    refs.bore.classList.toggle('po-bore-open', !!isOpen);
+    refs.bore.classList.toggle('po-confirmed', confirmed !== false);
+}
+
+// pidValvePositionConfirmed reports whether feedback agrees with the command,
+// which is what earns the live colour. `made` is 'shut' | 'open' | null.
+function pidValvePositionConfirmed(hasLimits, isOpen, made) {
+    if (!hasLimits) return true;
+    return made === (isOpen ? 'open' : 'shut');
+}
+
+// pidSetLimitSwitch lights one of the two ticks. `made` is 'shut', 'open', or
+// null for neither — travelling between the stops, or a failed switch. Unlit is
+// information, so null is a legitimate value rather than a missing one.
+function pidSetLimitSwitch(refs, made) {
+    if (!refs.ticks) return;
+    for (const key of ['shut', 'open']) {
+        for (const dot of refs.ticks[key].dots) {
+            dot.classList.toggle('po-tick-made', made === key);
+        }
+    }
+}
+
+// ── The object row ──────────────────────────────────────────────────────────
+// [glyph?] + name line + reading. The name line IS the title. Flipping `side`
+// mirrors the whole block — glyph crosses over, text right-aligns, and the unit
+// moves to the outer edge — so the number always hugs the bubble.
+
+function pidObjectWidth(spec) {
+    const valChars = Math.max(4, String(spec.sampleValue || '888.88').length);
+    const unitW = (spec.units && spec.showUnits !== false)
+        ? String(spec.units).length * 5.2 + 6 : 0;
+    const nameW = (spec.showName === false) ? 0 : String(spec.name || '').length * 6.4;
+    const textW = Math.max(valChars * PID_OBJ.CHAR_W + unitW, nameW);
+    const glyphW = (spec.glyph === false) ? 0 : 2 * PID_OBJ.R + PID_OBJ.GAP;
+    return Math.ceil(glyphW + textW + 8);
+}
+
+// pidSensorBoxW is the object's drawn width. The renderer caches the measured
+// value onto the layout object as `_objW` (transient, never serialised); before
+// a first render — editor drag previews, the router on load — it falls back to
+// estimating from the raw fields. Both portPos and the router go through here so
+// there is one answer rather than three.
+function pidSensorBoxW(obj) {
+    if (obj && typeof obj._objW === 'number') return obj._objW;
+    return pidObjectWidth({
+        name: (obj && (obj.label || obj.refDes || obj.controlRefDes)) || '',
+        units: obj && obj.units,
+        showUnits: !obj || obj.showUnits !== false,
+        showName: !obj || obj.showRefDes !== false,
+        glyph: !obj || obj.showGlyph !== false,
+    });
+}
+
+// pidValveBox returns the drawn extent of a valve object relative to its grid
+// point. A valve is positioned by its GLYPH CENTRE rather than by the row's
+// corner — its pipes attach around that point and a panel is mostly valve
+// pipes, so moving it would reroute every existing drawing. The row therefore
+// hangs off the glyph, and the router needs to know where it actually lands.
+function pidValveBox(obj) {
+    const w = pidSensorBoxW(obj);
+    const gx = ((obj && obj.side) || 'right') === 'right'
+        ? PID_OBJ.R + 6 : w - (PID_OBJ.R + 6);
+    return { dx: -gx, dy: -PID_OBJ.H / 2, w: w, h: PID_OBJ.H };
+}
+
+// pidBuildObject returns { g, refs }. `g` is an SVG group positioned by the
+// caller; `refs` holds the live nodes so updates never re-parse markup.
+function pidBuildObject(spec) {
+    const W = spec.width || pidObjectWidth(spec);
+    const H = PID_OBJ.H;
+    const cy = H / 2;
+    const hasGlyph = spec.glyph !== false;
+    const textRight = (spec.side || 'right') === 'right';
+    const R = PID_OBJ.R;
+
+    const g = svgN('g', { class: 'pid-object ' + pidObjStateClass(spec.dataCond, spec.alarmed) });
+    const refs = { width: W, height: H, textRight: textRight };
+
+    const gx = !hasGlyph ? 0 : (textRight ? R + 6 : W - (R + 6));
+    const edge = hasGlyph ? (textRight ? 2 * R + PID_OBJ.GAP : W - (2 * R + PID_OBJ.GAP))
+                          : (textRight ? 4 : W - 4);
+
+    // Selection glow, layered UNDER everything: an alarming object stays red
+    // while selected, which a state-based highlight could not manage.
+    const glow = svgN('g', { class: 'po-glow' });
+    if (hasGlyph) {
+        glow.appendChild(svgN('circle', { class: 'po-glow-bloom', cx: gx, cy: cy, r: R + 9 }));
+        glow.appendChild(svgN('circle', { class: 'po-glow-blur',  cx: gx, cy: cy, r: R + 2 }));
+        glow.appendChild(svgN('circle', { class: 'po-glow-core',  cx: gx, cy: cy, r: R + 1.5 }));
+    } else {
+        const box = { x: 4, y: 9, width: W - 8, height: H - 18, rx: 4 };
+        glow.appendChild(svgN('rect', Object.assign({ class: 'po-glow-blur' }, box)));
+        glow.appendChild(svgN('rect', Object.assign({ class: 'po-glow-core' }, box)));
+    }
+    g.appendChild(glow);
+
+    if (hasGlyph) {
+        const gg = svgN('g', { transform: 'translate(' + gx + ',' + cy + ')' });
+        // An unreached target adds a concentric accent ring, and nothing at all
+        // is added when the machine is where it was told to be.
+        if (spec.type === 'machine') {
+            refs.target = svgN('circle', { class: 'po-target', cx: 0, cy: 0, r: R + 4 });
+            refs.target.style.display = 'none';
+            gg.appendChild(refs.target);
+        }
+        refs.ring = svgN('circle', { class: 'po-ring', cx: 0, cy: 0, r: R });
+        gg.appendChild(refs.ring);
+        if (spec.type === 'valve')        pidGlyphValve(gg, spec, refs);
+        else if (spec.type === 'machine') pidGlyphMachine(gg, spec, refs);
+        else                              pidGlyphSensor(gg, spec, refs);
+        g.appendChild(gg);
+        refs.glyphG = gg;
+    }
+
+    const anchor = textRight ? 'start' : 'end';
+    if (spec.showName !== false) {
+        refs.name = svgN('text', {
+            class: 'po-name', x: edge, y: cy - 6, 'text-anchor': anchor,
+        });
+        refs.name.textContent = spec.name || '';
+        g.appendChild(refs.name);
+    }
+    refs.value = svgN('text', {
+        class: 'po-value', x: edge, y: (spec.showName === false ? cy + 7 : cy + 15),
+        'text-anchor': anchor,
+    });
+    refs.value.textContent = '--';
+    g.appendChild(refs.value);
+
+    if (spec.units && spec.showUnits !== false) {
+        refs.units = svgN('text', {
+            class: 'po-units', y: refs.value.getAttribute('y'), 'text-anchor': anchor,
+        });
+        refs.units.textContent = spec.units;
+        refs.unitsEdge = edge;
+        g.appendChild(refs.units);
+    }
+    pidSetObjectValue(refs, '--');
+    return { g: g, refs: refs };
+}
+
+// pidSetObjectValue writes the reading and repositions the unit, which always
+// sits on the OUTER edge of the row whichever side the text is on.
+function pidSetObjectValue(refs, text) {
+    if (!refs.value) return;
+    refs.value.textContent = text;
+    if (!refs.units) return;
+    const w = String(text).length * PID_OBJ.CHAR_W;
+    refs.units.setAttribute('x', refs.textRight ? refs.unitsEdge + w + 6
+                                                : refs.unitsEdge - w - 6);
+}
+
+// pidFormatValue applies the per-object decimal places. Display only: the value
+// on the wire, in the rolling buffer and on the graph is never rounded, so two
+// objects bound to one channel may legitimately show it differently.
+function pidFormatValue(v, decimals) {
+    if (typeof v !== 'number' || !isFinite(v)) return '--';
+    const dp = (typeof decimals === 'number' && decimals >= 0 && decimals <= 6) ? decimals : 2;
+    return v.toFixed(dp);
+}
+
+// pidSetObjectState applies the two axes plus selection. Selection is not a
+// state: it layers on top of whatever the object already is.
+function pidSetObjectState(g, dataCond, alarmed, selected) {
+    if (!g) return;
+    g.classList.remove('st-live', 'st-nodata', 'st-stale', 'st-unbound');
+    const known = ['live', 'nodata', 'stale', 'unbound'];
+    g.classList.add('st-' + (known.indexOf(dataCond) >= 0 ? dataCond : 'live'));
+    g.classList.toggle('alarmed', !!alarmed);
+    if (selected !== undefined) g.classList.toggle('selected', !!selected);
+}
+
+// pidMarkAllObjectsStale drops every front-panel object to the stale data
+// condition. Used when the control link itself goes down: nothing is arriving,
+// so no object can still claim its reading is current. The alarm axis is
+// preserved — a link failure does not clear an alert that was already raised.
+function pidMarkAllObjectsStale() {
+    document.querySelectorAll('.pid-object').forEach(g => {
+        pidSetObjectState(g, 'stale', g.classList.contains('alarmed'));
+    });
+}
+
+// pidSetMachineTarget shows the accent ring only while a commanded target has
+// not been reached.
+function pidSetMachineTarget(refs, pending) {
+    if (refs.target) refs.target.style.display = pending ? '' : 'none';
 }

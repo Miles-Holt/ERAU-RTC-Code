@@ -12,6 +12,7 @@
 //
 //	rule alerts       "rule:<NAME>"
 //	bad data          "bad:<refDes>"
+//	sensor bounds     "sensor:<refDes>"
 //	connect state     "conn:<node>"
 //	stale data        "stale:<node>"
 //	one-off notices   "notice:<n>"
@@ -42,12 +43,36 @@ func ValidSeverity(s string) bool {
 // Record is one alert row.  The JSON tags ARE the browser wire contract
 // (WebClient/js/alerts.js ingestAlert reads id/category/message/timestamp/acked);
 // webclient/protocol_test.go pins them.
+//
+// Acked and Resolved are two independent facts, and keeping them apart is the
+// whole point of the pair:
+//
+//	Acked=false Resolved=false  ACTIVE — the condition is true right now
+//	Acked=false Resolved=true   RESOLVED BUT UNACKED — the condition recovered on
+//	                            its own, but nobody has seen it yet, so the row
+//	                            (and the object it belongs to) stays red
+//	Acked=true                  ACKNOWLEDGED — a person has seen it
+//
+// Only a person moves a row into the acked column.  The server does not ack on
+// the operator's behalf when a condition recovers: a pressure spike that came
+// back down still has to be looked at, because the thing worth knowing is that
+// it happened.  The one deliberate exception is ResolveAndAck, for a rule whose
+// author opted out of latching — see its comment.
 type Record struct {
 	ID        string `json:"id"`
 	Category  string `json:"category"` // "info" | "warning" | "alarm"
 	Message   string `json:"message"`
 	Timestamp int64  `json:"timestamp"` // Unix ms
 	Acked     bool   `json:"acked"`
+	Resolved  bool   `json:"resolved"` // condition no longer true; says nothing about Acked
+
+	// What this alert is ABOUT, so a front-panel object can tell whether an
+	// alert concerns it. Without this the browser can only guess from the id,
+	// which works for the auto-generated ones (`sensor:<refDes>`) and not at
+	// all for a rule alert — an object would sit grey while a rule alarm about
+	// its own channel was raised on the board.
+	Channels []string `json:"channels,omitempty"` // channel refDes this concerns
+	Node     string   `json:"node,omitempty"`     // daqNode refDes, for node-level alerts
 }
 
 // Sink publishes registry changes to connected browsers.  The webclient server
@@ -99,17 +124,28 @@ func (r *Registry) SetClock(fn func() time.Time) {
 func (r *Registry) now() int64 { return r.nowFn().UnixMilli() }
 
 // Raise creates or refreshes the alert with the given stable id and publishes
-// it.  A raise always un-acks the row: the condition is (again) true, so the
-// operator must acknowledge it again.  Re-raising with an unchanged message and
-// an unchanged un-acked state is a no-op, so a condition that stays true does
-// not spam the browser.
+// it.  A raise always un-acks AND un-resolves the row: the condition is (again)
+// true, so the operator must acknowledge it again.  Re-raising the same message
+// onto a row that is already active is a no-op, so a condition that stays true
+// does not spam the browser.
+// Raise records an alert with no channel or node attribution — for alerts that
+// genuinely concern nothing on the panel. Prefer RaiseFor.
 func (r *Registry) Raise(id, severity, message string) {
+	r.RaiseFor(id, severity, message, nil, "")
+}
+
+// RaiseFor records an alert and says what it is about. `channels` are the
+// channel refDes it concerns (a rule may reference several); `node` is set
+// instead for node-level alerts, where every channel owned by that node is
+// affected and listing them would be both long and redundant.
+func (r *Registry) RaiseFor(id, severity, message string, channels []string, node string) {
 	if !ValidSeverity(severity) {
 		severity = SeverityWarning
 	}
 	r.mu.Lock()
 	existing, ok := r.byID[id]
-	if ok && existing.Message == message && existing.Category == severity && !existing.Acked {
+	if ok && existing.Message == message && existing.Category == severity &&
+		!existing.Acked && !existing.Resolved {
 		r.mu.Unlock()
 		return // already showing exactly this — nothing changed
 	}
@@ -119,6 +155,9 @@ func (r *Registry) Raise(id, severity, message string) {
 		Message:   message,
 		Timestamp: r.now(),
 		Acked:     false,
+		Resolved:  false,
+		Channels:  channels,
+		Node:      node,
 	}
 	r.store(id, rec)
 	sink := r.sink
@@ -129,18 +168,51 @@ func (r *Registry) Raise(id, severity, message string) {
 	}
 }
 
-// Clear resolves an alert that is no longer true (a non-latching rule going
-// false, a node reconnecting, data resuming).  The row stays in the list as an
-// acknowledged entry so the operator can still see that it happened; the browser
-// renders acked rows as resolved.  Clearing an unknown or already-acked id does
-// nothing.
-func (r *Registry) Clear(id string) {
+// Resolve records that an alert's condition is no longer true — a channel back
+// inside its bounds, data resuming, a node reconnecting.  It marks the row
+// RESOLVED and leaves Acked alone, which is the difference that makes latching
+// work: the row stays on the board, and the object stays red, until a person
+// acknowledges it.  This is deliberately not an ack.  Its predecessor (Clear)
+// set Acked itself, which meant the server quietly acknowledged on the
+// operator's behalf the instant a value came back into band.
+//
+// The updated record is republished as a normal `alert`, so the browser learns
+// the new resolved state — not through alert_acked, which would read as though a
+// person had acted.  Resolving an unknown or already-resolved id does nothing.
+func (r *Registry) Resolve(id string) {
+	r.mu.Lock()
+	rec, ok := r.byID[id]
+	if !ok || rec.Resolved {
+		r.mu.Unlock()
+		return
+	}
+	rec.Resolved = true
+	out := *rec
+	sink := r.sink
+	r.mu.Unlock()
+
+	if sink != nil {
+		sink.PublishAlert(out)
+	}
+}
+
+// ResolveAndAck resolves an alert AND acks it on the operator's behalf.  It
+// exists for exactly one case: a rule whose author left `latch` off, which the
+// DSL documents as "the alert clears itself when the value comes back".  That is
+// the author asking for the row to go away by itself, so the server may act for
+// them.  Nothing else may use it — every other recovery path calls Resolve and
+// waits for a person.
+//
+// It broadcasts alert_acked, so the row stops demanding attention.  Acking an
+// unknown or already-acked id does nothing.
+func (r *Registry) ResolveAndAck(id string) {
 	r.mu.Lock()
 	rec, ok := r.byID[id]
 	if !ok || rec.Acked {
 		r.mu.Unlock()
 		return
 	}
+	rec.Resolved = true
 	rec.Acked = true
 	sink := r.sink
 	r.mu.Unlock()
@@ -179,12 +251,34 @@ func (r *Registry) Push(severity, message string) string {
 	return id
 }
 
-// Active reports whether an alert with this id is currently raised and un-acked.
+// Active reports whether this alert's condition is true RIGHT NOW: raised,
+// neither resolved nor acked.  It is not "is there still something red on the
+// operator's screen" — that is Raised.
 func (r *Registry) Active(id string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	rec, ok := r.byID[id]
+	return ok && !rec.Acked && !rec.Resolved
+}
+
+// Raised reports whether this alert is still on the board un-acknowledged,
+// whether or not its condition has since recovered.  This is the alarm axis the
+// front panel colours from: a latched alert whose spike came back down on its
+// own is still Raised, and still red, until a person acks it.
+func (r *Registry) Raised(id string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	rec, ok := r.byID[id]
 	return ok && !rec.Acked
+}
+
+// Resolved reports whether this alert recovered but is still waiting for a
+// person: the middle of the three states.
+func (r *Registry) Resolved(id string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	rec, ok := r.byID[id]
+	return ok && rec.Resolved && !rec.Acked
 }
 
 // Get returns a copy of one record.
@@ -222,7 +316,8 @@ func (r *Registry) store(id string, rec Record) {
 }
 
 // trim bounds the list so a long run cannot grow it without limit.  Only acked
-// rows are dropped, oldest first: an un-acked alert is never silently removed.
+// rows are dropped, oldest first: an un-acked alert is never silently removed —
+// a resolved-but-unacked one included, since no person has seen it yet.
 func (r *Registry) trim() {
 	if len(r.order) <= r.maxLen {
 		return

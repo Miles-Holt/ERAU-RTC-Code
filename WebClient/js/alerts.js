@@ -57,6 +57,39 @@ function isChannelBad(refDes) {
     return Object.prototype.hasOwnProperty.call(badDataState, refDes);
 }
 
+// isChannelAlarmed reports whether an alert concerning this channel is raised
+// and NOT acknowledged — which is the alarm axis every front-panel object
+// colours from.
+//
+// "Raised and unacknowledged", not "condition true right now": red LATCHES. A
+// pressure spike that came back down on its own still leaves the object red,
+// because the fact that it happened is the thing worth knowing. The server
+// marks such a row `resolved: true, acked: false`, and it still counts here.
+//
+// Attribution comes off the alert itself (`channels`, `node`), not from parsing
+// the id or the message. A rule alert names the channels its condition reads,
+// so an object goes red for a rule about it — which id-sniffing could never
+// deliver.
+function isChannelAlarmed(refDes) {
+    if (!refDes) return false;
+    for (const a of _alerts) {
+        if (a.acked) continue;
+        if (a.channels && a.channels.indexOf(refDes) >= 0) return true;
+    }
+    return false;
+}
+
+// isNodeAlarmed is the node-level half: a disconnect or stale alert names the
+// node rather than listing every channel it owns. An object whose channel lives
+// on that node is alarmed by it.
+function isNodeAlarmed(nodeRefDes) {
+    if (!nodeRefDes) return false;
+    for (const a of _alerts) {
+        if (!a.acked && a.node && a.node === nodeRefDes) return true;
+    }
+    return false;
+}
+
 function ingestAlert(a) {
     const existing = _alerts.findIndex(x => x.id === a.id);
     if (existing >= 0) {

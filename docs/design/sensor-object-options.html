@@ -27,26 +27,22 @@
     color: var(--text);
     font-family: var(--sans);
     font-size: 15px;
-    line-height: 1.6;
+    line-height: 1.55;
     -webkit-font-smoothing: antialiased;
   }
 
-  .wrap { max-width: 1180px; margin: 0 auto; padding: 56px 28px 96px; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 48px 28px 88px; }
 
-  header.page { border-bottom: 1px solid var(--rule); padding-bottom: 28px; margin-bottom: 36px; }
-
+  header.page { border-bottom: 1px solid var(--rule); padding-bottom: 22px; margin-bottom: 28px; }
   .eyebrow {
-    font-family: var(--mono);
-    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--dim); margin: 0 0 12px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--dim); margin: 0 0 10px;
   }
+  h1 { font-size: 28px; line-height: 1.15; font-weight: 600; margin: 0 0 10px; letter-spacing: -0.01em; }
+  .lede { color: var(--muted); max-width: 66ch; margin: 0; font-size: 14px; }
 
-  h1 { font-size: 30px; line-height: 1.2; font-weight: 600; margin: 0 0 14px; text-wrap: balance; letter-spacing: -0.01em; }
-  .lede { color: var(--muted); max-width: 68ch; margin: 0; }
-
-  h2 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -0.005em; }
-
-  p { margin: 0 0 14px; max-width: 72ch; }
+  h2 { font-size: 19px; font-weight: 600; margin: 0; letter-spacing: -0.005em; }
+  p { margin: 0 0 12px; max-width: 74ch; }
   p:last-child { margin-bottom: 0; }
 
   code, .k {
@@ -54,189 +50,82 @@
     background: #141414; border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px;
   }
 
-  /* Feedback applied */
-  .applied { border: 1px solid var(--border); background: var(--surface); padding: 18px 22px; margin: 0 0 20px; }
-  .applied ul { margin: 0; padding-left: 18px; }
-  .applied li { margin-bottom: 6px; font-size: 13.5px; color: var(--muted); }
-  .applied li:last-child { margin-bottom: 0; }
-  .applied strong { color: var(--text); font-weight: 600; }
-  .applied .tag {
-    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em;
-    text-transform: uppercase; color: var(--ok); display: block; margin-bottom: 10px;
-  }
-  .applied.open .tag { color: var(--warn); }
-  .applied.last { margin-bottom: 44px; }
-
-
-  /* Decision surface — this page is a menu, so the open picks lead and the
-     settled history collapses out of the way. */
-  .picks {
-    border: 1px solid var(--border); border-left: 3px solid var(--warn);
-    background: var(--surface); padding: 20px 24px 22px; margin: 0 0 14px;
-  }
-  .picks-tag {
-    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em;
-    text-transform: uppercase; color: var(--warn); display: block; margin-bottom: 14px;
-  }
-  .picks ol { margin: 0; padding-left: 20px; display: grid; gap: 14px; }
-  .picks li { color: var(--muted); font-size: 13.5px; }
-  .picks li::marker { font-family: var(--mono); color: var(--dim); font-size: 12px; }
-  .picks a { color: var(--text); text-decoration: none; border-bottom: 1px solid var(--border); }
-  .picks a:hover, .picks a:focus-visible { border-bottom-color: var(--accent); color: var(--accent); }
-  .picks .ch {
-    display: block; font-family: var(--mono); font-size: 11.5px;
-    color: var(--accent); margin-top: 4px; letter-spacing: 0.02em;
-  }
-  .picks .why { display: block; margin-top: 3px; font-size: 12.5px; color: var(--dim); }
-
-  .settled { border: 1px solid var(--border); background: var(--surface); margin: 0 0 44px; }
-  .settled summary { padding: 14px 22px; cursor: default; list-style: none; display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
-  .settled summary::-webkit-details-marker { display: none; }
-  .settled summary::before { content: "▸"; color: var(--dim); font-size: 11px; }
-  .settled[open] summary::before { content: "▾"; }
-  .settled .s-tag {
-    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em;
-    text-transform: uppercase; color: var(--ok);
-  }
-  .settled .s-n { font-size: 12.5px; color: var(--dim); }
-  .settled ul { margin: 0; padding: 0 24px 20px 42px; }
-  .settled li { margin-bottom: 6px; font-size: 13.5px; color: var(--muted); }
-  .settled li:last-child { margin-bottom: 0; }
-  .settled strong { color: var(--text); font-weight: 600; }
-
-
-  /* "Today" — the current widgets, rebuilt from their real markup and CSS so the
-     comparison is honest. Values taken from valveDropdown.js, alerts.js and the
-     .pid-daqctrl-select / .valve-panel rules in style.css. */
-  .today { display: grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
-  .today .t-cell { background: var(--canvas); padding: 18px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
-  .today .t-lab { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
-  .today .t-note { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
-  .today .t-note strong { color: var(--text); font-weight: 600; }
-
-  /* current valve panel */
-  .vpanel { width: 244px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; font-family: var(--sans); }
-  .vpanel-h { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
-  .vpanel-pin { background: none; border: 1px solid var(--border); border-radius: 4px; color: var(--muted); font-size: 10px; padding: 2px 7px; }
-  .vpanel-t { font-size: 11.5px; color: var(--text); }
-  .vpanel-x { margin-left: auto; color: var(--muted); font-size: 13px; }
-  .vpanel-r { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-bottom: 1px solid var(--rule); }
-  .vpanel-r:last-child { border-bottom: 0; }
-  .vpanel-lab { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
-  .vpanel-val { font-family: var(--mono); font-size: 12px; color: var(--warn); opacity: 0.6; margin-left: auto; }
-  .vpanel-btns { display: flex; gap: 4px; }
-  .vpanel-btns button { font-size: 10px; padding: 3px 9px; border-radius: 4px; border: 1px solid var(--border); background: var(--object); color: var(--muted); }
-
-  /* current state-machine select */
-  .selbox {
-    font: 500 10px/1 var(--sans); background: var(--surface); color: var(--text);
-    border: 1px solid var(--border); border-radius: 3px; padding: 4px 6px;
-    display: inline-flex; align-items: center; gap: 20px; min-width: 150px;
-  }
-  .selbox .caret { margin-left: auto; color: var(--muted); font-size: 9px; }
-
-  /* current alert badges — the actual emoji, at the size they render */
-  .badges { display: flex; flex-direction: column; gap: 8px; }
-  .badge { font-family: var(--sans); font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
-  .badge-info { color: #58a6ff; } .badge-warning { color: #e3b341; } .badge-alarm { color: #f78166; }
-
-  section.block { margin-bottom: 58px; }
-  .block-head { display: flex; align-items: baseline; gap: 14px; border-bottom: 1px solid var(--rule); padding-bottom: 12px; margin-bottom: 20px; }
+  section.block { margin-bottom: 46px; }
+  .block-head { display: flex; align-items: baseline; gap: 14px; border-bottom: 1px solid var(--rule);
+                padding-bottom: 10px; margin-bottom: 14px; }
   .block-head .id { font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: 0.1em; }
   .block-head .size { margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: var(--dim); }
-  .block-head .pick { margin-left: auto; font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--warn); }
+  .block-head .pick { margin-left: auto; font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+                      text-transform: uppercase; color: var(--warn); }
 
-  .matrix-scroll { overflow-x: auto; padding-bottom: 6px; margin: 20px 0; }
+  .matrix-scroll { overflow-x: auto; padding-bottom: 6px; margin: 14px 0; }
   .matrix { display: flex; gap: 1px; background: var(--rule); border: 1px solid var(--rule); min-width: min-content; }
-  .cell {
-    background: var(--canvas); padding: 14px 12px 12px;
-    display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 172px;
-  }
-  .cell .label {
-    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
-    text-transform: uppercase; color: var(--dim); white-space: nowrap;
-  }
-  .cell .sub { font-size: 11.5px; color: var(--dim); text-align: center; line-height: 1.35; max-width: 150px; }
+  .cell { background: var(--canvas); padding: 12px 12px 10px;
+          display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 168px; }
+  .cell .label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+                 text-transform: uppercase; color: var(--dim); white-space: nowrap; }
+  .cell .sub { font-size: 11px; color: var(--dim); text-align: center; line-height: 1.3; max-width: 160px; }
   .cell svg { display: block; }
 
-  .note { font-size: 13.5px; color: var(--muted); }
+  .note { font-size: 13px; color: var(--muted); }
   .note strong { color: var(--text); font-weight: 600; }
 
-  .anatomy { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
-  .anatomy .a { background: var(--surface); padding: 16px 16px 18px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
-  .anatomy .t { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text); }
-  .anatomy .d { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
-
-  /* Option cards — the places where a choice is still yours */
-  .opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(252px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
-  .opt { background: var(--surface); padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
-  .opt .oid { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
-  .opt .on { font-weight: 600; font-size: 14.5px; margin-top: -6px; }
-  .opt .od { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
-  .opt .row { display: flex; gap: 14px; align-items: center; }
-
-  .qs { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
-  .q { background: var(--surface); padding: 16px 20px; }
-  .q .t { font-weight: 600; }
-  .q .b { font-size: 13.5px; color: var(--muted); margin-top: 5px; }
-  .q.settled .t::before { content: "SETTLED"; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--ok); margin-right: 10px; }
-  .q.open .t::before { content: "OPEN"; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--warn); margin-right: 10px; }
-
-  /* Command panel mockup — real DOM, not a drawing, because that is what it is.
-     Drawn ON the object it belongs to: the whole redesign is about where the
-     panel appears relative to the thing you clicked, so a detached panel
-     would hide the only part that matters. */
-  .panels { display: flex; flex-wrap: wrap; gap: 34px; align-items: flex-start; margin: 20px 0; }
-  .stage {
-    position: relative; width: 300px; height: 306px;
-    background: var(--canvas); border: 1px solid var(--rule);
-    background-image:
-      linear-gradient(var(--rule) 1px, transparent 1px),
-      linear-gradient(90deg, var(--rule) 1px, transparent 1px);
-    background-size: 20px 20px;
-  }
-  .stage .obj { position: absolute; left: 16px; top: 18px; }
-  .stage .vp  { position: absolute; left: 40px; top: 80px; box-shadow: 0 8px 24px rgba(0,0,0,0.7); width: 244px; }
-  .stage .cur { position: absolute; left: 38px; top: 46px; }
-  .stage .pipe { position: absolute; left: 0; top: 0; }
-  .vp { width: 268px; border: 1px solid var(--border); background: var(--surface); font-family: var(--sans); }
-  .vp-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--rule); }
-  .vp-title { font-family: var(--mono); font-size: 11.5px; color: var(--text); letter-spacing: 0.04em; }
+  /* Command panel — real DOM, drawn on the object it belongs to. */
+  .panels { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; margin: 14px 0; }
+  .stage { position: relative; width: 292px; height: 300px;
+           background: var(--canvas); border: 1px solid var(--rule);
+           background-image: linear-gradient(var(--rule) 1px, transparent 1px),
+                             linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+           background-size: 20px 20px; }
+  .stage .obj { position: absolute; left: 14px; top: 14px; }
+  .stage .vp  { position: absolute; left: 38px; top: 86px; box-shadow: 0 8px 24px rgba(0,0,0,0.7); width: 240px; }
+  .stage .cur { position: absolute; left: 36px; top: 47px; }
+  .vp { border: 1px solid var(--border); background: var(--surface); }
+  .vp-head { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid var(--rule); }
+  .vp-title { font-family: var(--mono); font-size: 11.5px; color: var(--text); }
   .vp-desc { font-size: 11px; color: var(--dim); }
   .vp-x { margin-left: auto; color: var(--dim); font-size: 13px; }
-  .vp-cmd { padding: 12px 10px; display: flex; flex-direction: column; gap: 8px; }
+  .vp-cmd { padding: 10px; display: flex; flex-direction: column; gap: 7px; }
   .seg { display: flex; gap: 1px; background: var(--border); border: 1px solid var(--border); }
-  .seg button {
-    flex: 1; appearance: none; border: 0; cursor: default;
-    background: var(--object); color: var(--muted);
-    font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; padding: 11px 8px;
-  }
-  .seg button.is-now { background: #14261a; color: var(--ok); box-shadow: inset 0 -2px 0 var(--ok); }
-  .seg button.is-next { color: var(--text); }
-  .seg button.is-armed { background: #2a1d10; color: var(--warn); box-shadow: inset 0 -2px 0 var(--warn); }
-  .vp-hint { font-size: 11px; color: var(--dim); font-family: var(--mono); letter-spacing: 0.04em; }
-  .vp-more { border-top: 1px solid var(--rule); padding: 7px 10px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+  .seg button { flex: 1; appearance: none; border: 0; cursor: default;
+                background: var(--object); color: var(--muted);
+                font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; padding: 11px 8px; }
+  /* Light vs dark, not colour. The half you can act on is light; the half you
+     are already in is dark and quiet. Green read as "good", when all it meant
+     was "current". */
+  .seg button.is-now  { background: var(--canvas); color: var(--dim); box-shadow: inset 0 0 0 1px #1c2020; }
+  .seg button.is-next { background: #2b3131; color: var(--text); }
+  .vp-hint { font-size: 10.5px; color: var(--dim); font-family: var(--mono); }
   .vp-rows { border-top: 1px solid var(--rule); }
-  .vp-row { display: flex; align-items: baseline; gap: 10px; padding: 6px 10px; font-size: 12px; }
+  .vp-row { display: flex; align-items: baseline; gap: 10px; padding: 5px 10px; font-size: 12px; }
   .vp-row + .vp-row { border-top: 1px solid #151515; }
   .vp-row .r { font-family: var(--mono); font-size: 11px; color: var(--muted); }
-  .vp-row .v { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--text); font-variant-numeric: tabular-nums; }
+  .vp-row .v { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--text);
+               font-variant-numeric: tabular-nums; }
   .vp-states { display: flex; flex-direction: column; gap: 1px; background: var(--border); border: 1px solid var(--border); }
-  .vp-state { background: var(--object); padding: 9px 11px; display: flex; align-items: center; gap: 9px; font-family: var(--mono); font-size: 12px; color: var(--text); }
-  .vp-state .mk { width: 8px; height: 8px; flex: none; }
-  .vp-state.now { background: #14261a; color: var(--ok); }
+  .vp-state { background: var(--object); padding: 8px 10px; display: flex; align-items: center; gap: 9px;
+              font-family: var(--mono); font-size: 12px; color: var(--text); }
+  .vp-state.now { background: var(--canvas); color: var(--dim); }
   .vp-state.gated { color: var(--dim); }
-  .vp-state .why { margin-left: auto; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
-  .pcap { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); margin-bottom: 8px; }
+  .vp-state .why { margin-left: auto; font-size: 10px; letter-spacing: 0.08em;
+                   text-transform: uppercase; color: var(--dim); }
+  .pcap { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em;
+          text-transform: uppercase; color: var(--dim); margin-bottom: 8px; }
 
-  .tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 4px; }
-  .tbl th, .tbl td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
-  .tbl th { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); font-weight: 500; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .tbl th, .tbl td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .tbl th { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+            text-transform: uppercase; color: var(--dim); font-weight: 500; }
   .tbl td.was { color: var(--dim); }
-  .tbl td.now { color: var(--text); }
   .tbl-scroll { overflow-x: auto; }
 
-  footer.page { margin-top: 52px; padding-top: 20px; border-top: 1px solid var(--rule); font-size: 12.5px; color: var(--dim); }
+  .done { columns: 2; column-gap: 34px; margin: 0; padding-left: 18px; }
+  .done li { font-size: 12.5px; color: var(--muted); margin-bottom: 5px; break-inside: avoid; }
+  .done strong { color: var(--text); font-weight: 600; }
+  @media (max-width: 720px) { .done { columns: 1; } }
+
+  footer.page { margin-top: 42px; padding-top: 16px; border-top: 1px solid var(--rule);
+                font-size: 12.5px; color: var(--dim); }
 </style>
 
 <div class="wrap">
@@ -245,300 +134,221 @@
   <p class="eyebrow">P&amp;ID front panel · one object system</p>
   <h1>Front Panel Object System</h1>
   <p class="lede">
-    One way of drawing every object on the panel, and one way of commanding it. A sensor, a
-    valve and a state machine are the same construction — an optional glyph, a name line and a
-    line of live text — so the panel reads as one instrument rather than three widget families.
-    Everything is drawn at true size in the app's own palette.
+    Sensor, valve and state machine are one construction: a glyph, a name line, a line of live text.
+    Drawn at true size in the app's palette.
   </p>
 </header>
 
-<nav class="picks">
-  <span class="picks-tag">Three things to pick — everything else is settled</span>
-  <ol>
-    <li>
-      <a href="#pick-bubble"><strong>The bubble interior</strong></a>
-      <span class="ch">A empty · B whole tag · C type set large · D drawn mark per instrument type</span>
-      <span class="why">Decides whether the tag is read inside the circle or off the name line.</span>
-    </li>
-    <li>
-      <a href="#pick-panel"><strong>The command panel layout</strong></a>
-      <span class="ch">1 segmented control · 2 action list</span>
-      <span class="why">Both open under the cursor and both stay open; they differ in whether the
-      states sit side by side or stack as verbs.</span>
-    </li>
-    <li>
-      <a href="#pick-mark"><strong>The state-ring interior mark</strong></a>
-      <span class="ch">one mark for every machine · a mark per state, set in the editor</span>
-      <span class="why">Per-state reads faster once learned and is one more thing to author per machine.</span>
-    </li>
-  </ol>
-</nav>
-
-<p class="note" style="margin:0 0 40px">
-  Thirteen changes from your annotations are already applied below — the bubble has no centre
-  line, the name line is the title, unbound is grey, alarm is a thickened ring and nothing else,
-  abort is an ordinary state, mismatch is an alert rather than a look, and selection is a glow
-  that layers under the object. Rather than list them, the permutations are drawn.
-</p>
-
-
-<section class="block" id="today">
-  <div class="block-head"><span class="id">TODAY</span><h2>What you have now</h2><span class="size">rebuilt from the real markup</span></div>
+<section class="block">
+  <div class="block-head"><span class="id">OBJECT</span><h2>Every display permutation</h2><span class="size">per-object toggles</span></div>
   <p class="note">
-    Before choosing anything, here is the current article — the valve dropdown, the state-machine
-    picker and the alert badges as they render today, rebuilt from
-    <span class="k">valveDropdown.js</span>, <span class="k">pid.js</span> and
-    <span class="k">alerts.js</span> with the same CSS values. If one of these is already fine,
-    the honest answer is to keep it.
+    Glyph, name line, units, decimals and which <strong>side</strong> the text sits on are
+    independent per-object settings. Flipping the side mirrors the whole block — the bubble moves
+    across and the text right-aligns so it still hugs it — for instruments drawn against the right
+    edge of a panel. Default is right, as it is today.
   </p>
-  <div class="today">
-    <div class="t-cell">
-      <span class="t-lab">Valve dropdown — today</span>
-      <div class="vpanel">
-        <div class="vpanel-h">
-          <button class="vpanel-pin">Pin</button>
-          <span class="vpanel-t">OV-05 &mdash; LOX main</span>
-          <span class="vpanel-x">&#215;</span>
-        </div>
-        <div class="vpanel-r">
-          <span class="vpanel-lab">OV-05-CMD</span>
-          <span class="vpanel-btns"><button>Open</button><button>Close</button></span>
-        </div>
-        <div class="vpanel-r">
-          <span class="vpanel-lab">OV-05-FB</span>
-          <span class="vpanel-val">- -</span>
-        </div>
-      </div>
-      <span class="t-note">
-        Opens centred on the object. <strong>Pin</strong> is opt-in, so any click outside dismisses
-        it first time. One channel per row; the command sits in the row, not at the top.
-      </span>
-    </div>
-
-    <div class="t-cell">
-      <span class="t-lab">State machine — today</span>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">DAQ001</span>
-        <span style="font-family:var(--mono);font-size:11px;color:var(--text)">State: safe</span>
-        <span class="selbox">-- transition -- <span class="caret">&#9662;</span></span>
-      </div>
-      <span class="t-note">
-        A native <span class="k">&lt;select&gt;</span> in a <span class="k">foreignObject</span>,
-        10&nbsp;px. It lists operator-legal targets, but a target refused by
-        <span class="k">operator from</span> gating looks identical to a legal one until the
-        server rejects it.
-      </span>
-    </div>
-
-    <div class="t-cell">
-      <span class="t-lab">Alert badges — today</span>
-      <div class="badges">
-        <span class="badge badge-info">&#8505;&#65039; 2</span>
-        <span class="badge badge-warning">&#9888;&#65039; 1</span>
-        <span class="badge badge-alarm">&#128680; 3</span>
-      </div>
-      <span class="t-note">
-        System emoji from <span class="k">_categoryIcon()</span>. They render differently on every
-        machine and ignore the palette — and the badge <em>pulses</em> whenever the count is above
-        zero, which is the one animation currently in the UI.
-      </span>
-    </div>
-  </div>
-</section>
-
-<section class="block" id="pick-bubble">
-  <div class="block-head"><span class="id">BUBBLES</span><h2>Four interiors, no centre line</h2><span class="pick">pick one</span></div>
-  <p class="note">Same circle and same ring in all four — only what sits inside changes. Each cell draws the option twice: a short tag, then the case that stresses it, a long one. <strong>B</strong> and <strong>C</strong> keep the P&amp;ID reading habit; <strong>A</strong> and <strong>D</strong> lean on the name line below to carry the tag.</p>
-  <div class="matrix-scroll"><div class="matrix" id="bubbles"></div></div>
-
-  <p class="note" style="margin-top:22px"><strong>C and D in context.</strong> The two you are
-  leaning towards, drawn through the states rather than as a single specimen — C above, D below in
-  each cell. This is the comparison the page was missing.</p>
-  <div class="matrix-scroll"><div class="matrix" id="ctx"></div></div>
-
-  <p class="note" style="margin-top:22px"><strong>Every display permutation</strong>, so the
-  per-object toggles are visible rather than described: the glyph, the name line, units, and the
-  decimal places.</p>
   <div class="matrix-scroll"><div class="matrix" id="perms"></div></div>
 </section>
 
 <section class="block">
-  <div class="block-head"><span class="id">ANATOMY</span><h2>Three parts, all optional but the reading</h2></div>
-  <p class="note">The name line is drawn in the tag's own formatting — mono, tracked, dim — and it is the object's title. Everything else stacks around it.</p>
-  <div class="anatomy" id="anatomy"></div>
+  <div class="block-head"><span class="id">BUBBLE</span><h2>Option C — the type, set large</h2><span class="size">text is editable</span></div>
+  <p class="note">
+    Free text on the object, defaulting to the leading letters of the refDes. Size steps down with
+    length; blank draws an empty bubble, so <em>option A is a setting, not a second widget</em>.
+  </p>
+  <div class="matrix-scroll"><div class="matrix" id="ctext"></div></div>
+  <p class="note">The name line is a free-text field too — default is the bound control's refDes, blank is the same as off, and it is not truncated: a longer label makes a wider object.</p>
+  <div class="matrix-scroll"><div class="matrix" id="nametext"></div></div>
 </section>
 
 <section class="block">
-  <div class="block-head"><span class="id">COMPOSITION</span><h2>The same sensor, four ways</h2><span class="size">per-object toggles</span></div>
-  <p class="note">Glyph, name line and units are independent switches, so a panel can carry dense readings in the corner and fully labelled instruments where it matters — without two renderers.</p>
-  <div class="matrix-scroll"><div class="matrix" id="composition"></div></div>
+  <div class="block-head"><span class="id">STATES</span><h2>Two axes, eight combinations</h2><span class="size">the whole vocabulary</span></div>
+  <p class="note">
+    A <strong>data condition</strong> — live / nodata / stale / unbound — and an <strong>alarm</strong>,
+    meaning an alert against the channel or its node that is raised <em>and unacknowledged</em>. There is no <span class="k">range</span>
+    state (out of range is <em>live + alarm</em>) and no <span class="k">offline</span> state
+    (node offline is <em>nodata + alarm</em>). Nothing else can occur.
+  </p>
+  <div class="matrix-scroll"><div class="matrix" id="axes"></div></div>
+  <p class="note">
+    The body carries a <strong>tint</strong> as well as the ring: red-ish when alarming, amber-ish
+    when stale. On a panel of thirty objects that shows <em>where</em> the problem is before a reader
+    has picked out which ring changed colour — it is a hue, not a highlight, dark enough that the
+    interior text stays legible.
+  </p>
+  <p class="note">
+    Resolving the two onto one drawing: an alarm takes the ring's COLOUR outright, so it is never
+    hidden behind an amber stale ring — at the same weight as every other state, because a thicker
+    stroke reads as a different kind of object rather than the same object in trouble; it takes the number only where there is a number to redden; dashed
+    means unbound and nothing else. Selection is a white glow layered underneath, so an alarming
+    object stays red while selected.
+  </p>
 </section>
 
 <section class="block">
-  <div class="block-head"><span class="id">PRECISION</span><h2>Decimals and units, per object</h2><span class="size">display only</span></div>
-  <p class="note">Set in the editor sidebar, stored on the object, and applied at render. The channel's real value is never rounded on the wire, in the buffer, or in the graph — this is presentation, so two objects bound to the same channel can legitimately show it differently.</p>
-  <div class="matrix-scroll"><div class="matrix" id="precision"></div></div>
-</section>
-
-<section class="block">
-  <div class="block-head"><span class="id">SENSOR</span><h2>Sensor states</h2><span class="size">glyph Ø 34</span></div>
-  <p class="note">The ring carries data quality; the number carries the value. Drawn with option <strong>B</strong> so the matrix reads as one thing — whichever interior you pick applies to every cell here.</p>
-  <div class="matrix-scroll"><div class="matrix" id="sensor"></div></div>
-</section>
-
-<section class="block">
-  <div class="block-head"><span class="id">VALVE</span><h2>Valve symbol and feedback ring</h2><span class="size">glyph Ø 34 — same ring</span></div>
-  <p class="note">The bore line lies across the bore at <strong>45°</strong> when shut and along it when open. Position feedback is a <strong>second, outer ring</strong>, so command and feedback never fight over one stroke: a continuous position sweeps it like a gauge, and a limit-switched valve lights one of two discrete ticks — because a limit switch knows two things and a sweep would imply it knows a hundred.</p>
+  <div class="block-head"><span class="id">VALVE</span><h2>Symbol and feedback ring</h2></div>
+  <p class="note">
+    Shut lies across the bore at <strong>45°</strong>, open along it, and <strong>everything the
+    valve reports lives inside the circle</strong>. With both readings in one disc they need to stay
+    separable, and two rules do it. <strong>Filled is fact, hollow is intent</strong>: a made switch
+    fills, an unmade one outlines, a commanded position is always a hollow ring. And <strong>a switch
+    is a pair</strong> — one dot at <em>each</em> end of the bore line it reports on, so it reads as
+    that line's endpoints rather than as a mark that happens to sit nearby. The command ring is
+    single and rides between them, so shape alone keeps them apart. <strong>Green is earned by the switch, not by the
+    command.</strong> Asking for open tells you only that you asked, so a limit-switched body stays
+    grey until the open pair lights — and mid-travel, with neither switch made, grey is simply what
+    is true rather than a special case. Green is also a claim about <em>now</em>, so the data axis
+    outranks all of it: a stale valve asserts nothing. The glyph rotates for top-to-bottom
+    runs — bore and ticks turn together, and a percentage figure stays upright, because a number
+    that has to be read sideways is not a reading.
+  </p>
   <div class="matrix-scroll"><div class="matrix" id="valvefb"></div></div>
-  <p class="note" style="margin-top:18px">The state matrix. <strong>Mismatch is gone as a look</strong> — commanded open with feedback shut now raises the templated <em>valve not responding</em> alert, and the object goes to <em>Alarm</em> like anything else. One less thing to learn, and the reason lands in the alert bar in words.</p>
+  <p class="note">
+    On a continuously-positioned valve the <strong>arc is feedback</strong> and the <strong>dot is
+    command</strong>, both drawn <strong>inside the circle</strong> so a throttling valve reads as
+    one disc. When they agree the dot caps the arc; when they disagree the gap is the fault.
+  </p>
   <div class="matrix-scroll"><div class="matrix" id="valve"></div></div>
 </section>
 
 <section class="block">
-  <div class="block-head"><span class="id">STATE MACHINE</span><h2>State ring</h2><span class="size">glyph Ø 34 — segmented</span></div>
-  <p class="note">One segment per state, the current one lit, so position in the sequence reads before the word does. <strong>The number is gone.</strong> The interior now carries a mark; the state's name is on the text line, where it was always more legible. <em>Abort is drawn as an ordinary state</em> — the last cell shows what it looks like when an alert is raised, which is the only thing that makes an object loud.</p>
+  <div class="block-head"><span class="id">MACHINE</span><h2>State ring</h2></div>
+  <p class="note">
+    The same circle as the sensor bubble — <strong>one ring, no segments</strong>. It still answers
+    the question that matters, <em>is the machine where it was told to be?</em>, but with a
+    concentric accent ring drawn only while a commanded target is unreached, and the transition
+    spelled out on the text line. Nothing is added to the glyph when there is nothing to say.
+    Abort is an ordinary state — only a raised alert is loud.
+  </p>
   <div class="matrix-scroll"><div class="matrix" id="machine"></div></div>
-  <p class="note" style="margin-top:18px">Open question: one mark for every machine, or a per-state mark chosen in the editor. Both drawn, in the sequence order the ring steps through.</p>
-  <div class="matrix-scroll" id="pick-mark"><div class="matrix" id="smmark"></div></div>
+  <p class="note" id="pick-mark">
+    <strong>The interior mark is a diamond, everywhere.</strong> One shape for every state-machine
+    object in the GUI — it does not encode which machine, which node, or which state, because the
+    name line and the ring already carry all three. Several machines can drive channels on one
+    node, and a node holds one locally-loaded state; none of that belongs in a 34&nbsp;px glyph.
+    The rejected candidates are kept below as the record of what a quieter mark would have cost.
+  </p>
+  <div class="matrix-scroll"><div class="matrix" id="smmark"></div></div>
 </section>
 
 <section class="block" id="pick-panel">
-  <div class="block-head"><span class="id">COMMAND</span><h2>The dropdown, rebuilt around the click count</h2><span class="pick">pick one</span></div>
+  <div class="block-head"><span class="id">COMMAND</span><h2>The dropdown, rebuilt</h2><span class="size">segmented</span></div>
   <p class="note">
-    Today: click the valve, the panel opens centred on the object, you travel to a small
-    <em>Open</em> button, and any click outside dismisses it unless you hit <em>Pin</em> first
-    (<span class="k">valveDropdown.js</span>). Toggling twice is four clicks and a mouse race.
-    The panel concept stays. Four things change, and they are what kill the race:
+    Today a toggle is four clicks and a mouse race: the panel opens centred on the object, you
+    travel to a small button, and any click outside dismisses it unless you hit <em>Pin</em> first.
+    Same concept, three changes — commands at the top, it opens under the cursor, and the control
+    does not relayout when the state changes, so open, closed, open is three clicks that never move
+    the mouse. The control is a <strong>segmented pair</strong>: dark is where the valve is, light
+    is what you can do.
   </p>
-  <ul class="note" style="max-width:72ch">
-    <li><strong>Commands come first</strong> — the command control is the top of the panel, not a row buried in the channel list.</li>
-    <li><strong>It opens under the cursor</strong>, with the command control on the pointer. No travel to the first click.</li>
-    <li><strong>It stays open</strong> until you dismiss it with <span class="k">Esc</span>, the ✕, or a click on the canvas. <em>Pin</em> disappears — sticky becomes the default rather than an opt-in you have to reach for first.</li>
-    <li><strong>The next click is in the same place.</strong> Open then closed then open is three clicks that never move the mouse, because the control does not relayout when the state changes.</li>
-  </ul>
-  <p class="note">Each stage below is a valve sitting on the panel grid with its menu open, drawn where it actually lands: <strong>under the cursor, over the object</strong>. The pointer mark is the click that opened it.</p>
+  <p class="note">
+    <strong>Closing.</strong> <span class="k">Esc</span> and ✕ both always close it — a close
+    control that sometimes does not close is worse than none. <em>Pin</em> stays, but it governs one
+    thing only: whether clicking off the panel dismisses it. Unpinned, a click on the canvas closes
+    it; pinned, it survives, which is how you keep several panels open at once. Repeat clicks on the
+    control itself never dismiss anything either way, so the three-click toggle does not need the
+    pin.
+  </p>
   <div class="panels" id="panels"></div>
   <p class="note">
-    A state machine gets the same panel instead of the native <span class="k">&lt;select&gt;</span>:
-    one row per state, the current one marked, and — the part the <span class="k">&lt;select&gt;</span>
-    could never show — targets blocked by <span class="k">operator from …</span> gating are drawn
-    dimmed with the reason, instead of being silently accepted and refused by the server.
+    The state machine gets the same panel instead of the native <span class="k">&lt;select&gt;</span>,
+    with targets blocked by <span class="k">operator from …</span> gating drawn dimmed rather than
+    silently refused by the server.
   </p>
 </section>
 
 <section class="block">
   <div class="block-head"><span class="id">MARKS</span><h2>Drawn, not emoji</h2></div>
-  <p class="note">The alert bar's <span class="k">ℹ️ ⚠️ 🚨</span> come from <span class="k">_categoryIcon()</span> in <span class="k">alerts.js</span> and render differently on every machine. These are SVG on the same grid as the glyphs, so they sit at any size and take the palette.</p>
+  <p class="note">
+    Replacing <span class="k">_categoryIcon()</span> in <span class="k">alerts.js</span>, which
+    returns system emoji that render differently on every machine. Two marks, because the alert bar
+    renders two severities — stale, offline and unbound are object states carried by the ring, not
+    badges, so they never needed one.
+  </p>
   <div class="matrix-scroll"><div class="matrix" id="marks"></div></div>
 </section>
 
 <section class="block">
-  <div class="block-head"><span class="id">EDITOR</span><h2>The problem list</h2><span class="size">editor only</span></div>
+  <div class="block-head"><span class="id">EDITOR</span><h2>Problem list</h2><span class="size">one flat list</span></div>
   <p class="note">
-    Unbound renders as unbound on the canvas and <strong>reaches no list at all</strong> today. The
-    warnings button in the editor header is fed from exactly one place —
-    <span class="k">routingErrors.push</span> in <span class="k">editor.js</span>, on a
-    <span class="k">pidRoute</span> failure — so it is a <em>routing</em> list, not a problem list.
-    A broken channel binding does not appear in it either; it is simply invisible until you notice
-    the object is grey.
-  </p>
-  <p class="note">
-    So the change is wider than adding one entry: the button becomes a problem list rather than a
-    routing list. <strong>One flat list, no severities</strong> — a routing failure and an unbound
-    binding are both a location plus a one-line reason, and sorting them into buckets would add a
-    decision to every row without changing what any row says. One list, one count on the button,
-    every row clickable back to the offending element — which is the part that makes a list worth
-    opening.
+    The editor's warnings button is fed from one place — <span class="k">routingErrors.push</span>
+    in <span class="k">editor.js</span> — so it is a routing list. An unbound binding reaches no list
+    at all today. It becomes a problem list: one flat list, no severities, every row clickable back
+    to the element. A drawing check, not a config check.
   </p>
   <div class="matrix-scroll"><div class="matrix" id="problems"></div></div>
-  <p class="note">
-    Worth saying plainly: this is a <em>drawing</em> check, not a config check. It catches a layout
-    that references a control the config does not have — a renamed refDes, a copied object, a panel
-    drawn against a different stand. It cannot tell you the config itself is wrong.
-  </p>
 </section>
 
 <section class="block">
   <div class="block-head"><span class="id">ALERTS</span><h2>One path to red</h2><span class="size">runtime change</span></div>
-  <p class="note">
-    The change you called: <strong>the broker stops being a second source of truth.</strong> Today
-    <span class="k">broker.checkBounds</span> emits <span class="k">bad_data</span> on every
-    <span class="k">validMin</span>/<span class="k">validMax</span> crossing, and the alert template
-    separately raises a row off the same event — two mechanisms, one fact. After the change there is
-    one: an alert template auto-generated for every <em>sensor</em> channel. Out of range still shows
-    on the object, because the object colours from the raised alert like everything else does.
-  </p>
   <div class="tbl-scroll">
     <table class="tbl">
       <thead><tr><th>Fact</th><th>Today</th><th>After</th></tr></thead>
       <tbody>
         <tr>
           <td><span class="k">CPT-01</span> above <span class="k">validMax</span></td>
-          <td class="was"><span class="k">bad_data</span> from the broker colours the reading; the template <em>separately</em> raises a warning row</td>
-          <td class="now">One auto-generated sensor alert raises. The object colours from it. One event, one row, one reason.</td>
+          <td class="was"><span class="k">bad_data</span> from the broker colours the reading; the template separately raises a row</td>
+          <td>One auto-generated sensor alert. The object colours from it.</td>
         </tr>
         <tr>
-          <td>Valve commanded open, feedback shut</td>
+          <td>Commanded open, feedback shut</td>
           <td class="was">Red ring, indistinguishable from a comms fault</td>
-          <td class="now">Templated <em>valve not responding to command</em> alert; object goes red with the reason in words</td>
+          <td>Templated <em>valve not responding</em> alert, with the reason in words</td>
         </tr>
         <tr>
           <td>Node reconnects</td>
-          <td class="was"><span class="k">on reconnect -&gt; info</span> raises a fresh info row</td>
-          <td class="now">Line removed. The disconnect alarm goes inactive and stays on the board until reset.</td>
+          <td class="was"><span class="k">on reconnect -&gt; info</span> raises a fresh row</td>
+          <td>Line removed. The disconnect alarm stays raised, and the object stays red, until an operator acks it.</td>
         </tr>
       </tbody>
     </table>
   </div>
-  <p class="note" style="margin-top:16px">
-    One thing to know about that last row, because the code does not quite say what the config
-    implies: <span class="k">Registry.Clear()</span> does not delete an alert, it sets
-    <span class="k">Acked = true</span> and broadcasts <span class="k">alert_acked</span> — and the
-    browser keeps acked rows in the list, greyed, out of the unacked count. So removing the reconnect
-    line gives you exactly the behaviour you described. It also means the <em>server</em> acks the
-    disconnect on your behalf: no operator ever has to acknowledge that a node dropped. If that ack
-    should be a human's, <span class="k">Clear</span> is the wrong verb on the reconnect path and
-    wants a separate <em>resolved-but-unacked</em> state. Flagging it, not changing it.
+  <p class="note" style="margin-top:12px">
+    <strong>Red persists until the alert is cleared by a person, not by the condition going away.</strong>
+    A pressure spike that came back down on its own still leaves the object red, because the thing
+    worth knowing is that it happened. So every auto-generated sensor alert latches, and the alarm
+    axis reads "raised and unacknowledged" rather than "condition currently true".
+  </p>
+  <p class="note">
+    That turns an earlier note into a requirement. <span class="k">Registry.Clear()</span> does not
+    delete an alert — it sets <span class="k">Acked = true</span> and broadcasts
+    <span class="k">alert_acked</span>, so the <em>server</em> acknowledges on the operator's behalf
+    the moment a condition recovers. That is exactly what must not happen here: it would drop the
+    red the instant the pressure came back into band. Recovery needs a
+    <em>resolved-but-unacked</em> state distinct from acked, and <span class="k">Clear</span> is the
+    wrong verb on every recovery path — reconnect included.
   </p>
 </section>
 
 <section class="block">
-  <div class="block-head"><span class="id">DECISIONS</span><h2>Where this stands</h2></div>
-  <div class="qs">
-    <div class="q settled">
-      <div class="t">Loudness of a configured alarm</div>
-      <div class="b">Static thickened ring. No pulse, no marker dot. Your call: "i like what it is now".</div>
-    </div>
-    <div class="q settled">
-      <div class="t">Ring as a gauge sweep</div>
-      <div class="b">Not for sensors. Kept for valve position, on its own outer ring, with limit-switched feedback drawn as discrete ticks rather than a sweep.</div>
-    </div>
-    <div class="q settled">
-      <div class="t">Valve command/feedback mismatch</div>
-      <div class="b">Not a distinct visual. A templated <em>valve not responding to command</em> alert, which turns the object red — your call, and it means a stuck valve and a dead link now differ in the alert bar rather than in a glyph a reader has to decode.</div>
-    </div>
-    <div class="q settled">
-      <div class="t">The <span class="k">bad_data</span> path</div>
-      <div class="b">Removed from the broker; replaced by an auto-generated alarm template across all sensor channels. Out of range stays visible.</div>
-    </div>
-    <div class="q open">
-      <div class="t">Bubble interior</div>
-      <div class="b">A, B, C or D — first section.</div>
-    </div>
-    <div class="q open">
-      <div class="t">Command panel layout</div>
-      <div class="b">Segmented control, or action list. Both are the same click count; they differ in whether the panel shows you the current state as part of the control.</div>
-    </div>
-    <div class="q open">
-      <div class="t">State-ring interior mark</div>
-      <div class="b">One mark for all machines, or per-state marks configured in the editor.</div>
-    </div>
-  </div>
+  <div class="block-head"><span class="id">SETTLED</span><h2>Decisions this page encodes</h2></div>
+  <ul class="done">
+    <li><strong>Bubble: option C</strong>, interior text editable.</li>
+    <li><strong>Name line is the title</strong>, editable, defaults to the refDes.</li>
+    <li><strong>Decimals per object</strong>, default 2, display only.</li>
+    <li><strong>Units hidable</strong> per object.</li>
+    <li><strong>No <span class="k">range</span> state</strong> — out of range is an alarm.</li>
+    <li><strong>No <span class="k">offline</span> state</strong> — it is nodata + alarm.</li>
+    <li><strong>Unbound is grey</strong>, dashed and italic. Not an alarm.</li>
+    <li><strong>Alarm is ring colour plus a tinted body</strong> — normal weight, static, no dot, no pulse.</li>
+    <li><strong>Selection is a glow</strong>, layered, not a state.</li>
+    <li><strong>Shut is 45°</strong>; feedback gets its own outer ring.</li>
+    <li><strong>Arc is feedback, dot is command.</strong></li>
+    <li><strong>Green follows the data axis</strong>, never hardcoded.</li>
+    <li><strong>Mismatch is an alert</strong>, not a look.</li>
+    <li><strong>Machine ring is unsegmented</strong>; an accent ring means a target is unreached.</li>
+    <li><strong>Machine interior is a diamond</strong>, one shape for every machine object.</li>
+    <li><strong>Red latches</strong> until a person acks — not until the condition clears.</li>
+    <li><strong>No sparkline, no status dot.</strong></li>
+    <li><strong>The dropdown stays</strong>, rebuilt around the click count.</li>
+    <li><strong>Segmented control</strong>, light = actionable, dark = current.</li>
+    <li><strong>Esc and ✕ always close</strong>; Pin governs click-off only.</li>
+    <li><strong>Positionable valves get presets</strong> plus a typed entry.</li>
+  </ul>
 </section>
 
 <footer class="page">
-  True size on the 20 px grid. Colours are the tokens from <span class="k">WebClient/css/style.css</span>.
-  Dark only — these objects never render on a light ground.
+  True size on the 20 px grid. Colours from <span class="k">WebClient/css/style.css</span>. Dark only.
 </footer>
 
 </div>
@@ -553,7 +363,8 @@ const C = {
 const MONO = 'ui-monospace, Consolas, monospace';
 const SANS = 'ui-sans-serif, Segoe UI, sans-serif';
 const R = 17;                      // glyph radius — one number for all three families
-const RFB = R + 5;                 // feedback ring — outside the glyph, never on it
+const RIN = R - 4;                 // continuous position — inside the circle
+const SM_MARK = 'node';            // the one interior mark every machine uses
 
 const svg = (w, h, inner) =>
   `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
@@ -566,179 +377,214 @@ function arc(cx, cy, r, a0, a1, attrs) {
   return `<path d="M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1}" fill="none" ${attrs}/>`;
 }
 
-// One state vocabulary shared by every object type. `ring` is the glyph outline,
-// `ink` is the live text. Nothing animates: `loud` only thickens the ring, and
-// only a configured alert can raise it.
-function look(s) {
-  switch (s) {
-    case 'live':    return { ring: C.border, ink: C.text, loud: false };
-    case 'nodata':  return { ring: C.border, ink: C.dim,  loud: false };
-    case 'stale':   return { ring: C.warn,   ink: C.warn, loud: false };
-    case 'range':   return { ring: C.bad,    ink: C.bad,  loud: false };
-    case 'offline': return { ring: C.bad,    ink: C.dim,  loud: false };
-    case 'unbound': return { ring: C.dim,    ink: C.dim,  loud: false, ghost: true };
-    case 'alarm':   return { ring: C.bad,    ink: C.bad,  loud: true  };
-    default:        return { ring: C.border, ink: C.text, loud: false };
-  }
+// ── State vocabulary: two axes, not one enum ────────────────────────────────
+// data condition — live | nodata | stale | unbound
+// alarm          — any alert raised against this channel or its node
+// `range` was live+alarm and `offline` was nodata+alarm, both pretending to be
+// states of their own. Written "data" or "data+alarm".
+const dataOf  = s => String(s).split('+')[0];
+const alarmOf = s => String(s).includes('+alarm');
+
+const DATA_LOOK = {
+  live:    { ring: C.border, ink: C.text },
+  nodata:  { ring: C.border, ink: C.dim  },
+  stale:   { ring: C.warn,   ink: C.warn },
+  unbound: { ring: C.dim,    ink: C.dim, ghost: true },
+};
+
+// The glyph body takes a tint when the object is alarming or stale, so a panel
+// full of objects shows WHERE the problem is before a reader picks out which
+// ring changed colour. Kept dark enough that the interior text stays legible;
+// it is a hue, not a highlight.
+function objFill(s) {
+  if (alarmOf(s)) return '#2a1517';
+  if (dataOf(s) === 'stale') return '#2a2411';
+  return C.object;
 }
 
-// Dashed means one thing only: unbound. Selection is not a state and never
-// touches the ring — see glow() below.
+function look(s) {
+  const base = DATA_LOOK[dataOf(s)] || DATA_LOOK.live;
+  if (!alarmOf(s)) return Object.assign({ loud: false }, base);
+  const d = dataOf(s);
+  return Object.assign({}, base, {
+    ring: C.bad,
+    ink:  (d === 'live' || d === 'stale') ? C.bad : base.ink,   // dashes stay dim
+    loud: true,
+  });
+}
+
 function ringAttrs(L, s) {
-  const w = L.loud ? 3 : 1.5;
-  const dash = s === 'unbound' ? ' stroke-dasharray="3 2"' : '';
+  // Constant weight in every state. An alarm is carried by the ring's COLOUR
+  // and the tinted body, not by getting fatter — a thickened stroke reads as a
+  // different kind of object rather than as the same object in trouble, and it
+  // made alarm the one state drawn to a different spec from all the others.
+  const w = 1.5;
+  const dash = dataOf(s) === 'unbound' ? ' stroke-dasharray="3 2"' : '';
   return `stroke="${L.ring}" stroke-width="${w}"${dash}`;
 }
 
-// ── Bubble interiors ────────────────────────────────────────────────────────
-// Four candidates. Same circle, same ring; the interior is the only variable.
+// Green is a claim that something is true right now, so it follows the data
+// axis rather than being hardcoded.
+function okInk(s) {
+  const d = dataOf(s);
+  if (d === 'live')  return C.ok;
+  if (d === 'stale') return C.warn;
+  return C.dim;
+}
 
-function bubbleShell(cx, cy, s, inner) {
+// ── Sensor bubble — option C ────────────────────────────────────────────────
+// Interior text is a per-object field, so it must hold whatever is typed.
+function bubbleSize(n) {
+  if (n <= 2) return 14;
+  if (n === 3) return 11.5;
+  if (n === 4) return 9.5;
+  if (n === 5) return 8.5;
+  return 7.5;
+}
+
+function bubble(cx, cy, s, txt) {
   const L = look(s);
-  return `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${C.object}" ${ringAttrs(L, s)}/>${inner}`;
-}
-
-// A — empty. The tag lives on the name line and nowhere else.
-function bubbleA(cx, cy, s) {
-  return bubbleShell(cx, cy, s, '');
-}
-
-// B — the whole tag, one line, no divider.
-function bubbleB(cx, cy, s, tag) {
-  const t = tag || 'PT01';
-  const size = t.length > 5 ? 8 : 9.5;
-  return bubbleShell(cx, cy, s, `
-    <text x="${cx}" y="${cy + 3.5}" text-anchor="middle" font-family="${MONO}" font-size="${size}"
-          letter-spacing="0.02em" fill="${look(s).ghost ? C.dim : C.muted}">${t}</text>`);
-}
-
-// C — instrument type only, set large. The loop number is on the name line.
-function bubbleC(cx, cy, s, type) {
-  return bubbleShell(cx, cy, s, `
-    <text x="${cx}" y="${cy + 5}" text-anchor="middle" font-family="${MONO}" font-size="14"
-          font-weight="700" letter-spacing="-0.02em"
-          fill="${look(s).ghost ? C.dim : C.muted}">${type || 'PT'}</text>`);
-}
-
-// D — a drawn mark per instrument type: dial, bulb, chevrons.
-function bubbleD(cx, cy, s, kind) {
-  const c = look(s).ghost ? C.dim : C.muted;
-  let m = '';
-  if (kind === 'temp') {
-    m = `<line x1="${cx}" y1="${cy - 7}" x2="${cx}" y2="${cy + 2}" stroke="${c}" stroke-width="1.6" stroke-linecap="round"/>
-         <circle cx="${cx}" cy="${cy + 5}" r="3.4" fill="none" stroke="${c}" stroke-width="1.6"/>
-         <line x1="${cx + 3.5}" y1="${cy - 5}" x2="${cx + 6}" y2="${cy - 5}" stroke="${c}" stroke-width="1.2"/>
-         <line x1="${cx + 3.5}" y1="${cy - 1}" x2="${cx + 6}" y2="${cy - 1}" stroke="${c}" stroke-width="1.2"/>`;
-  } else if (kind === 'flow') {
-    m = `<path d="M ${cx - 7} ${cy - 5} L ${cx - 1} ${cy} L ${cx - 7} ${cy + 5}" fill="none"
-               stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-         <path d="M ${cx + 1} ${cy - 5} L ${cx + 7} ${cy} L ${cx + 1} ${cy + 5}" fill="none"
-               stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`;
-  } else {
-    // pressure: a dial face with a needle
-    m = `${arc(cx, cy + 3, 7.5, Math.PI, Math.PI * 2, `stroke="${c}" stroke-width="1.5" stroke-linecap="round"`)}
-         <line x1="${cx}" y1="${cy + 3}" x2="${cx + 5}" y2="${cy - 3}" stroke="${c}" stroke-width="1.6" stroke-linecap="round"/>
-         <circle cx="${cx}" cy="${cy + 3}" r="1.6" fill="${c}"/>`;
-  }
-  return bubbleShell(cx, cy, s, m);
+  const t = txt === undefined ? 'PT' : String(txt);
+  const shell = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${objFill(s)}" ${ringAttrs(L, s)}/>`;
+  if (t === '') return shell;
+  const size = bubbleSize(t.length);
+  return shell + `
+    <text x="${cx}" y="${cy + size * 0.36}" text-anchor="middle" font-family="${MONO}"
+          font-size="${size}" font-weight="700" letter-spacing="-0.02em"
+          fill="${L.ghost ? C.dim : C.muted}">${t}</text>`;
 }
 
 // ── Valve ───────────────────────────────────────────────────────────────────
-// pos: 'shut' | 'open' | number (percent) | 'uncfg'
-// fb : 'none' | 'cont' | 'limit-open' | 'limit-shut' | 'limit-none'
+const FB0 = Math.PI * 0.75, FBSPAN = Math.PI * 1.5;   // gauge sweep
+const A_SHUT = Math.PI / 4;   // along the 45° shut line
+const A_OPEN = 0;             // along the horizontal open line
 
-const FB0 = Math.PI * 0.75, FBSPAN = Math.PI * 1.5;   // sweep start / extent
+// Two rules, and between them the two things a valve reports stay separable now
+// that both live inside the circle:
+//   FILLED IS FACT, HOLLOW IS INTENT — a made switch fills, an unmade one
+//     outlines, and a commanded position is always a hollow ring.
+//   A SWITCH IS A PAIR — one dot at each end of the bore line it reports on,
+//     so it reads as that line's endpoints rather than as a mark that happens
+//     to sit nearby. The command ring is single and rides between them, so the
+//     two can never be confused by shape alone.
+const TK_R = 13, TK_DOT = 2.9;
 
-function valveFeedback(cx, cy, s, fb) {
-  if (!fb || fb === 'none') return '';
-  const L = look(s);
-  if (fb === 'cont' || typeof fb === 'number') {
-    const frac = typeof fb === 'number' ? fb / 100 : 0.45;
-    const track = arc(cx, cy, RFB, FB0, FB0 + FBSPAN, `stroke="${C.border}" stroke-width="2" stroke-linecap="round"`);
-    if (frac <= 0.001) return track;
-    const live = arc(cx, cy, RFB, FB0, FB0 + FBSPAN * frac, `stroke="${C.ok}" stroke-width="2.5" stroke-linecap="round"`);
-    const [hx, hy] = pt(cx, cy, RFB, FB0 + FBSPAN * frac);
-    return `${track}${live}<circle cx="${hx}" cy="${hy}" r="2.6" fill="${C.ok}"/>`;
-  }
-  // Limit switches: two discrete ticks, one per switch. Lit = made.
-  const a = { shut: FB0, open: FB0 + FBSPAN };
-  const tick = (ang, on) => {
-    const [x0, y0] = pt(cx, cy, RFB - 3.5, ang), [x1, y1] = pt(cx, cy, RFB + 3.5, ang);
-    return `<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="${on ? C.ok : C.border}"
-                  stroke-width="${on ? 3 : 2}" stroke-linecap="round"/>`;
-  };
-  return tick(a.shut, fb === 'limit-shut') + tick(a.open, fb === 'limit-open');
+// Green is earned by the SWITCH, not by the command. Asking for open tells you
+// only that you asked, so on a limit-switched valve the body stays grey until
+// the open pair lights. Mid-travel neither switch is made, which is grey for the
+// same reason rather than as a special case. A valve with no feedback fitted is
+// treated as confirmed, because there the command is the only fact there is.
+function confirmed(fb, isOpen) {
+  if (typeof fb !== 'string' || fb.indexOf('limit') !== 0) return true;
+  return fb === (isOpen ? 'limit-open' : 'limit-shut');
 }
 
-function glyphValve(cx, cy, s, pos, fb) {
+function limitTick(cx, cy, ang, colour, on) {
+  const dot = (a) => {
+    const [x, y] = pt(cx, cy, TK_R, a);
+    return on
+      ? `<circle cx="${x}" cy="${y}" r="${TK_DOT}" fill="${colour}"/>`
+      : `<circle cx="${x}" cy="${y}" r="${TK_DOT - 0.4}" fill="none" stroke="${C.border}" stroke-width="1.5"/>`;
+  };
+  return dot(ang) + dot(ang + Math.PI);
+}
+
+function valveFeedback(cx, cy, s, fb, cmd, rot) {
+  if (!fb || fb === 'none') return '';
   const L = look(s);
-  const l = R - 5;
-  const d = l * 0.72;               // 45° half-extent
-  let inner = '';
+  if (typeof fb === 'number') {
+    // The gauge sweep keeps its own orientation — a gauge reads the same way
+    // whichever way the bore runs.
+    // Continuous position sits INSIDE the circle, on the object fill, so a
+    // throttling valve is one disc rather than a disc with a halo around it.
+    // No halo needed here — the object fill is already behind it, which is
+    // better contrast over a pipe than a grey casing would give.
+    const track = arc(cx, cy, RIN, FB0, FB0 + FBSPAN,
+      `stroke="${C.border}" stroke-width="2" stroke-linecap="round"`);
+    let live = '';
+    if (fb > 0.001) {
+      live = arc(cx, cy, RIN, FB0, FB0 + FBSPAN * (fb / 100),
+              `stroke="${okInk(s)}" stroke-width="2.5" stroke-linecap="round"`);
+    }
+    let dot = '';
+    if (typeof cmd === 'number') {
+      const [dx, dy] = pt(cx, cy, RIN, FB0 + FBSPAN * (cmd / 100));
+      dot = `<circle cx="${dx}" cy="${dy}" r="2.8" fill="${C.object}"
+                     stroke="${L.ghost ? C.dim : C.text}" stroke-width="1.8"/>`;
+    }
+    return track + live + dot;
+  }
+  // Limit ticks are tied to the indicator lines, so they turn with the bore.
+  const ticks = limitTick(cx, cy, A_SHUT, L.ink,    fb === 'limit-shut')
+              + limitTick(cx, cy, A_OPEN, okInk(s), fb === 'limit-open');
+  return rot ? `<g transform="rotate(${rot} ${cx} ${cy})">${ticks}</g>` : ticks;
+}
+
+// rot: 0 for a left-right run, 90 for a top-to-bottom one. The bore line and the
+// limit ticks turn; the percentage figure stays upright, because a number that
+// has to be read sideways is not a reading.
+function glyphValve(cx, cy, s, pos, fb, cmd, rot) {
+  const L = look(s);
+  const l = R - 5, d = l * 0.72;
+  let inner = '', upright = '';
   if (pos === 'uncfg') {
     inner = `<line x1="${cx - d}" y1="${cy + d}" x2="${cx + d}" y2="${cy - d}"
                    stroke="${C.dim}" stroke-width="1.5" stroke-dasharray="3 2"/>`;
   } else if (typeof pos === 'number') {
-    inner = `<text x="${cx}" y="${cy + 4}" text-anchor="middle" font-family="${MONO}"
-                   font-size="11" font-weight="700" fill="${L.ink}">${pos}</text>`;
+    upright = `<text x="${cx}" y="${cy + 4}" text-anchor="middle" font-family="${MONO}"
+                     font-size="11" font-weight="700" fill="${L.ink}">${pos}</text>`;
   } else if (pos === 'shut') {
-    // Shut: across the bore at 45°, per your note on I/O-position valves.
     inner = `<line x1="${cx - d}" y1="${cy - d}" x2="${cx + d}" y2="${cy + d}"
-                   stroke="${L.ink}" stroke-width="2.5" stroke-linecap="round"/>`;
+                   stroke="${confirmed(fb, false) ? L.ink : C.dim}" stroke-width="2.5"
+                   stroke-linecap="round"/>`;
   } else {
-    // Open: along the bore.
     inner = `<line x1="${cx - l}" y1="${cy}" x2="${cx + l}" y2="${cy}"
-                   stroke="${C.ok}" stroke-width="2.5" stroke-linecap="round"/>`;
+                   stroke="${confirmed(fb, true) ? okInk(s) : C.dim}" stroke-width="2.5"
+                   stroke-linecap="round"/>`;
   }
-  return `${valveFeedback(cx, cy, s, fb)}
-    <circle cx="${cx}" cy="${cy}" r="${R}" fill="${C.object}" ${ringAttrs(L, s)}/>
-    ${inner}`;
+  if (rot && inner) inner = `<g transform="rotate(${rot} ${cx} ${cy})">${inner}</g>`;
+  // Everything the valve reports now lives inside the circle, so the whole
+  // feedback layer draws over the disc.
+  return `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${objFill(s)}" ${ringAttrs(L, s)}/>`
+    + valveFeedback(cx, cy, s, fb, cmd, rot) + inner + upright;
 }
 
 // ── State machine ───────────────────────────────────────────────────────────
-// Segmented ring, one segment per state, current lit. No number inside.
-
 function smMark(cx, cy, c, kind) {
   switch (kind) {
-    case 'hold':   // two bars — held / manual
-      return `<line x1="${cx - 3}" y1="${cy - 5}" x2="${cx - 3}" y2="${cy + 5}" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>
-              <line x1="${cx + 3}" y1="${cy - 5}" x2="${cx + 3}" y2="${cy + 5}" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>`;
-    case 'run':    // triangle — running a sequence
-      return `<path d="M ${cx - 3.5} ${cy - 5.5} L ${cx + 5} ${cy} L ${cx - 3.5} ${cy + 5.5} Z" fill="${c}"/>`;
-    case 'stop':   // square — safe / stopped
-      return `<rect x="${cx - 4.2}" y="${cy - 4.2}" width="8.4" height="8.4" rx="1" fill="${c}"/>`;
-    case 'abort':  // bang — abort
-      return `<line x1="${cx}" y1="${cy - 6}" x2="${cx}" y2="${cy + 1.5}" stroke="${c}" stroke-width="2.4" stroke-linecap="round"/>
-              <circle cx="${cx}" cy="${cy + 5}" r="1.5" fill="${c}"/>`;
-    case 'none':
-      return '';
-    default:       // generic sequence mark — three steps, used for every machine
-      return `<path d="M ${cx - 6} ${cy + 4} L ${cx - 1.5} ${cy + 4} L ${cx - 1.5} ${cy} L ${cx + 2.5} ${cy}
-                       L ${cx + 2.5} ${cy - 4} L ${cx + 6.5} ${cy - 4}" fill="none" stroke="${c}"
-                    stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>`;
+    case 'none': return '';
+    case 'dot':  return `<circle cx="${cx}" cy="${cy}" r="4" fill="${c}"/>`;
+    case 'arrow':
+      return `<path d="M ${cx - 4.5} ${cy - 4} L ${cx + 3} ${cy} L ${cx - 4.5} ${cy + 4}"
+                    fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round"/>`;
+    case 'bars':
+      return `<line x1="${cx - 5}" y1="${cy + 4}" x2="${cx - 5}" y2="${cy + 1}" stroke="${c}" stroke-width="2" stroke-linecap="round"/>
+              <line x1="${cx}"     y1="${cy + 4}" x2="${cx}"     y2="${cy - 2}" stroke="${c}" stroke-width="2" stroke-linecap="round"/>
+              <line x1="${cx + 5}" y1="${cy + 4}" x2="${cx + 5}" y2="${cy - 5}" stroke="${c}" stroke-width="2" stroke-linecap="round"/>`;
+    case 'node':
+    default:
+      return `<path d="M ${cx} ${cy - 5.5} L ${cx + 5.5} ${cy} L ${cx} ${cy + 5.5} L ${cx - 5.5} ${cy} Z"
+                    fill="none" stroke="${c}" stroke-width="1.8" stroke-linejoin="round"/>`;
   }
 }
 
-function glyphMachine(cx, cy, s, idx, total, mark) {
+// The machine glyph is the SAME circle as the sensor bubble — one ring, no
+// segments. What the segments used to say is now carried in two places that
+// were already there: the state's name on the text line, and a concentric
+// accent ring drawn only while a commanded target has not been reached.
+// Nothing is added to the glyph when there is nothing to say.
+function glyphMachine(cx, cy, s, mark, pending) {
   const L = look(s);
-  const gap = 0.16, seg = (Math.PI * 2) / total;
-  let arcs = '';
-  for (let i = 0; i < total; i++) {
-    const a0 = -Math.PI / 2 + i * seg + gap / 2;
-    const a1 = a0 + seg - gap;
-    const lit = i === idx;
-    arcs += arc(cx, cy, R + 3, a0, a1,
-      `stroke="${lit ? L.ring : C.border}" stroke-width="${lit ? (L.loud ? 4 : 3) : 2}" stroke-linecap="round"`);
-  }
-  const dash = s === 'unbound' ? ' stroke-dasharray="3 2"' : '';
-  return `${arcs}
-    <circle cx="${cx}" cy="${cy}" r="${R - 2}" fill="${C.object}" stroke="${C.border}"
-            stroke-width="1"${dash}/>
-    ${smMark(cx, cy, idx < 0 ? C.dim : L.ink, mark)}`;
+  const ring = pending
+    ? `<circle cx="${cx}" cy="${cy}" r="${R + 4}" fill="none" stroke="${C.accent}" stroke-width="1.5"/>`
+    : '';
+  return ring + `
+    <circle cx="${cx}" cy="${cy}" r="${R}" fill="${objFill(s)}" ${ringAttrs(L, s)}/>
+    ${smMark(cx, cy, L.ghost ? C.dim : L.ink, mark)}`;
 }
 
-// ── Marks ───────────────────────────────────────────────────────────────────
-
+// ── Alert marks ─────────────────────────────────────────────────────────────
 function markWarning(cx, cy, c) {
   return `<path d="M ${cx} ${cy - 9} L ${cx + 10} ${cy + 8} L ${cx - 10} ${cy + 8} Z" fill="none"
                 stroke="${c}" stroke-width="1.8" stroke-linejoin="round"/>
@@ -747,7 +593,6 @@ function markWarning(cx, cy, c) {
 }
 
 function markAlarm(cx, cy, c) {
-  // Octagon — the shape that means stop everywhere, and legible at 12 px.
   let d = '';
   for (let i = 0; i < 8; i++) {
     const a = -Math.PI / 2 + (Math.PI / 4) * i + Math.PI / 8;
@@ -759,78 +604,81 @@ function markAlarm(cx, cy, c) {
           <circle cx="${cx}" cy="${cy + 4.6}" r="1.3" fill="${c}"/>`;
 }
 
-function markStale(cx, cy, c) {
-  return `<circle cx="${cx}" cy="${cy}" r="9" fill="none" stroke="${c}" stroke-width="1.8"/>
-          <line x1="${cx}" y1="${cy - 5}" x2="${cx}" y2="${cy}" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>
-          <line x1="${cx}" y1="${cy}" x2="${cx + 4}" y2="${cy + 2.5}" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>`;
+// ── Selection glow ──────────────────────────────────────────────────────────
+// Bloom + blurred ring + crisp core. Each fragment carries its own defs so
+// filter ids cannot collide between independent SVGs.
+let GID = 0;
+
+function glowDefs(id) {
+  return `<defs>
+      <filter id="b${id}" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="3.4"/>
+      </filter>
+      <radialGradient id="r${id}">
+        <stop offset="42%" stop-color="#ffffff" stop-opacity="0.34"/>
+        <stop offset="72%" stop-color="#ffffff" stop-opacity="0.12"/>
+        <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+      </radialGradient>
+    </defs>`;
 }
-
-function markOffline(cx, cy, c) {
-  return `<path d="M ${cx - 9} ${cy + 4} A 6 6 0 0 1 ${cx - 2} ${cy - 3}" fill="none" stroke="${c}"
-                stroke-width="1.8" stroke-linecap="round"/>
-          <path d="M ${cx + 9} ${cy - 4} A 6 6 0 0 1 ${cx + 2} ${cy + 3}" fill="none" stroke="${c}"
-                stroke-width="1.8" stroke-linecap="round"/>
-          <line x1="${cx - 8}" y1="${cy - 8}" x2="${cx + 8}" y2="${cy + 8}" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>`;
-}
-
-function markUnbound(cx, cy, c) {
-  return `<circle cx="${cx}" cy="${cy}" r="9" fill="none" stroke="${c}" stroke-width="1.6" stroke-dasharray="3 2"/>
-          <path d="M ${cx - 3} ${cy - 2.5} A 3 3 0 1 1 ${cx} ${cy + 1.5}" fill="none" stroke="${c}"
-                stroke-width="1.7" stroke-linecap="round"/>
-          <circle cx="${cx}" cy="${cy + 5}" r="1.2" fill="${c}"/>`;
-}
-
-// ── Selection ───────────────────────────────────────────────────────────────
-// Selection is NOT a state. It is a white glow drawn under the object, so it
-// layers over whatever the object already is — an alarming object stays red
-// while selected, which the old dashed accent ring could not do (it replaced
-// the ring colour, so selecting an alarm hid the alarm).
-// Built from three concentric strokes rather than a blur filter: identical
-// output everywhere, and no filter region to get wrong at 34 px.
-
-const GLOW = [[2, 2.5, 0.34], [4.5, 5, 0.13], [8, 8, 0.05]];
 
 function glowCircle(cx, cy, r) {
-  return GLOW.map(([dr, w, o]) =>
-    `<circle cx="${cx}" cy="${cy}" r="${r + dr}" fill="none" stroke="#ffffff"
-             stroke-width="${w}" stroke-opacity="${o}"/>`).join('');
+  const id = GID++;
+  return glowDefs(id) + `
+    <circle cx="${cx}" cy="${cy}" r="${r + 9}" fill="url(#r${id})"/>
+    <circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="#ffffff"
+            stroke-width="3.5" stroke-opacity="0.8" filter="url(#b${id})"/>
+    <circle cx="${cx}" cy="${cy}" r="${r + 1.5}" fill="none" stroke="#ffffff"
+            stroke-width="1.1" stroke-opacity="0.9"/>`;
 }
 
 function glowRect(x, y, w, h) {
-  return GLOW.map(([dr, sw, o]) =>
-    `<rect x="${x - dr}" y="${y - dr}" width="${w + dr * 2}" height="${h + dr * 2}" rx="${3 + dr}"
-           fill="none" stroke="#ffffff" stroke-width="${sw}" stroke-opacity="${o}"/>`).join('');
+  const id = GID++;
+  return glowDefs(id) + `
+    <rect x="${x - 3}" y="${y - 3}" width="${w + 6}" height="${h + 6}" rx="7" fill="none"
+          stroke="#ffffff" stroke-width="6" stroke-opacity="0.55" filter="url(#b${id})"/>
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="none"
+          stroke="#ffffff" stroke-width="1.1" stroke-opacity="0.9"/>`;
 }
 
-// ── Object rows ─────────────────────────────────────────────────────────────
-// An object is: [glyph?] + name line + reading. The name line IS the title.
-
+// ── Object row ──────────────────────────────────────────────────────────────
 function fmt(v, dp) {
-  if (typeof v !== 'number') return v;
-  return v.toFixed(dp === undefined ? 2 : dp);
+  return typeof v === 'number' ? v.toFixed(dp === undefined ? 2 : dp) : v;
 }
 
-function object(opts) {
-  const {
-    state = 'live', glyph, name, value, units, decimals,
-    W = 190, H = 54, showName = true, selected = false,
-  } = opts;
+function object(o) {
+  const { state = 'live', glyph, name, value, units, decimals,
+          W = 190, H = 64, showName = true, selected = false, side = 'right' } = o;
   const L = look(state);
   const hasGlyph = !!glyph;
-  const tx = hasGlyph ? 2 * R + 16 : 4;
   const cy = H / 2;
-  const nameY = cy - 6;
   const valY = showName ? cy + 15 : cy + 7;
   const shown = fmt(value, decimals);
   const italic = L.ghost ? ' font-style="italic"' : '';
+
+  // The text block sits to the right of the bubble by default and can be
+  // flipped to the left per object, for instruments drawn against the right
+  // edge of a panel. Flipping mirrors the whole block: the glyph moves to the
+  // far side and the text right-aligns so it still hugs the bubble.
+  const gx = (!hasGlyph || side === 'right') ? R + 6 : W - (R + 6);
+  const textRight = side === 'right';   // text block sits right of the bubble
+  const edge = hasGlyph ? (textRight ? 2 * R + 16 : W - (2 * R + 16)) : (textRight ? 4 : W - 4);
+  const anchor = textRight ? '' : ' text-anchor="end"';
+  // Flipping mirrors the whole block, units included: the number always hugs
+  // the bubble and the unit always sits on the outer edge. Keeping the unit
+  // beside the bubble would leave it stranded between the number and the glyph.
+  const valW = String(shown).length * 10.3;
+  const valX   = edge;
+  const unitsX = textRight ? edge + valW + 6 : edge - valW - 6;
+
   return svg(W, H, `
-    ${selected ? (hasGlyph ? glowCircle(R + 6, cy, R) : glowRect(3, 6, W - 6, H - 12)) : ''}
-    ${hasGlyph ? glyph(R + 6, cy, state) : ''}
-    ${showName ? `<text x="${tx}" y="${nameY}" font-family="${MONO}" font-size="10.5" letter-spacing="0.06em"
-                        fill="${L.ghost ? C.dim : C.muted}"${italic}>${name}</text>` : ''}
-    <text x="${tx}" y="${valY}" font-family="${MONO}" font-size="17" font-weight="700"
+    ${selected ? (hasGlyph ? glowCircle(gx, cy, R) : glowRect(4, 9, W - 8, H - 18)) : ''}
+    ${hasGlyph ? glyph(gx, cy, state) : ''}
+    ${showName ? `<text x="${edge}" y="${cy - 6}"${anchor} font-family="${MONO}" font-size="10.5"
+                        letter-spacing="0.06em" fill="${L.ghost ? C.dim : C.muted}"${italic}>${name}</text>` : ''}
+    <text x="${valX}" y="${valY}"${anchor} font-family="${MONO}" font-size="17" font-weight="700"
           fill="${L.ink}"${italic}>${shown}</text>
-    ${units ? `<text x="${tx + String(shown).length * 10.3 + 6}" y="${valY}" font-family="${SANS}"
+    ${units ? `<text x="${unitsX}" y="${valY}"${anchor} font-family="${SANS}"
                      font-size="9.5" fill="${C.dim}">${units}</text>` : ''}
   `);
 }
@@ -843,234 +691,159 @@ const cells = (id, items) => {
 const cell = (label, body, sub) =>
   `<div class="cell"><span class="label">${label}</span>${body}${sub ? `<span class="sub">${sub}</span>` : ''}</div>`;
 
-// ── Bubble options ──────────────────────────────────────────────────────────
-const BUBBLE_OPTS = [
-  ['A', 'Empty bubble', (x, y, s) => bubbleA(x, y, s),
-   'Nothing inside. The ring is pure state and the tag is read once, on the name line. Cleanest at density; least recognisable to someone reading it as a P&amp;ID.'],
-  ['B', 'Tag inside', (x, y, s) => bubbleB(x, y, s, 'CPT01'),
-   'The whole tag on one line, no divider. Keeps the balloon doing its P&amp;ID job. Long tags shrink — the second drawing is a 7-character one.'],
-  ['C', 'Type, set large', (x, y, s) => bubbleC(x, y, s, 'PT'),
-   'Instrument type only, big enough to read across a room; the loop number stays on the name line. Reads fastest when a panel is mostly pressure and temperature.'],
-  ['D', 'Drawn mark', (x, y, s) => bubbleD(x, y, s, 'press'),
-   'A mark per instrument type — dial, bulb, chevrons. Language-free and the most distinct at a glance; needs a mark defined for every instrument type you add.'],
+const BUB = (x, y, s) => bubble(x, y, s, 'PT');
+
+// ── Permutations ────────────────────────────────────────────────────────────
+cells('perms', [
+  ['glyph · name · units', {}],
+  ['glyph · name',         { units: '' }],
+  ['glyph only',           { units: '', showName: false }],
+  ['name · units',         { glyph: null }],
+  ['reading only',         { glyph: null, units: '', showName: false }],
+  ['0 dp',                 { decimals: 0 }],
+  ['3 dp',                 { decimals: 3 }],
+  ['selected',             { selected: true }],
+  ['inline left',          { side: 'left' }],
+].map(([lab, extra]) => cell(lab, object(Object.assign(
+  { glyph: BUB, name: 'CPT-01', value: 412.63, units: 'psia', W: 178 }, extra)))));
+
+// ── Editable text fields ────────────────────────────────────────────────────
+cells('ctext', [
+  ['default', 'PT',      'Leading letters of the refDes.'],
+  ['3 chars', 'CPT',     'Steps down a size.'],
+  ['5 chars', 'LOX-P',   'The stand’s own shorthand.'],
+  ['7 chars', 'CHAMBER', 'Where it stops being sensible.'],
+  ['blank',   '',        'Option A, as a setting.'],
+].map(([lab, txt, sub]) => cell(lab, object({
+  glyph: (x, y, s) => bubble(x, y, s, txt), name: 'CPT-01', value: 412.63, units: 'psia', W: 178,
+}), sub)));
+
+cells('nametext', [
+  ['default', 'CPT-01',                     178, 'The bound control’s refDes.'],
+  ['renamed', 'Chamber P',                  200, 'A label, not a reference.'],
+  ['long',    'Chamber pressure, LOX side', 292, 'Not truncated — the object gets wider.'],
+  ['blank',   '',                           178, 'Same as switching the name line off.'],
+].map(([lab, txt, w, sub]) => cell(lab, object({
+  glyph: BUB, name: txt, showName: txt !== '', value: 412.63, units: 'psia', W: w,
+}), sub)));
+
+// ── The whole state vocabulary ──────────────────────────────────────────────
+const AXES = [
+  ['live',    412.63, ''],
+  ['nodata',  null,   'Nothing published since startup.'],
+  ['stale',   412.63, 'Older than channelStaleMs.'],
+  ['unbound', null,   'Names nothing in the config.'],
 ];
 
-const bubbleAlt = {
-  A: (x, y, s) => bubbleA(x, y, s),
-  B: (x, y, s) => bubbleB(x, y, s, 'TC-1204'),
-  C: (x, y, s) => bubbleC(x, y, s, 'TC'),
-  D: (x, y, s) => bubbleD(x, y, s, 'temp'),
-};
+cells('axes', AXES.flatMap(([d, v, sub]) => {
+  const g = (x, y, s) => bubble(x, y, s, d === 'unbound' ? '??' : 'PT');
+  const nm = d === 'unbound' ? 'PT-99 ?' : 'CPT-01';
+  return [
+    cell(d, object({ state: d, glyph: g, name: nm, value: v === null ? '- -' : v,
+                     units: 'psia', W: 178 }), sub),
+    cell(d + ' + alarm', object({ state: d + '+alarm', glyph: g, name: nm,
+                     value: v === null ? '- -' : (d === 'live' ? 918.44 : v),
+                     units: 'psia', W: 178 }),
+         d === 'live'   ? 'Out of range, or any rule.'
+       : d === 'nodata' ? 'This one has a name: node offline.' : ''),
+  ];
+}));
 
-const CTX_STATES = [
-  ['live', 'Live'], ['stale', 'Stale'], ['range', 'Out of range'],
-  ['alarm', 'Alarm'], ['unbound', 'Unbound'],
-];
-
-const glyphC = (x, y, s) => bubbleC(x, y, s, 'PT');
-const glyphD = (x, y, s) => bubbleD(x, y, s, 'press');
-
-cells('ctx', CTX_STATES.map(([st, lab]) => cell(lab,
-  object({ state: st, glyph: glyphC, name: 'CPT-01', value: 412.63, units: 'psia', W: 176 }) +
-  object({ state: st, glyph: glyphD, name: 'CPT-01', value: 412.63, units: 'psia', W: 176 }),
-  st === 'unbound' ? 'C keeps its letters; D keeps its mark. Both go grey and italic.'
-                   : (st === 'alarm' ? 'Ring thickens. Nothing moves.' : ''))));
-
-const PERMS = [
-  ['glyph · name · units', { glyph: glyphC }],
-  ['glyph · name', { glyph: glyphC, units: '' }],
-  ['glyph only', { glyph: glyphC, showName: false, units: '' }],
-  ['name · units', {}],
-  ['name only', { units: '' }],
-  ['reading only', { showName: false, units: '' }],
-  ['0 dp', { glyph: glyphC, decimals: 0 }],
-  ['1 dp', { glyph: glyphC, decimals: 1 }],
-  ['3 dp', { glyph: glyphC, decimals: 3 }],
-];
-
-cells('perms', PERMS.map(([lab, extra]) => cell(lab,
-  object(Object.assign({ name: 'CPT-01', value: 412.63, units: 'psia', W: 176 }, extra)))));
-
-cells('bubbles', BUBBLE_OPTS.map(([id, nm, g, d]) => cell(
-  id + ' — ' + nm,
-  object({ glyph: g, name: 'CPT-01', value: 412.63, units: 'psia', W: 168 }) +
-  object({ glyph: bubbleAlt[id], name: 'TC-1204', value: 21.4, decimals: 1, units: '°C', W: 168 }),
-  d)));
-
-// ── Anatomy ─────────────────────────────────────────────────────────────────
-const BUB = (x, y, s) => bubbleB(x, y, s, 'CPT01');
-
-cells('anatomy', [
-  ['Reading only', object({ name: 'CPT-01', value: 412.63, units: 'psia', W: 170, showName: false }),
-   'Just the number. For readings that are context rather than the thing you are watching — a corner of the panel where the drawing already says what it is.'],
-  ['+ name line', object({ name: 'CPT-01', value: 412.63, units: 'psia', W: 170 }),
-   'The tag, in the formatting it always had. This is the title now — no second italic line above it.'],
-  ['+ glyph', object({ glyph: BUB, name: 'CPT-01', value: 412.63, units: 'psia' }),
-   'Adds the bubble, and with it a second carrier for state: the ring. Turns a number into something a P&amp;ID reader recognises.'],
-  ['+ units off', object({ glyph: BUB, name: 'CPT-01', value: 412.63 }),
-   'Units are a per-object toggle. Off where a whole panel is one unit and the repetition is noise.'],
-].map(([t, s, d]) => `<div class="a"><span class="t">${t}</span>${s}<span class="d">${d}</span></div>`));
-
-// ── Composition ─────────────────────────────────────────────────────────────
-cells('composition', [
-  ['Reading only',  { showName: false }],
-  ['+ name line',   {}],
-  ['+ glyph',       { glyph: BUB }],
-  ['+ units off',   { glyph: BUB, units: null }],
-].map(([label, extra]) => cell(label, object(Object.assign(
-  { name: 'CPT-01', value: 412.63, units: 'psia', W: 180 }, extra)), '')));
-
-// ── Precision ───────────────────────────────────────────────────────────────
-cells('precision', [
-  cell('0 dp', object({ glyph: BUB, name: 'CPT-01', value: 412.63, decimals: 0, units: 'psia' }),
-       'A tank pressure nobody reads to a tenth.'),
-  cell('1 dp', object({ glyph: BUB, name: 'CPT-01', value: 412.63, decimals: 1, units: 'psia' }), ''),
-  cell('2 dp — default', object({ glyph: BUB, name: 'CPT-01', value: 412.63, decimals: 2, units: 'psia' }),
-       'What every object gets until you change it.'),
-  cell('3 dp', object({ glyph: BUB, name: 'CPT-01', value: 412.63, decimals: 3, units: 'psia' }),
-       'A load cell, where the last digit is the measurement.'),
-]);
-
-// ── Sensor states ───────────────────────────────────────────────────────────
-const SENSOR_STATES = [
-  ['live',    'Live',         412.63, 'Fresh, inside its band.'],
-  ['nodata',  'No data yet',  null,   'Configured; nothing has published it since startup.'],
-  ['stale',   'Stale',        412.63, 'No update within channelStaleMs. The number on screen may be minutes old.'],
-  ['range',   'Out of range', 918.44, 'Past validMin/validMax. Red, and now an alert row too — but not loud.'],
-  ['offline', 'Node offline', null,   'The owning DAQ dropped. Will not recover on its own.'],
-  ['unbound', 'Unbound',      null,   'controlRefDes names nothing in the config. Grey, dashed, italic — a drawing mistake, not an alarm.'],
-  ['alarm',   'Alarm',        918.44, 'A configured alert is raised and unacknowledged. Thickened ring, nothing moving.'],
-  ['live',    'Selected',     412.63, 'The object whose sidebar is open. A white glow under the object, in the panel as well as the editor.', true],
-  ['alarm',   'Selected + alarm', 918.44, 'Layered, not replaced — selecting an alarming object no longer costs you the alarm.', true],
-];
-
-cells('sensor', SENSOR_STATES.map(([s, label, v, desc, sel]) => cell(label, object({
-  selected: !!sel,
-  state: s,
-  glyph: (x, y, st) => bubbleB(x, y, st, s === 'unbound' ? '??' : 'CPT01'),
-  name: s === 'unbound' ? 'PT-99 ?' : 'CPT-01',
-  value: v === null ? '- -' : v,
-  decimals: 2,
-  units: 'psia',
-}), desc)));
-
-// ── Valve feedback ──────────────────────────────────────────────────────────
+// ── Valve ───────────────────────────────────────────────────────────────────
 cells('valvefb', [
-  cell('No feedback', object({ glyph: (x, y, s) => glyphValve(x, y, s, 'shut', 'none'), name: 'NV-03', value: 'CLOSED', W: 200 }),
-       'Command only. No outer ring at all, so the absence is visible rather than implied.'),
-  cell('Limit — shut', object({ glyph: (x, y, s) => glyphValve(x, y, s, 'shut', 'limit-shut'), name: 'OV-05', value: 'CLOSED', W: 200 }),
-       'Two ticks, one per switch. The shut switch is made.'),
-  cell('Limit — open', object({ glyph: (x, y, s) => glyphValve(x, y, s, 'open', 'limit-open'), name: 'OV-05', value: 'OPEN', W: 200 }),
-       'Open switch made. Two states drawn as two states.'),
-  cell('Limit — travelling', object({ glyph: (x, y, s) => glyphValve(x, y, s, 'open', 'limit-none'), name: 'OV-05', value: 'OPEN', W: 200 }),
-       'Neither switch made: between the stops, or a failed switch. Unlit is information.'),
-  cell('Continuous 45%', object({ glyph: (x, y, s) => glyphValve(x, y, s, 45, 45), name: 'TV-02', value: '45%', W: 200 }),
-       'A real position: the outer ring sweeps like a gauge, which only makes sense when the feedback is continuous.'),
-  cell('Continuous 100%', object({ glyph: (x, y, s) => glyphValve(x, y, s, 100, 100), name: 'TV-02', value: '100%', W: 200 }),
-       ''),
+  cell('No feedback',  object({ glyph: (x, y, s) => glyphValve(x, y, s, 'shut', 'none'), name: 'NV-03', value: 'CLOSED', W: 196 }),
+       'No outer ring at all, so its absence is visible.'),
+  cell('Limit — shut', object({ glyph: (x, y, s) => glyphValve(x, y, s, 'shut', 'limit-shut'), name: 'OV-05', value: 'CLOSED', W: 196 }),
+       'Tick at the end of the 45° line, in its ink.'),
+  cell('Limit — open', object({ glyph: (x, y, s) => glyphValve(x, y, s, 'open', 'limit-open'), name: 'OV-05', value: 'OPEN', W: 196 }),
+       'And at the end of the horizontal line, in green.'),
+  cell('Limit — travelling', object({ glyph: (x, y, s) => glyphValve(x, y, s, 'open', 'limit-none'), name: 'OV-05', value: 'OPEN', W: 196 }),
+       'Neither made: between the stops, or a failed switch.'),
+  cell('Tracking',     object({ glyph: (x, y, s) => glyphValve(x, y, s, 45, 45, 45), name: 'TV-02', value: 'CMD 45%', W: 196 }),
+       'Dot caps the arc.'),
+  cell('Lagging',      object({ glyph: (x, y, s) => glyphValve(x, y, s, 42, 42, 68), name: 'TV-02', value: 'CMD 68%', W: 196 }),
+       'Commanded 68, sitting at 42. The gap is the reading.'),
+  cell('Vertical — shut', object({ glyph: (x, y, s) => glyphValve(x, y, s, 'shut', 'limit-shut', undefined, 90), name: 'OV-07', value: 'CLOSED', W: 196 }),
+       'Rotated for a top-to-bottom run. Bore and ticks turn together.'),
+  cell('Vertical — open', object({ glyph: (x, y, s) => glyphValve(x, y, s, 'open', 'limit-open', undefined, 90), name: 'OV-07', value: 'OPEN', W: 196 }),
+       'Open now lies along the vertical bore.'),
+  cell('Inline left', object({ side: 'left', glyph: (x, y, s) => glyphValve(x, y, s, 'open', 'limit-open'), name: 'OV-05', value: 'OPEN', W: 196 }),
+       'The side setting is on the object, so it works the same for all three families.'),
 ]);
 
-// ── Valve states ────────────────────────────────────────────────────────────
 const VALVE_STATES = [
-  ['live',    'Shut',         'shut',  'limit-shut', 'CLOSED'],
-  ['live',    'Open',         'open',  'limit-open', 'OPEN'],
-  ['stale',   'Stale',        'shut',  'limit-shut', 'CLOSED'],
-  ['offline', 'Node offline', 'shut',  'none',       '- -'],
-  ['unbound', 'Unconfigured', 'uncfg', 'none',       '- -'],
-  ['alarm',   'Alarm',        'shut',  'limit-shut', 'CMD OPEN'],
-  ['live',    'Selected',     'shut',  'limit-shut', 'CLOSED', true],
+  ['live',         'Shut',         'shut',  'limit-shut', 'CLOSED', ''],
+  ['live',         'Open',         'open',  'limit-open', 'OPEN',   ''],
+  ['stale',        'Stale',        'open',  'limit-open', 'OPEN',   'Drops out of green — it can no longer confirm.'],
+  ['nodata+alarm', 'Node offline', 'shut',  'none',       '- -',    ''],
+  ['unbound',      'Unconfigured', 'uncfg', 'none',       '- -',    ''],
+  ['live+alarm',   'Alarm',        'shut',  'limit-shut', 'CMD OPEN', 'Commanded open, shut switch made.'],
+  ['live',         'Selected',     'shut',  'limit-shut', 'CLOSED', '', true],
 ];
 
-cells('valve', VALVE_STATES.map(([s, label, pos, fb, text, sel]) => cell(label, object({
-  selected: !!sel,
-  state: s,
-  glyph: (x, y, st) => glyphValve(x, y, st, pos, fb),
-  name: s === 'unbound' ? 'OV-99 ?' : 'OV-05',
-  value: text,
-  W: 200,
-}), label === 'Alarm' ? 'Commanded open, shut switch still made — the "valve not responding" alert is what makes it red.' : '')));
+cells('valve', VALVE_STATES.map(([st, label, pos, fb, text, sub, sel]) => cell(label, object({
+  selected: !!sel, state: st,
+  glyph: (x, y, s) => glyphValve(x, y, s, pos, fb),
+  name: dataOf(st) === 'unbound' ? 'OV-99 ?' : 'OV-05',
+  value: text, W: 196,
+}), sub)));
 
 // ── State machine ───────────────────────────────────────────────────────────
 const MACHINE_STATES = [
-  ['live',    'Safe',          0, 'safe',          'stop'],
-  ['live',    'Manual',        1, 'manualControl', 'hold'],
-  ['live',    'Auto sequence', 2, 'autoSequence',  'run'],
-  ['live',    'Abort',         3, 'abort',         'abort'],
-  ['stale',   'Stale',         2, 'autoSequence',  'run'],
-  ['offline', 'Node offline', -1, '- -',           'none'],
-  ['unbound', 'Unbound',      -1, '- -',           'none'],
-  ['live',    'Selected',      0, 'safe',          'stop', true],
-  ['alarm',   'Abort + alert', 3, 'abort',         'abort'],
+  ['live',         'At target',     'safe',           false, 'Nothing pending. A plain ring.'],
+  ['live',         'Commanded',     'safe → manual',   true, 'Accent ring while the target is unreached.'],
+  ['live',         'Auto sequence', 'autoSequence',   false, ''],
+  ['live',         'Abort',         'abort',          false, 'An ordinary state.'],
+  ['stale',        'Stale',         'autoSequence',   false, ''],
+  ['nodata+alarm', 'Node offline',  '- -',            false, ''],
+  ['unbound',      'Unbound',       '- -',            false, ''],
+  ['live+alarm',   'Abort + alert', 'abort',          false, 'Only an alert makes it loud.'],
+  ['live',         'Selected',      'safe',           false, '', true],
 ];
 
-cells('machine', MACHINE_STATES.map(([s, label, idx, text, mark, sel]) => cell(label, object({
-  selected: !!sel,
-  state: s,
-  glyph: (x, y, st) => glyphMachine(x, y, st, idx, 4, mark),
-  name: s === 'unbound' ? 'SM-??' : 'DAQ001 · firingSequence',
-  value: text,
-  W: 236,
-}), label === 'Abort' ? 'An ordinary state. Nothing red about the word itself.'
-   : label === 'Abort + alert' ? 'The same state with an alert raised — this is the only thing that makes it loud.' : '')));
-
-// ── State-ring interior mark ────────────────────────────────────────────────
-const smRow = svgs =>
-  `<div style="display:flex;gap:6px">${svgs}</div>`;
+cells('machine', MACHINE_STATES.map(([st, label, text, pending, sub, sel]) => cell(label, object({
+  selected: !!sel, state: st,
+  glyph: (x, y, s) => glyphMachine(x, y, s,
+    dataOf(st) === 'unbound' || text === '- -' ? 'none' : SM_MARK, pending),
+  name: dataOf(st) === 'unbound' ? 'SM-??' : 'DAQ001 · firingSequence',
+  value: text, W: 252,
+}), sub)));
 
 cells('smmark', [
-  cell('One mark, every machine',
-       smRow([0, 1, 2, 3].map(i => svg(44, 44, glyphMachine(22, 22, 'live', i, 4, 'seq'))).join('')),
-       'The interior never changes; the lit segment does all the work. Nothing to configure, and no mark can lie after a state is renamed.'),
-  cell('A mark per state',
-       smRow([['stop', 0], ['hold', 1], ['run', 2], ['abort', 3]]
-         .map(([m, i]) => svg(44, 44, glyphMachine(22, 22, 'live', i, 4, m))).join('')),
-       'Stopped, held, running, abort — readable without the word. Costs a field per state in the editor, plus a default.'),
-]);
+  ['node',  'Diamond — in use', 'A state-diagram node. This one, on every machine.'],
+  ['dot',   'Dot',     'Quietest; the ring carries everything.'],
+  ['arrow', 'Chevron', 'Travel, pointing the way the ring advances.'],
+  ['bars',  'Steps',   'A sequence rather than a state.'],
+].map(([k, label, sub]) => cell(label, object({
+  glyph: (x, y, s) => glyphMachine(x, y, s, k, true),
+  name: 'DAQ001 · firingSequence', value: 'manual → auto', W: 252,
+}), sub)));
 
-// ── Marks ───────────────────────────────────────────────────────────────────
+// ── Alert marks ─────────────────────────────────────────────────────────────
 cells('marks', [
-  ['Warning', markWarning, C.warn, 'Replaces ⚠️'],
-  ['Alarm', markAlarm, C.bad, 'Replaces 🚨'],
-  ['Stale', markStale, C.warn, 'Data older than channelStaleMs'],
-  ['Offline', markOffline, C.bad, 'Node link down'],
-  ['Unbound', markUnbound, C.dim, 'Names nothing in the config'],
-].map(([label, fn, c, sub]) => cell(label, svg(40, 40, fn(20, 20, c)), sub)));
+  ['Warning', markWarning, C.warn],
+  ['Alarm',   markAlarm,   C.bad],
+].map(([label, fn, c]) => cell(label, svg(40, 40, fn(20, 20, c)))));
 
 // ── Editor problem list ─────────────────────────────────────────────────────
-// One flat list, no severities. The row is the whole point: it names the
-// element, so clicking it can select the thing that is wrong.
-const problemRow = (mark, c, title, detail) => `
-  <div style="display:flex;gap:10px;align-items:flex-start;text-align:left;width:210px">
-    ${svg(20, 20, mark(10, 10, c))}
-    <div>
-      <div style="font-family:${MONO};font-size:11.5px;color:${C.text}">${title}</div>
-      <div style="font-size:11px;color:${C.dim};line-height:1.4">${detail}</div>
-    </div>
+// No icon per row. The list is flat and has no severities, so an icon could
+// only ever say "problem" on a list where every row is a problem.
+const problemRow = (title, detail) => `
+  <div style="text-align:left;width:196px">
+    <div style="font-family:${MONO};font-size:11.5px;color:${C.text}">${title}</div>
+    <div style="font-size:11px;color:${C.dim};line-height:1.4">${detail}</div>
   </div>`;
 
 cells('problems', [
-  cell('Routing',
-       problemRow(markWarning, C.warn, 'NV-03 → PT-11', 'No orthogonal path: the pipe goes nowhere.'),
-       'What the list holds today.'),
-  cell('Unbound binding',
-       problemRow(markUnbound, C.warn, 'PT-99 ?', 'controlRefDes names nothing in the config.'),
-       'New — this never reached a list before.'),
-  cell('No readable channel',
-       problemRow(markUnbound, C.warn, 'OV-05', 'Control exists, but has no readable channel to bind to.'),
-       'The other way resolveSensorBinding returns null.'),
+  cell('Routing',    problemRow('NV-03 → PT-11', 'No orthogonal path.'),           'What the list holds today.'),
+  cell('Unbound',    problemRow('PT-99 ?', 'controlRefDes names nothing.'),        'New — reached no list before.'),
+  cell('No channel', problemRow('OV-05', 'Control has no readable channel.'),      'The other null from resolveSensorBinding.'),
 ]);
 
-// ── Command panels ──────────────────────────────────────────────────────────
-// A cursor mark, so "opens under the cursor" is visible rather than asserted.
+// ── Command panel, drawn on the object ──────────────────────────────────────
 const cursor = svg(16, 20, `
   <path d="M 1 1 L 1 15 L 5 11.5 L 7.5 17 L 10 16 L 7.5 10.5 L 12.5 10.5 Z"
         fill="#ffffff" stroke="${C.canvas}" stroke-width="1" stroke-linejoin="round"/>`);
-
-// The valve as it sits on the panel: glyph, name line, state.
-const valveObj = (text, fb) => object({
-  glyph: (x, y, s) => glyphValve(x, y, s, text === 'OPEN' ? 'open' : 'shut', fb),
-  name: 'OV-05', value: text, W: 190,
-});
 
 const stage = (caption, objSvg, panel) => `
   <div>
@@ -1087,54 +860,58 @@ const head = (title, desc) => `
     <span class="vp-title">${title}</span><span class="vp-desc">${desc}</span><span class="vp-x">&#10005;</span>
   </div>`;
 
-const panelSeg = stage('Layout 1 — segmented, on the valve',
-  valveObj('CLOSED', 'limit-shut'), `
-  <div class="vp">
-    ${head('OV-05', 'LOX main')}
-    <div class="vp-cmd">
-      <div class="seg">
-        <button class="is-now">CLOSED</button>
-        <button class="is-next">OPEN</button>
-      </div>
-      <span class="vp-hint">current is lit &middot; click the other half</span>
-    </div>
-    <div class="vp-more">Channels &#9662;</div>
-  </div>`);
+const valveObj = (text, fb) => object({
+  glyph: (x, y, s) => glyphValve(x, y, s, text === 'OPEN' ? 'open' : 'shut', fb),
+  name: 'OV-05', value: text, W: 186,
+});
 
-const panelList = stage('Layout 2 — action list, on the valve',
-  valveObj('OPEN', 'limit-open'), `
-  <div class="vp">
-    ${head('OV-05', 'LOX main')}
-    <div class="vp-cmd">
-      <div class="seg" style="flex-direction:column">
-        <button class="is-next" style="text-align:left;padding-left:12px">CLOSE</button>
-        <button class="is-armed" style="text-align:left;padding-left:12px">OPEN &nbsp;&middot;&nbsp; current</button>
+document.getElementById('panels').innerHTML =
+  stage('The valve panel', valveObj('CLOSED', 'limit-shut'), `
+    <div class="vp">
+      ${head('OV-05', 'LOX main')}
+      <div class="vp-cmd">
+        <div class="seg"><button class="is-now">CLOSED</button><button class="is-next">OPEN</button></div>
+        <span class="vp-hint">dark = where it is &middot; light = what you can do</span>
       </div>
-      <span class="vp-hint">every row is a target, never a state</span>
-    </div>
-    <div class="vp-rows">
-      <div class="vp-row"><span class="r">OV-05-CMD</span><span class="v">1</span></div>
-      <div class="vp-row"><span class="r">OV-05-FB</span><span class="v">1</span></div>
-    </div>
-  </div>`);
-
-const panelSm = stage('State machine — same panel, on the object',
-  object({
-    glyph: (x, y, s) => glyphMachine(x, y, s, 0, 4, 'stop'),
-    name: 'DAQ001', value: 'safe', W: 210,
+    </div>`) +
+  stage('Positionable valve', object({
+    glyph: (x, y, s) => glyphValve(x, y, s, 42, 42, 68), name: 'TV-02', value: 'CMD 68%', W: 186,
   }), `
-  <div class="vp">
-    ${head('firingSequence', 'DAQ001')}
-    <div class="vp-cmd">
-      <div class="vp-states">
-        <div class="vp-state now">${svg(12, 12, smMark(6, 6, C.ok, 'stop'))}safe<span class="why">current</span></div>
-        <div class="vp-state">${svg(12, 12, smMark(6, 6, C.text, 'hold'))}manualControl</div>
-        <div class="vp-state gated">${svg(12, 12, smMark(6, 6, C.dim, 'run'))}autoSequence<span class="why">from manual only</span></div>
-        <div class="vp-state">${svg(12, 12, smMark(6, 6, C.text, 'abort'))}abort</div>
+    <div class="vp">
+      ${head('TV-02', 'LOX throttle')}
+      <div class="vp-cmd">
+        <div class="seg">
+          <button class="is-next">0</button>
+          <button class="is-next">25</button>
+          <button class="is-next">50</button>
+          <button class="is-next">100</button>
+        </div>
+        <div style="display:flex;gap:1px;background:${C.border};border:1px solid ${C.border}">
+          <span style="flex:1;background:${C.object};color:${C.text};font-family:${MONO};
+                       font-size:12px;padding:9px 10px">68</span>
+          <button class="is-next" style="flex:0 0 64px;appearance:none;border:0;background:#2b3131;
+                       color:${C.text};font-family:${MONO};font-size:12px;letter-spacing:0.1em">SET</button>
+        </div>
+        <span class="vp-hint">presets first &middot; type only when you need a number between</span>
       </div>
-      <span class="vp-hint">gated targets dimmed, not silently refused</span>
-    </div>
-  </div>`);
-
-document.getElementById('panels').innerHTML = panelSeg + panelList + panelSm;
+      <div class="vp-rows">
+        <div class="vp-row"><span class="r">TV-02-CMD</span><span class="v">68</span></div>
+        <div class="vp-row"><span class="r">TV-02-FB</span><span class="v">42</span></div>
+      </div>
+    </div>`) +
+  stage('State machine — same panel', object({
+    glyph: (x, y, s) => glyphMachine(x, y, s, SM_MARK, false), name: 'DAQ001', value: 'safe', W: 200,
+  }), `
+    <div class="vp">
+      ${head('firingSequence', 'DAQ001')}
+      <div class="vp-cmd">
+        <div class="vp-states">
+          <div class="vp-state now">${svg(12, 12, smMark(6, 6, C.dim, 'node'))}safe<span class="why">current</span></div>
+          <div class="vp-state">${svg(12, 12, smMark(6, 6, C.text, 'node'))}manualControl</div>
+          <div class="vp-state gated">${svg(12, 12, smMark(6, 6, C.dim, 'node'))}autoSequence<span class="why">from manual only</span></div>
+          <div class="vp-state">${svg(12, 12, smMark(6, 6, C.text, 'node'))}abort</div>
+        </div>
+        <span class="vp-hint">gated targets dimmed, not silently refused</span>
+      </div>
+    </div>`);
 </script>

@@ -38,11 +38,48 @@ const (
 type Rule struct {
 	Name     string
 	Cond     dsl.Expr
+	// channels the condition reads, so a raised rule alert can be attributed to
+	// the objects it is about. Collected once at load rather than per raise.
+	channels []string
 	Severity string
 	Message  string
 	Latch    bool
 	File     string
 	Line     int
+}
+
+// exprChannels walks a compiled condition and returns the channel refDes it
+// reads, in source order and de-duplicated.
+//
+// A bare identifier in an alert condition is a channel name; the one other form
+// the DSL admits here is a dotted member access (`machine.<name>.state`), which
+// names a machine rather than a channel and is skipped. Anything the walk does
+// not recognise is simply not attributed — an alert that names no channel is
+// correct-but-unhelpful, whereas guessing would put an object in alarm for
+// something that is not about it.
+func exprChannels(e dsl.Expr) []string {
+	var out []string
+	seen := map[string]bool{}
+	var walk func(dsl.Expr)
+	walk = func(n dsl.Expr) {
+		switch v := n.(type) {
+		case *dsl.BinaryExpr:
+			walk(v.Left)
+			walk(v.Right)
+		case *dsl.UnaryExpr:
+			walk(v.Operand)
+		case *dsl.IdentExpr:
+			if strings.Contains(v.Name, ".") {
+				return // machine.<name>.state and friends are not channels
+			}
+			if !seen[v.Name] {
+				seen[v.Name] = true
+				out = append(out, v.Name)
+			}
+		}
+	}
+	walk(e)
+	return out
 }
 
 // ID is the stable registry id for this rule's alert.
@@ -342,6 +379,7 @@ func compileRule(file string, def *dsl.AlertDef, known, machines map[string]bool
 	return &Rule{
 		Name:     def.Name,
 		Cond:     def.Condition,
+		channels: exprChannels(def.Condition),
 		Severity: def.Severity,
 		Message:  def.Message,
 		Latch:    def.Latch,

@@ -3,6 +3,7 @@ package alerts
 import (
 	"fmt"
 	"log"
+	"math"
 	"sync"
 	"time"
 
@@ -24,6 +25,14 @@ type EngineConfig struct {
 	// must be safe for concurrent use.  Optional: without it, channel
 	// placeholders in template messages render as "?".
 	Values dsl.ChannelSpace
+
+	// Sensors are the SENSOR channels whose validMin/validMax bounds become an
+	// auto-generated alert, one per channel.  Out of range IS an alarm — there
+	// is no separate "bad data" idea in the operator's vocabulary — and these
+	// alerts LATCH: a spike that came back down on its own still leaves the
+	// object red until a person acks it, because the fact that it happened is
+	// the thing worth knowing.  Channels with no usable bound generate nothing.
+	Sensors []SensorChannel
 
 	// KnownChannels is the configured channel space.  It is used only to phrase
 	// runtime evaluation failures: a rule referencing a configured channel that
@@ -53,6 +62,8 @@ type Engine struct {
 	staleMs int64
 	nodes   []string
 	known   map[string]bool
+	// sensors are the compiled auto-generated bounds alerts, in config order.
+	sensors []sensorBand
 
 	mu sync.Mutex
 	// ruleOn is the last evaluated value of each rule condition; rules are
@@ -66,6 +77,11 @@ type Engine struct {
 	// staleOn tracks whether a stale alert is currently raised for it.
 	lastSeen map[string]int64
 	staleOn  map[string]bool
+	// sensorState is the last out-of-range status per sensor channel: "" when
+	// the value is inside its band, otherwise "low" or "high".  Sensor alerts
+	// are edge-triggered off it, so a channel that sits out of range raises
+	// once, not once per tick.
+	sensorState map[string]string
 	// errOnce suppresses repeated identical rule errors so a permanently
 	// broken condition cannot flood the log at tick rate.
 	errSeen map[string]bool
@@ -101,8 +117,10 @@ func NewEngine(cfg EngineConfig) (*Engine, error) {
 		everConnected: make(map[string]bool, len(cfg.Nodes)),
 		lastSeen:      make(map[string]int64, len(cfg.Nodes)),
 		staleOn:       make(map[string]bool, len(cfg.Nodes)),
+		sensorState:   make(map[string]string, len(cfg.Sensors)),
 		errSeen:       make(map[string]bool),
 	}
+	e.sensors = compileSensors(cfg.Sensors, onErr)
 	if len(cfg.KnownChannels) > 0 {
 		e.known = make(map[string]bool, len(cfg.KnownChannels))
 		for _, c := range cfg.KnownChannels {
@@ -118,6 +136,17 @@ func (e *Engine) StaleMs() int64 { return e.staleMs }
 // Nodes returns the daqNodes the template was instantiated for.
 func (e *Engine) Nodes() []string { return append([]string(nil), e.nodes...) }
 
+// SensorAlerts returns the refDes of every channel that got an auto-generated
+// bounds alert, in config order.  Used for startup logging: a channel silently
+// missing from this list has no usable validMin/validMax.
+func (e *Engine) SensorAlerts() []string {
+	out := make([]string, len(e.sensors))
+	for i := range e.sensors {
+		out[i] = e.sensors[i].refDes
+	}
+	return out
+}
+
 // ── Rule evaluation ───────────────────────────────────────────────────────────
 
 // Tick evaluates every rule against the tick's channel snapshot and sweeps the
@@ -128,6 +157,7 @@ func (e *Engine) Nodes() []string { return append([]string(nil), e.nodes...) }
 // space must not be retained: the engine reuses the same snapshot map every tick.
 func (e *Engine) Tick(space dsl.ChannelSpace) {
 	e.evalRules(space)
+	e.sweepSensors(space)
 	e.sweepStale()
 }
 
@@ -147,11 +177,17 @@ func (e *Engine) evalRules(space dsl.ChannelSpace) {
 		switch {
 		case on && !prev:
 			// Edge-triggered raise: false → true.
-			e.reg.Raise(rule.ID(), rule.Severity, interpolate(rule.Message, nil, space))
+			e.reg.RaiseFor(rule.ID(), rule.Severity,
+				interpolate(rule.Message, nil, space), rule.channels, "")
 		case !on && prev && !rule.Latch:
-			// Non-latching rules resolve themselves; latching ones stay raised
-			// until an operator acks them.
-			e.reg.Clear(rule.ID())
+			// A rule with no `latch` asked to clear itself when the condition
+			// goes away, so this is the one place the server may ack for the
+			// operator.  Latching rules stay raised — Resolve, not ack — until a
+			// person acknowledges them.
+			e.reg.ResolveAndAck(rule.ID())
+		case !on && prev && rule.Latch:
+			// The condition recovered but the row stays red: resolved, unacked.
+			e.reg.Resolve(rule.ID())
 		}
 	}
 }
@@ -201,8 +237,13 @@ func ConnID(node string) string { return "conn:" + node }
 // StaleID is the stable registry id for a node's data-staleness alert.
 func StaleID(node string) string { return "stale:" + node }
 
-// BadID is the stable registry id for a channel's out-of-range alert.
+// BadID is the stable registry id for a channel's template bad_data alert.
 func BadID(refDes string) string { return "bad:" + refDes }
+
+// SensorID is the stable registry id for a channel's auto-generated bounds
+// alarm.  One id per channel, so a channel that keeps leaving its band updates
+// the same row instead of stacking duplicates.
+func SensorID(refDes string) string { return "sensor:" + refDes }
 
 // NodeConnected records that a daqNode's link came up.  The first connect after
 // startup is silent; every later one raises the template's `reconnect` alert and
@@ -219,7 +260,7 @@ func (e *Engine) NodeConnected(node string) {
 	e.mu.Unlock()
 
 	if staleWas {
-		e.reg.Clear(StaleID(node))
+		e.reg.Resolve(StaleID(node))
 	}
 	if already {
 		return
@@ -228,11 +269,15 @@ func (e *Engine) NodeConnected(node string) {
 		return // initial connect — nothing was lost, so nothing to report
 	}
 	if ev, ok := e.templateEvent(EventReconnect); ok {
-		e.reg.Raise(ConnID(node), ev.Severity, e.renderNode(ev.Message, node))
+		e.reg.RaiseFor(ConnID(node), ev.Severity, e.renderNode(ev.Message, node), nil, node)
 		return
 	}
-	// No reconnect rule configured: still resolve the disconnect alert.
-	e.reg.Clear(ConnID(node))
+	// No reconnect rule configured — which is the normal case now that the
+	// template no longer declares one.  The link being back does not mean the
+	// outage has been dealt with, so the disconnect alarm is resolved, not
+	// acked: it stays on the board, and the node stays red, until an operator
+	// acknowledges it.
+	e.reg.Resolve(ConnID(node))
 }
 
 // NodeDisconnected records that a daqNode's link went down and raises the
@@ -247,13 +292,13 @@ func (e *Engine) NodeDisconnected(node string) {
 	e.mu.Unlock()
 
 	if staleWas {
-		e.reg.Clear(StaleID(node))
+		e.reg.Resolve(StaleID(node))
 	}
 	if !was {
 		return // already known to be down
 	}
 	if ev, ok := e.templateEvent(EventDisconnect); ok {
-		e.reg.Raise(ConnID(node), ev.Severity, e.renderNode(ev.Message, node))
+		e.reg.RaiseFor(ConnID(node), ev.Severity, e.renderNode(ev.Message, node), nil, node)
 	}
 }
 
@@ -268,7 +313,7 @@ func (e *Engine) NodeData(node string) {
 	e.mu.Unlock()
 
 	if wasStale {
-		e.reg.Clear(StaleID(node))
+		e.reg.Resolve(StaleID(node))
 	}
 }
 
@@ -301,7 +346,8 @@ func (e *Engine) sweepStale() {
 	e.mu.Unlock()
 
 	for _, r := range toRaise {
-		e.reg.Raise(StaleID(r.node), ev.Severity, e.renderNode(ev.Message, r.node))
+		e.reg.RaiseFor(StaleID(r.node), ev.Severity,
+			e.renderNode(ev.Message, r.node), nil, r.node)
 	}
 }
 
@@ -310,7 +356,9 @@ func (e *Engine) sweepStale() {
 // the alert is naturally edge-triggered.
 func (e *Engine) BadData(refDes, node, status string, value float64) {
 	if status == "ok" {
-		e.reg.Clear(BadID(refDes))
+		// Back in range resolves the row but does not ack it: only a person
+		// takes the red away.
+		e.reg.Resolve(BadID(refDes))
 		return
 	}
 	ev, ok := e.templateEvent(EventBadData)
@@ -322,7 +370,180 @@ func (e *Engine) BadData(refDes, node, status string, value float64) {
 		FieldNode:   node,
 		FieldValue:  FormatFloat(value),
 	}
-	e.reg.Raise(BadID(refDes), ev.Severity, interpolate(ev.Message, fields, e.vals))
+	e.reg.RaiseFor(BadID(refDes), ev.Severity,
+		interpolate(ev.Message, fields, e.vals), []string{refDes}, "")
+}
+
+// ── Auto-generated sensor bounds alerts ───────────────────────────────────────
+//
+// Every SENSOR channel with a validMin/validMax band gets an alert generated
+// from it — no .alert file involved, because "this reading is outside the band
+// the config says is valid" is not a matter of taste.  Out of range is an ALARM,
+// and the alert LATCHES: the row goes resolved-but-unacked when the value comes
+// back, and only a person clears the red.
+//
+// These are evaluated here, off the engine's own per-tick channel snapshot,
+// rather than off the broker's bad_data transitions, so they do not depend on
+// bad_data continuing to exist.
+
+// sensorBand is one compiled channel band.  Bounds are stored as plain floats
+// plus a "have it" flag: one-sided bands are normal (a pressure with a ceiling
+// and no floor), and the rendered "(valid …)" suffix is built once at startup
+// rather than on every raise.
+type sensorBand struct {
+	refDes string
+	min    float64
+	max    float64
+	hasMin bool
+	hasMax bool
+	suffix string // e.g. " (valid 0 to 800)"
+}
+
+// SensorChannel is one channel's configured validity band, as it comes out of
+// controls.yaml (validMin / validMax, either of which may be absent).
+type SensorChannel struct {
+	RefDes string
+	Min    *float64
+	Max    *float64
+}
+
+// compileSensors turns the configured bands into evaluable ones.  A channel with
+// nothing usable to compare against generates NO alert at all — silence is
+// correct there, an alert that can never fire is just a row that lies.  A band
+// that cannot be satisfied (min above max, so every possible reading is out of
+// range) is a config mistake rather than an alarm, so it is reported once at
+// startup and skipped.
+func compileSensors(in []SensorChannel, onErr func(error)) []sensorBand {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]sensorBand, 0, len(in))
+	seen := make(map[string]bool, len(in))
+	for _, sc := range in {
+		if sc.RefDes == "" || seen[sc.RefDes] {
+			continue
+		}
+		b := sensorBand{refDes: sc.RefDes}
+		if sc.Min != nil && !math.IsNaN(*sc.Min) && !math.IsInf(*sc.Min, 0) {
+			b.min, b.hasMin = *sc.Min, true
+		}
+		if sc.Max != nil && !math.IsNaN(*sc.Max) && !math.IsInf(*sc.Max, 0) {
+			b.max, b.hasMax = *sc.Max, true
+		}
+		if !b.hasMin && !b.hasMax {
+			continue // no bounds worth checking
+		}
+		if b.hasMin && b.hasMax && b.min > b.max {
+			onErr(fmt.Errorf("channel %s: validMin %s is above validMax %s, so no reading could ever be valid: no out-of-range alert generated",
+				sc.RefDes, FormatFloat(b.min), FormatFloat(b.max)))
+			continue
+		}
+		switch {
+		case b.hasMin && b.hasMax:
+			b.suffix = " (valid " + FormatFloat(b.min) + " to " + FormatFloat(b.max) + ")"
+		case b.hasMin:
+			b.suffix = " (valid min " + FormatFloat(b.min) + ")"
+		default:
+			b.suffix = " (valid max " + FormatFloat(b.max) + ")"
+		}
+		seen[sc.RefDes] = true
+		out = append(out, b)
+	}
+	return out
+}
+
+// sweepSensors checks every generated band against this tick's snapshot and
+// raises on the EDGE into an out-of-range status.  A channel that stays out of
+// range does not re-raise, so the value quoted in the message is the value that
+// tripped it — the one worth reporting — and the browser is not written to at
+// tick rate.  A swing straight from below the floor to above the ceiling is a
+// new fact, so a change of direction does re-raise.
+func (e *Engine) sweepSensors(space dsl.ChannelSpace) {
+	if len(e.sensors) == 0 || space == nil {
+		return
+	}
+
+	type reading struct {
+		band   *sensorBand
+		status string
+		value  float64
+	}
+	// Read every band first, with no engine lock held: the channel space may be
+	// a live reader whose own lock the broker takes while it calls back into this
+	// engine, and holding e.mu across it would invert that order.
+	readings := make([]reading, 0, len(e.sensors))
+	for i := range e.sensors {
+		b := &e.sensors[i]
+		status, value, ok := b.evaluate(space)
+		if !ok {
+			continue // no value yet, or not a number: nothing to judge
+		}
+		readings = append(readings, reading{band: b, status: status, value: value})
+	}
+
+	type edge struct {
+		id      string
+		refDes  string
+		message string
+		resolve bool
+	}
+	var edges []edge
+
+	e.mu.Lock()
+	for _, r := range readings {
+		if r.status == e.sensorState[r.band.refDes] {
+			continue
+		}
+		e.sensorState[r.band.refDes] = r.status
+		if r.status == "" {
+			edges = append(edges, edge{
+				id: SensorID(r.band.refDes), refDes: r.band.refDes, resolve: true})
+			continue
+		}
+		edges = append(edges, edge{
+			id:      SensorID(r.band.refDes),
+			refDes:  r.band.refDes,
+			message: r.band.refDes + " out of range: " + FormatFloat(r.value) + r.band.suffix,
+		})
+	}
+	e.mu.Unlock()
+
+	for _, ed := range edges {
+		if ed.resolve {
+			// Latching: the row goes resolved-but-unacked, NOT acked.  The
+			// object stays red until an operator acknowledges it.
+			e.reg.Resolve(ed.id)
+			continue
+		}
+		e.reg.RaiseFor(ed.id, SeverityAlarm, ed.message, []string{ed.refDes}, "")
+	}
+}
+
+// evaluate reports the channel's out-of-range status ("", "low" or "high") and
+// the value it read.  ok is false when the channel has no value yet (nothing has
+// published it — typically a DAQ node that has not connected), when the value is
+// not a number, or when it is NaN: none of those are "out of range", and the
+// broker's bounds check treats them the same way.
+func (b *sensorBand) evaluate(space dsl.ChannelSpace) (status string, value float64, ok bool) {
+	v, found := space.Get(b.refDes)
+	if !found {
+		return "", 0, false
+	}
+	switch v.Type() {
+	case "bool", "string":
+		return "", 0, false
+	}
+	f := v.Float()
+	if math.IsNaN(f) {
+		return "", 0, false
+	}
+	switch {
+	case b.hasMin && f < b.min:
+		return "low", f, true
+	case b.hasMax && f > b.max:
+		return "high", f, true
+	}
+	return "", f, true
 }
 
 // renderNode interpolates a node-scoped template message.  {refDes} falls back

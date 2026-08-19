@@ -17,9 +17,12 @@
 # The template is instantiated once per enabled daqNode in config/daqNodes/.
 # `stale` fires when a connected node stops delivering data; the optional
 # duration after the event name overrides the 2000 ms default.
+#
+# There is deliberately no `reconnect` line.  A link coming back is not the
+# outage being dealt with: on reconnect the disconnect alarm goes inactive but
+# stays on the board, and the node stays red, until an operator acknowledges it.
 template every_daqnode
     on disconnect -> alarm   "{node} disconnected"
-    on reconnect  -> info    "{node} reconnected"
     on bad_data   -> warning "{refDes} out of range: {value}"
     on stale 2s   -> warning "{node} data stale"
 

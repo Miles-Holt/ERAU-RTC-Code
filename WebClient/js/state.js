@@ -84,6 +84,19 @@ const machineStateConfig = {};
 // indexes in machineStateConfig.
 const machineCurrentState = {};
 
+// --- Pending state-machine targets (CLIENT-INFERRED, not a wire signal) ---
+// Keyed by machine name; value = { target: stateName, timer: setTimeout id }.
+// The server does not echo an authoritative "target requested, not yet
+// reached" flag for state machines: the browser's cmd for SM-<NAME>-TARGET is
+// routed straight to engine.RequestTarget by the control node
+// (controlnode/webclient/server.go handleStateMachineTarget) and never round-
+// trips the softchan value, so there is nothing on the data channel to read
+// back. This is reconstructed here from "we just commanded state X and have
+// not yet seen a state_change matching it", bounded by a timeout so a
+// rejected command does not leave the accent ring lit forever. See
+// pid.js (pidRequestMachineTarget, _updateDaqControlState).
+const machinePendingTarget = {};
+
 // --- Soft channel config ---
 // Keyed by refDes; value = { refDes, description, units, role, default, min, max }
 const softchanConfigMap = {};
