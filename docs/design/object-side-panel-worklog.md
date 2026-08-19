@@ -19,6 +19,17 @@ Started 2026-08-18.
   which means a change that only lands in `WebClient/` looks complete in the diff
   while the served copy is stale. Copy every touched file across, and do not
   expect git to remind you.
+  **Correction, 2026-08-19:** a fresh clone does not merely serve a stale
+  `static/` — `go build`/`go vet`/`go test` fail outright on a fresh clone,
+  every package, with `embed.go:8:12: pattern static: no matching files
+  found`. `//go:embed static` needs the directory to exist with at least one
+  file in it at compile time; a *missing* directory (not just an empty one)
+  is a hard compile error, not a runtime fallback. Fix: `cp -r ../WebClient
+  static` from `controlnode/` (same thing `build.bat`'s step 3 does). Still
+  gitignored, still untracked, still nothing to diff against — this is
+  build-time plumbing, not a step in shipping any item — but it has to exist
+  before `go build ./...` will even list the module's packages, so do it
+  once per fresh clone/session before trusting a "clean build" claim.
 - Alerts are evaluated server-side in `controlnode/alerts/` (`config.go` parses
   the `.alert` DSL, `engine.go` evaluates, `registry.go` holds raised state). The
   browser only renders what the server publishes. Anything on this list that
@@ -69,7 +80,7 @@ in the Artifact comment threads, and here.
 
 | # | Item | Status |
 |---|------|--------|
-| 11 | Promote a channel to the Graph tab | not started |
+| 11 | Promote a channel to the Graph tab | **done, awaiting validation** (`cb1ecee`) — a hover-revealed button per readings-table row calls `promoteChannelToGraph` (graph.js): reuse the active tab if it's already a Graph tab, else the first existing one, else create one, add the channel to its cell 0, activate. No tab/cell picker — same "not worth the chrome" reasoning as the cut item 13. No browser available to confirm rendering or click behaviour. |
 | 12 | Copy the **channel name** (not the refDes) from the readings table | **done, awaiting validation** — clicking a row in the new readings table copies `ch.refDes` (never the header's control-level refDes) via `navigator.clipboard`, with an `execCommand` fallback, and flashes the row green/red as confirmation instead of swapping its text. |
 
 ### Chart
@@ -239,6 +250,38 @@ Not side-panel items, but done in the same push and worth knowing about.
   once inside a full-suite run and passed alone, then passed three consecutive
   times under `-race`. Timing-sensitive and unrelated to the panel work, but it
   is real — do not assume a one-off failure there is your change.
+
+## Pre-existing failures on this fresh clone (2026-08-19, not flakes — deterministic)
+
+Both reproduce on every `go test -count=1 ./...` run with zero side-panel
+changes present (no Go files touched yet at the point these were found), so
+neither is caused by this branch's work. Recorded so a future session doesn't
+burn time attributing them to whatever it just changed.
+
+- **`controlnode/softchan` `TestSoftchan_SetDoesNotBlockReaders`** — fails
+  every time in this container (`nproc` = 4), not intermittently: "readers
+  were starved entirely during 2000 Sets". The test spins a reader goroutine
+  against a tight non-blocking loop of 2000 back-to-back `Set` calls on the
+  main goroutine and asserts the reader got scheduled at least once. Plausible
+  cause is this sandbox's scheduler, not the store: a very small core count
+  under a possibly-throttled/virtualized CPU can let a hot, allocation-light
+  writer loop run to completion before the Go scheduler preempts it in favour
+  of the reader goroutine, especially with GOMAXPROCS contention from other
+  test packages. Did not touch `softchan/` to chase this — out of scope for
+  every remaining item, and "make a starvation test pass by changing
+  scheduling assumptions" is exactly the kind of fix that wants its own
+  investigation, not a drive-by.
+- **`controlnode/statemachine` `TestShippedConfig_*`** (`AutoSequenceSchedule`,
+  `IgnitionOrdering`, `CutoffBeforeMainsRefused`) — all fail identically:
+  `load ../../config/machines/engineControl.sm: ... no such file or
+  directory`. The adjacent-work note above (`ea64494`) says these tests
+  "follow the `daq001.sm` -> `engineControl.sm` rename", but `config/machines/`
+  in this clone still only has `daq001.sm` — the rename referenced there
+  happened on whichever machine has the "real config with local in-flight
+  edits" the top-level instructions describe, and never landed in a commit on
+  this branch (`git log --oneline -- config/machines` shows nothing). Per
+  instruction, `config/` is off limits this session regardless — left
+  untouched and unrenamed.
 
 ## Notes for a future session
 
