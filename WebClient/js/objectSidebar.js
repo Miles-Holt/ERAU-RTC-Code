@@ -85,6 +85,30 @@ let sidebarClickedDecimals = undefined;
     const chartArea = mkEl('div', 'graph-chart-area');
     const canvas    = document.createElement('canvas');
     chartArea.appendChild(canvas);
+
+    // Now / Freeze (item 16). buildGraphCell (graph.js) builds the same pair
+    // for Graph tab cells; the sidebar cell is built inline here rather than
+    // through that function, so it gets its own copy of the two buttons —
+    // same markup and classes, wired directly below since `cell` already
+    // exists in this scope (no two-pass build/wire split needed, unlike
+    // resizeGraphGrid's grid-rebuild dance).
+    //
+    // The sidebar chart never had a Now button before this: it reuses the
+    // same createCellChart/attachDragPan/attachScrollZoom as the Graph tab
+    // (see the file banner comment), which means panning away from live was
+    // already possible here too, just with no way back except dragging by
+    // hand. Freeze is unusable without a way back to live, so adding Now
+    // here is bundled into this item rather than filed separately — see the
+    // worklog for the reasoning against leaving it as a silent gap.
+    const nowBtn = mkEl('button', 'graph-now-btn', 'Now');
+    nowBtn.title = 'Jump to live view';
+    nowBtn.style.display = 'none';
+    chartArea.appendChild(nowBtn);
+
+    const freezeBtn = mkEl('button', 'graph-freeze-btn', 'Freeze');
+    freezeBtn.title = "Stop the window advancing — click again, or Now, to resume";
+    chartArea.appendChild(freezeBtn);
+
     cellEl.appendChild(chartArea);
 
     // ── Live readings table (item 05) ─────────────────────────────────────────
@@ -131,7 +155,12 @@ let sidebarClickedDecimals = undefined;
         channels:      [],
         viewWindowSec: 60,
         viewEnd:       null,
+        frozen:        false,
+        nowBtn,
+        freezeBtn,
     };
+    nowBtn.addEventListener('click', () => returnCellToLive(cell));
+    freezeBtn.addEventListener('click', () => toggleCellFreeze(cell));
 
     // Attach drag-pan, scroll-zoom and proximity tooltip — same as graph tab cells
     attachDragPan(canvas, cell);
@@ -354,6 +383,13 @@ function openObjectSidebar(refDes, objEl) {
     for (const rd of [...cell.channels.map(c => c.refDes)]) {
         removeChannelFromCell(SIDEBAR_TAB_ID, SIDEBAR_CELL_IDX, rd);
     }
+
+    // A Freeze (item 16) or a manual pan left over from whatever object the
+    // panel was PREVIOUSLY bound to must not carry into the new one — the
+    // window position and the channels it framed belonged together, and
+    // opening a different object with the old one's frozen window silently
+    // applied is worse than the panel simply not remembering it at all.
+    returnCellToLive(cell);
 
     // Update header
     sidebarEl._refdesEl.textContent = ctrl.refDes;

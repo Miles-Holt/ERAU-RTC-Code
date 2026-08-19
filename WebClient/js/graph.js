@@ -375,6 +375,7 @@ function resizeGraphGrid(tabId, rows, cols) {
         if (!('viewWindowSec' in cell)) cell.viewWindowSec = 60;
         if (!('viewEnd'       in cell)) cell.viewEnd       = null;
         if (!('axisLocks'     in cell)) cell.axisLocks     = {};   // { [axisId]: { min, max } }, values are numbers or absent (=auto)
+        if (!('frozen'        in cell)) cell.frozen        = false;
 
         const cellEl = buildGraphCell(tabId, i);
         gridEl.appendChild(cellEl);
@@ -384,10 +385,10 @@ function resizeGraphGrid(tabId, rows, cols) {
         cell.chart   = createCellChart(canvas);
         applyAllAxisLocks(cell);
         cell.nowBtn  = cellEl._nowBtn;
-        cell.nowBtn.addEventListener('click', () => {
-            cell.viewEnd = null;
-            cell.nowBtn.style.display = 'none';
-        });
+        cell.nowBtn.addEventListener('click', () => returnCellToLive(cell));
+        cell.freezeBtn = cellEl._freezeBtn;
+        cell.freezeBtn.addEventListener('click', () => toggleCellFreeze(cell));
+        cell.freezeBtn.classList.toggle('graph-freeze-btn--active', cell.frozen);
 
         attachDragPan(canvas, cell);
         attachScrollZoom(canvas, cell);
@@ -427,6 +428,16 @@ function buildGraphCell(tabId, cellIdx) {
     nowBtn.style.display = 'none';
     chartArea.appendChild(nowBtn);
     cellEl._nowBtn = nowBtn;
+
+    // Freeze (item 16) — makes explicit a state pan already produces
+    // implicitly (drag away from live and the window stops following); this
+    // is the same idea with a button, so it doesn't take a mouse gesture to
+    // discover. Built here, wired in resizeGraphGrid (where `cell` exists) —
+    // same two-step build/wire split buildGraphCell already uses for nowBtn.
+    const freezeBtn = mkEl('button', 'graph-freeze-btn', 'Freeze');
+    freezeBtn.title = "Stop the window advancing — click again, or Now, to resume";
+    chartArea.appendChild(freezeBtn);
+    cellEl._freezeBtn = freezeBtn;
 
     // Y-axis lock overlay labels: one min/max pair per possible axis (1-6),
     // shown/positioned/hidden by updateAxisLockLabels() based on which axes
@@ -856,6 +867,57 @@ function buildChartData(buf, displayEnd, viewWindowSec) {
     return out;
 }
 
+// _cellSyncLiveControls keeps the Now button and the Freeze button (item 16)
+// honest about the cell's actual state after ANYTHING changes cell.viewEnd —
+// the periodic redraw below, a drag, or a scroll-zoom. Returning to live
+// (viewEnd === null) always clears `frozen` too: freezing and live-following
+// are mutually exclusive by definition, and without this a drag or
+// scroll-zoom that happened to reach the live edge while frozen was on would
+// leave the Freeze button lit for a chart that is, in fact, advancing again.
+function _cellSyncLiveControls(cell) {
+    if (cell.viewEnd === null && cell.frozen) {
+        cell.frozen = false;
+        cell.freezeBtn?.classList.remove('graph-freeze-btn--active');
+    }
+    if (cell.nowBtn) cell.nowBtn.style.display = cell.viewEnd !== null ? '' : 'none';
+}
+
+// toggleCellFreeze flips Freeze (item 16) for one cell. Turning it on while
+// already live-following pins the view to the current live edge first —
+// the same "latest sample across this cell's channels" computation
+// updateAllGraphs uses below — so the button reads as "hold right here",
+// not "jump somewhere else first". Turning it off does NOT force a return
+// to live: cell.viewEnd is left exactly where Freeze pinned it, which
+// behaves precisely like a manual pan (a pinned, non-null viewEnd never
+// advances on its own, frozen or not) — only dragging/zooming further, or
+// the Now button (already visible, since viewEnd is non-null once frozen),
+// moves it again. Un-freezing just removes the guard that stopped the
+// live-edge snap-back below from misfiring at the moment of freezing.
+function toggleCellFreeze(cell) {
+    cell.frozen = !cell.frozen;
+    if (cell.frozen && cell.viewEnd === null) {
+        let latestTs = Date.now() / 1000;
+        for (const ds of cell.chart.data.datasets) {
+            const buf = channelBuffers[ds.label];
+            if (buf?.ts.length) latestTs = Math.max(latestTs, buf.ts[buf.ts.length - 1]);
+        }
+        cell.viewEnd = latestTs;
+    }
+    cell.freezeBtn?.classList.toggle('graph-freeze-btn--active', cell.frozen);
+    if (cell.nowBtn) cell.nowBtn.style.display = cell.viewEnd !== null ? '' : 'none';
+}
+
+// returnCellToLive is the Now button's action, pulled out so Freeze's own
+// state (and the sidebar cell, which builds its Now button inline rather
+// than through buildGraphCell/resizeGraphGrid) share the exact same
+// "back to live" transition instead of duplicating the reset.
+function returnCellToLive(cell) {
+    cell.viewEnd = null;
+    cell.frozen  = false;
+    cell.freezeBtn?.classList.remove('graph-freeze-btn--active');
+    if (cell.nowBtn) cell.nowBtn.style.display = 'none';
+}
+
 function updateAllGraphs() {
     for (const [tabId, state] of Object.entries(graphState)) {
         if (tabId === '__sidebar__') {
@@ -875,8 +937,10 @@ function updateAllGraphs() {
                 const buf = channelBuffers[ds.label];
                 if (buf?.ts.length) latestTs = Math.max(latestTs, buf.ts[buf.ts.length - 1]);
             }
-            // Snap back to live-follow when pinned view is within 10% of the live edge
-            if (cell.viewEnd !== null && latestTs - cell.viewEnd < cell.viewWindowSec * 0.1) cell.viewEnd = null;
+            // Snap back to live-follow when pinned view is within 10% of the live edge —
+            // but not while frozen: freezing right at the live edge would otherwise put
+            // the gap under that threshold on the very next tick and instantly undo itself.
+            if (!cell.frozen && cell.viewEnd !== null && latestTs - cell.viewEnd < cell.viewWindowSec * 0.1) cell.viewEnd = null;
             const displayEnd = cell.viewEnd ?? latestTs;
             // Build relative-coord data for each dataset
             for (const ds of cell.chart.data.datasets) {
@@ -889,7 +953,7 @@ function updateAllGraphs() {
             cell.chart.options.scales.x.min = -cell.viewWindowSec;
             cell.chart.options.scales.x.max = 0;
             cell.chart.update('none');
-            if (cell.nowBtn) cell.nowBtn.style.display = cell.viewEnd !== null ? '' : 'none';
+            _cellSyncLiveControls(cell);
             updateAxisLockLabels(cell);
         }
     }
@@ -1086,7 +1150,7 @@ function attachDragPan(canvas, cell) {
         cell.chart.options.scales.x.min = -cell.viewWindowSec;
         cell.chart.options.scales.x.max = 0;
         cell.chart.update('none');
-        if (cell.nowBtn) cell.nowBtn.style.display = cell.viewEnd !== null ? '' : 'none';
+        _cellSyncLiveControls(cell);
         updateAxisLockLabels(cell);
     });
 
@@ -1133,7 +1197,7 @@ function attachScrollZoom(canvas, cell) {
                 cell.chart.options.scales.x.min = -cell.viewWindowSec;
                 cell.chart.options.scales.x.max = 0;
                 cell.chart.update('none');
-                if (cell.nowBtn) cell.nowBtn.style.display = cell.viewEnd !== null ? '' : 'none';
+                _cellSyncLiveControls(cell);
                 updateAxisLockLabels(cell);
             });
         }

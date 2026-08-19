@@ -1475,6 +1475,36 @@ header h1 {
 }
 .graph-now-btn:hover { opacity: 1; }
 
+/* Freeze (item 16) — bottom-left, mirroring Now's bottom-right, so the two
+   never collide and read as a pair: Now jumps back to live, Freeze holds
+   the window still. Unlike Now it is always visible (there's no "only
+   matters some of the time" state to hide it behind — it's a toggle, not a
+   one-shot action) and its own --active modifier is the one thing here that
+   signals "the chart is not moving right now", independent of whatever the
+   Now button is doing. */
+.graph-freeze-btn {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    padding: 3px 10px;
+    font-size: 0.75rem;
+    background: var(--card-bg);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0.85;
+    z-index: 10;
+    transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+}
+.graph-freeze-btn:hover { opacity: 1; }
+.graph-freeze-btn--active {
+    background: var(--tint-stale);
+    color: var(--status-stale);
+    border-color: var(--status-stale);
+    opacity: 1;
+}
+
 /* ── Y-axis lock labels ──────────────────────────────────────────────────── */
 /* Small clickable overlays drawn over the min/max of each active y-axis;
    click to type a custom bound (locks that end of the axis) or clear it to
