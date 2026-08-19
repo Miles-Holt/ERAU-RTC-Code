@@ -29,7 +29,7 @@ func TestEmbeddedWebClientServes(t *testing.T) {
 
 	b := broker.New(nil, nil, nil)
 	// webRoot="" forces the embedded FS path.
-	s := webclient.New(0, `{"type":"config","controls":[]}`, nil, nil, nil, b, "", embedded, nil, nil, nil, nil)
+	s := webclient.New(0, `{"type":"config","controls":[]}`, nil, nil, nil, b, "", embedded, nil, nil, nil, nil, nil, nil)
 
 	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()

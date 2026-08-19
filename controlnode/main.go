@@ -8,6 +8,7 @@ import (
 	"controlnode/daqnode"
 	"controlnode/dsl"
 	"controlnode/health"
+	"controlnode/history"
 	"controlnode/softchan"
 	"controlnode/statemachine"
 	"controlnode/webclient"
@@ -148,6 +149,16 @@ func main() {
 
 	// ── Create broker ─────────────────────────────────────────────────────
 	b := broker.New(refDesMap, restartRefDes, brokerBounds)
+
+	// Item 04: server-side chart history. Retains raw samples in memory so
+	// /api/history can serve downsampled buckets instead of the browser
+	// buffering (and re-fetching) every raw point itself. Wired before
+	// go b.Run(...) purely for top-to-bottom readability — SetHistorySink is
+	// safe to call at any time, before or after Run starts, same as
+	// SetEventSink.
+	historyStore := history.NewStore(history.DefaultRetention)
+	b.SetHistorySink(historyStore)
+
 	go b.Run(cfg.Network.BroadcastRateHz)
 
 	// ── Start software channel publisher/handler ───────────────────────────
@@ -422,7 +433,7 @@ func main() {
 	}
 
 	// ── Web client WebSocket server (blocks forever) ──────────────────────
-	srv := webclient.New(cfg.Network.WebSocketPort, wcConfigJSON, softchanConfigJSON, stateConfigJSON, panelMessages, b, *webRoot, embeddedSub, authCfg, layoutPaths, engine, alertRegistry)
+	srv := webclient.New(cfg.Network.WebSocketPort, wcConfigJSON, softchanConfigJSON, stateConfigJSON, panelMessages, b, *webRoot, embeddedSub, authCfg, layoutPaths, engine, alertRegistry, historyStore, cfg.ControlList.Controls)
 
 	// ── /docs — self-documentation from the COMPILED config ───────────────
 	// The same structures the engine runs against are handed to the docs

@@ -65,7 +65,7 @@ func docsTestServer(t *testing.T) *httptest.Server {
 	}
 
 	b := broker.New(nil, nil, nil)
-	s := New(0, `{"type":"config","controls":[]}`, nil, nil, nil, b, "", nil, nil, nil, nil, nil)
+	s := New(0, `{"type":"config","controls":[]}`, nil, nil, nil, b, "", nil, nil, nil, nil, nil, nil, nil)
 	s.SetDocs(&DocsInput{
 		System:       cfg,
 		Program:      prog,
@@ -188,7 +188,7 @@ func TestDocsUnknownPage404(t *testing.T) {
 // attached must still answer, saying plainly that nothing is loaded.
 func TestDocsWithoutConfig(t *testing.T) {
 	b := broker.New(nil, nil, nil)
-	s := New(0, `{"type":"config"}`, nil, nil, nil, b, "", nil, nil, nil, nil, nil)
+	s := New(0, `{"type":"config"}`, nil, nil, nil, b, "", nil, nil, nil, nil, nil, nil, nil)
 	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 

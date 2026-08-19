@@ -352,3 +352,69 @@ func TestBrokerNoEventSink(t *testing.T) {
 	b.NoteDaqData("DAQ001")
 	b.NoteDaqDisconnected("DAQ001")
 }
+
+// historySpy is a minimal HistorySink recording every call it received, for
+// asserting the broker's dataIn path feeds history at raw-sample resolution
+// rather than only at the decimated broadcast tick.
+type historySpy struct {
+	mu    sync.Mutex
+	calls []map[string]float64
+}
+
+func (h *historySpy) Record(t time.Time, values map[string]float64) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	cp := make(map[string]float64, len(values))
+	for k, v := range values {
+		cp[k] = v
+	}
+	h.calls = append(h.calls, cp)
+}
+
+func (h *historySpy) snapshot() []map[string]float64 {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return append([]map[string]float64(nil), h.calls...)
+}
+
+// TestBrokerHistorySink verifies every PublishData batch reaches the history
+// sink with the right values — one Record call per dataIn batch, not per
+// broadcast tick, so history resolution tracks the DAQ's real sample rate.
+func TestBrokerHistorySink(t *testing.T) {
+	b := New(nil, nil, nil)
+	spy := &historySpy{}
+	b.SetHistorySink(spy)
+	go b.Run(50)
+
+	b.PublishData(DataEvent{Values: map[string]float64{"PT-01": 1}})
+	b.PublishData(DataEvent{Values: map[string]float64{"PT-01": 2, "TC-01": 99}})
+
+	var got []map[string]float64
+	for i := 0; i < 100; i++ {
+		got = spy.snapshot()
+		if len(got) >= 2 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if len(got) != 2 {
+		t.Fatalf("history Record calls = %d, want 2: %+v", len(got), got)
+	}
+	if got[0]["PT-01"] != 1 {
+		t.Errorf("first Record = %+v, want PT-01=1", got[0])
+	}
+	if got[1]["PT-01"] != 2 || got[1]["TC-01"] != 99 {
+		t.Errorf("second Record = %+v, want PT-01=2 TC-01=99", got[1])
+	}
+}
+
+// TestBrokerNoHistorySink verifies a nil history sink (the default, and what
+// every broker not wired to item 04 has) does not panic on the dataIn path.
+func TestBrokerNoHistorySink(t *testing.T) {
+	b := New(nil, nil, nil)
+	go b.Run(50)
+	b.PublishData(DataEvent{Values: map[string]float64{"PT-01": 1}})
+	// Give the Run goroutine a moment to process; nothing to assert beyond
+	// "did not panic" — SetHistorySink was never called.
+	time.Sleep(20 * time.Millisecond)
+}

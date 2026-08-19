@@ -27,7 +27,7 @@ func newTestServer(t *testing.T, auth *UserAuthConfig) (*Server, *broker.Broker,
 	go b.Run(50)
 
 	configJSON := `{"type":"config","controls":[]}`
-	s := New(0, configJSON, nil, nil, nil, b, webRootDir, nil, auth, nil, nil, nil)
+	s := New(0, configJSON, nil, nil, nil, b, webRootDir, nil, auth, nil, nil, nil, nil, nil)
 
 	ts := httptest.NewServer(s.Handler())
 	t.Cleanup(ts.Close)

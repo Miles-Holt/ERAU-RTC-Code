@@ -673,3 +673,96 @@ A connection is also never allowed to forward a `state_update` left over from
 a *previous* connection: `connect()` drains any stale queued payload before
 starting its write loop, so a payload queued right before a drop cannot be
 delivered — and silently re-fire a sequence — on the next connection.
+
+---
+
+# Part 3 — HTTP JSON endpoints
+
+Plain HTTP, not WebSocket. Documented here rather than in Part 1 because
+nothing about it is a `/ws/data` or `/ws/ctrl` message.
+
+## `GET /api/history` — server-side chart aggregation
+
+Built by `webclient.handleHistory`, backed by `controlnode/history.Store`.
+Item 04's answer to "the browser has no history for a channel before it
+became active on the live socket": the control node keeps a rolling window
+of raw samples per channel in memory and buckets them on request, so a chart
+can fill in the past without the browser ever having buffered it, and
+without shipping every raw point over the wire to do it.
+
+**No auth required** — same anonymous-read model as `/ws/data`: this is
+read-only telemetry, not a control surface.
+
+```
+GET /api/history?refDes=NV-03-CMD&refDes=NV-03-FB&from=1711574000&to=1711574400&buckets=400
+```
+
+```json
+{
+  "channels": {
+    "NV-03-CMD": {
+      "discrete": true,
+      "buckets": [
+        { "t": 1711574000, "min": 0, "max": 0, "last": 0, "n": 12 },
+        { "t": 1711574001, "min": 0, "max": 1, "last": 1, "n": 9 }
+      ]
+    },
+    "NV-03-FB": {
+      "discrete": true,
+      "buckets": [
+        { "t": 1711574000, "min": 0, "max": 0, "last": 0, "n": 12 }
+      ]
+    }
+  }
+}
+```
+
+Query parameters:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `refDes` | string, repeatable | Channel(s) to return. Repeat the parameter for more than one — one request covers a whole side panel or graph cell instead of one round trip per channel. At least one is required. |
+| `from` / `to` | number | Unix seconds (float), the half-open window `[from, to)`. Both required; `from` must be less than `to`. |
+| `buckets` | integer | Number of equal-width buckets to divide `[from, to)` into. Required, must be in `[1, 2000]`. |
+
+A request missing or malformed on any of the above gets `400` with a
+plain-text reason. An unknown or mistyped `refDes` is **not** a 400 — it
+comes back `200` with an empty `buckets` list, identical to how a real,
+configured channel with no recorded samples yet behaves. Validating refDes
+against the full known-channel set would need a second, separately
+maintained name set for no real safety benefit, since a bad name already
+degrades gracefully to "no data".
+
+Top-level response object:
+
+| Field | Type | Description |
+|---|---|---|
+| `channels` | object | Map of requested refDes → its result. Always contains every refDes that was requested, even ones with no data. |
+| `channels[].discrete` | bool | Whether this channel takes a small, fixed set of values rather than something that moves continuously between samples — the same rule `WebClient/js/graph.js`'s `graphChannelIsDiscrete` applies client-side for stepped rendering (items 14/15): a `cmd-bool` command, the boolean side of a valve's `IO-CMD_IO-FB` pair, or a `SM-<NAME>-STATE` index. A discrete channel's single meaningful value per bucket is `last` — `min`/`max` are still populated, but for a discrete channel they only bound a value that never truly existed in between, the same "state that never existed" problem item 14 exists to avoid. |
+| `channels[].buckets` | array | `Bucket` objects in time order. **Empty buckets are omitted, not zero-filled** — a gap in this array means no data, the same thing the browser's own live chart buffer already tolerates. |
+
+`Bucket` object:
+
+| Field | Type | Description |
+|---|---|---|
+| `t` | number | Start of this bucket's time span, unix seconds |
+| `min` | number | Lowest sample value in the bucket |
+| `max` | number | Highest sample value in the bucket |
+| `last` | number | Value of the last (most recent) sample in the bucket — the one to plot for a discrete channel |
+| `n` | number | How many raw samples fell in this bucket |
+
+`min`/`max` are returned for every channel, discrete or not, but nothing
+today draws them as an envelope for a discrete channel — that is future
+work, not this item.
+
+**Retention:** the store keeps `history.DefaultRetention` (25 minutes) of
+raw samples per channel, comfortably past the browser's own 20-minute
+maximum chart zoom. A request reaching further back than that just gets
+fewer buckets (or none, for that channel) — never an error.
+
+**Resolution:** samples are recorded at the DAQ's actual sample rate as they
+arrive at the broker, not at the decimated `broadcastRateHz` browsers see on
+`/ws/data`, so bucketing is only as coarse as the browser asks for. There is
+no separate "give me raw points" mode: asking for a short window in many
+buckets naturally degenerates to ~one raw sample per bucket once the bucket
+width drops below the real sample spacing.

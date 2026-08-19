@@ -65,6 +65,14 @@ type DaqEventSink interface {
 	BadData(refDes, node, status string, value float64)
 }
 
+// HistorySink receives every raw data batch as it arrives, for item 04's
+// server-side chart aggregation (controlnode/history.Store satisfies this
+// structurally — broker does not import that package, same reason
+// DaqEventSink exists instead of importing controlnode/alerts directly).
+type HistorySink interface {
+	Record(t time.Time, values map[string]float64)
+}
+
 // CmdMsg is a command received from a web client, already parsed from JSON.
 type CmdMsg struct {
 	Type   string      `json:"type"`
@@ -120,6 +128,15 @@ type Broker struct {
 	// time but is read from the Run goroutine and every DAQ client goroutine.
 	sinkMu    sync.RWMutex
 	eventSink DaqEventSink
+
+	// historyMu protects historySink. A second, independent mutex rather than
+	// reusing sinkMu: sinkMu already guards a conceptually different
+	// single-pointer field, and conflating the two would make a future change
+	// to one sink's locking silently change the other's. Like eventSink, this
+	// is installed by main.go AFTER go b.Run(...) has already started, so the
+	// lock is load-bearing, not defensive boilerplate.
+	historyMu   sync.RWMutex
+	historySink HistorySink
 
 	// valuesMu protects currentValues; written by Run, read by CurrentValues.
 	valuesMu      sync.RWMutex
@@ -198,6 +215,12 @@ func (b *Broker) Run(broadcastRateHz int) {
 			for k, v := range ev.Values {
 				currentValues[k] = v
 				b.checkBounds(k, v, time.Now(), badState, subscribers)
+			}
+			// Record the raw batch for item 04's server-side history, at the
+			// DAQ's actual sample rate rather than the decimated broadcast
+			// tick below — see history.Store.Record's own comment for why.
+			if hs := b.historySinkPtr(); hs != nil {
+				hs.Record(time.Now(), ev.Values)
 			}
 			// Sync to the protected copy for external access
 			b.valuesMu.Lock()
@@ -302,6 +325,23 @@ func (b *Broker) sink() DaqEventSink {
 	b.sinkMu.RLock()
 	defer b.sinkMu.RUnlock()
 	return b.eventSink
+}
+
+// SetHistorySink installs the history store item 04's /api/history endpoint
+// reads from.  Passing nil removes it.  Safe to call at any time — main.go
+// calls this after go b.Run(...) has already started, exactly like
+// SetEventSink, which is why historySinkPtr locks rather than reading a bare
+// field.
+func (b *Broker) SetHistorySink(s HistorySink) {
+	b.historyMu.Lock()
+	b.historySink = s
+	b.historyMu.Unlock()
+}
+
+func (b *Broker) historySinkPtr() HistorySink {
+	b.historyMu.RLock()
+	defer b.historyMu.RUnlock()
+	return b.historySink
 }
 
 // NoteDaqConnected reports that a DAQ node's link is up (handshake complete).

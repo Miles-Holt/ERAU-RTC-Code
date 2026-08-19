@@ -4,6 +4,8 @@ package webclient
 import (
 	"controlnode/alerts"
 	"controlnode/broker"
+	"controlnode/config"
+	"controlnode/history"
 	"controlnode/statemachine"
 	"encoding/json"
 	"fmt"
@@ -231,6 +233,15 @@ type Server struct {
 	// that do not exercise the documentation route.
 	docs *DocsInput
 
+	// history backs /api/history (item 04). nil in tests that don't exercise
+	// that route — handleHistory checks and answers 503 rather than assuming
+	// it is always wired.
+	history *history.Store
+	// discreteChannels is the precomputed config-channel half of
+	// isDiscreteRefDes, built once from the loaded controls at construction
+	// time (see buildDiscreteChannelSet) rather than rescanned per request.
+	discreteChannels map[string]bool
+
 	mu            sync.RWMutex
 	panelMessages [][]byte // pid_layout messages; updated when a layout is saved
 }
@@ -261,10 +272,16 @@ func (s *Server) Alerts() *alerts.Registry { return s.alerts }
 // alertRegistry may be nil, in which case the server creates its own (tests, and
 // any deployment without .alert config); either way the server is the registry's
 // publisher, so every alert reaches the browser through the same path.
+// historyStore and controls back /api/history (item 04): historyStore may be
+// nil (the route then answers 503 instead of panicking — see handleHistory),
+// and controls may be nil (buildDiscreteChannelSet then just produces an
+// empty set). Both are appended at the very end of an already-long
+// positional-argument list on purpose, so every existing call site's diff is
+// a pure "add two more nils" rather than a reordering.
 func New(port int, configJSON string, softchanConfigJSON []byte, stateConfigJSON []byte,
 	panelMessages [][]byte, b *broker.Broker, webRoot string, embedded fs.FS,
 	userAuth *UserAuthConfig, layoutPaths map[string]string, engine StateMachineRequester,
-	alertRegistry *alerts.Registry) *Server {
+	alertRegistry *alerts.Registry, historyStore *history.Store, controls []config.Control) *Server {
 
 	var fsh http.Handler
 	if webRoot != "" {
@@ -287,6 +304,8 @@ func New(port int, configJSON string, softchanConfigJSON []byte, stateConfigJSON
 		layoutPaths:        layoutPaths,
 		engine:             engine,
 		alerts:             alertRegistry,
+		history:            historyStore,
+		discreteChannels:   buildDiscreteChannelSet(controls),
 	}
 	alertRegistry.SetSink(s)
 	return s
@@ -304,6 +323,9 @@ func (s *Server) Handler() http.Handler {
 	// WebClient itself on this closed LAN).
 	mux.HandleFunc("/docs", s.handleDocs)
 	mux.HandleFunc("/docs/", s.handleDocs)
+	// /api/history is read-only server-side chart aggregation (item 04); same
+	// anonymous-read model as /ws/data, no auth.
+	mux.HandleFunc("/api/history", s.handleHistory)
 	mux.HandleFunc("/", s.handleStatic)
 	return mux
 }

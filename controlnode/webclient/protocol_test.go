@@ -24,6 +24,10 @@ import (
 // field (e.g. data "d" → "data"), these tests fail instead of the browser going
 // silently dark.  This is the closest we can get to a JS contract test without a
 // JavaScript runtime installed.
+//
+// GET /api/history (item 04) is NOT part of this switch — it is a plain HTTP
+// JSON endpoint, not a /ws/data or /ws/ctrl message, so it has no place in the
+// per-type table below. Its own contract is covered by history_test.go.
 
 const realConfigDir = "../../config"
 
@@ -471,7 +475,7 @@ func TestContractAlertRegistry(t *testing.T) {
 
 	reg := alerts.NewRegistry()
 	// The server is the registry's publisher: constructing it wires the sink.
-	s := New(0, `{"type":"config"}`, nil, nil, nil, b, "", nil, nil, nil, nil, reg)
+	s := New(0, `{"type":"config"}`, nil, nil, nil, b, "", nil, nil, nil, nil, reg, nil, nil)
 	if s.Alerts() != reg {
 		t.Fatal("server should expose the registry it publishes for")
 	}
@@ -578,7 +582,7 @@ func TestContractStateTargetCmd(t *testing.T) {
 	b := broker.New(nil, nil, nil)
 	go b.Run(50)
 	eng := &recordingEngine{calls: make(chan [2]string, 4)}
-	s := New(0, `{"type":"config"}`, nil, nil, nil, b, "", nil, nil, nil, eng, nil)
+	s := New(0, `{"type":"config"}`, nil, nil, nil, b, "", nil, nil, nil, eng, nil, nil, nil)
 	ts := httptest.NewServer(s.Handler())
 	defer ts.Close()
 
@@ -667,7 +671,7 @@ func TestContractBrokerMessages(t *testing.T) {
 func TestContractServerMessages(t *testing.T) {
 	b := broker.New(nil, nil, nil)
 	go b.Run(50)
-	s := New(0, `{"type":"config"}`, nil, nil, nil, b, "", nil, nil, nil, nil, nil)
+	s := New(0, `{"type":"config"}`, nil, nil, nil, b, "", nil, nil, nil, nil, nil, nil, nil)
 
 	// alert — ingestAlert reads id, category, message, timestamp.
 	alertMsg := captureBroadcast(t, b, "alert", func() {

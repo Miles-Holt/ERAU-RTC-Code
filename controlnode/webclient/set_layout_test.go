@@ -31,7 +31,7 @@ func newLayoutTestServer(t *testing.T, auth *UserAuthConfig) (*Server, string, *
 	b := broker.New(nil, nil, nil)
 	go b.Run(50)
 
-	s := New(0, `{"type":"config","controls":[]}`, nil, nil, panelMessages, b, "", nil, auth, layoutPaths, nil, nil)
+	s := New(0, `{"type":"config","controls":[]}`, nil, nil, panelMessages, b, "", nil, auth, layoutPaths, nil, nil, nil, nil)
 	ts := httptest.NewServer(s.Handler())
 	t.Cleanup(ts.Close)
 	return s, dir, ts
