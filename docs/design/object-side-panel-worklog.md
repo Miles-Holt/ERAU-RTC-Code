@@ -190,6 +190,26 @@ Suspects not yet ruled out, in order:
   before the first render, every width comes from the fallback estimate, and the
   estimate and the measured width no longer have to agree.
 
+## Adjacent work landed here
+
+Not side-panel items, but done in the same push and worth knowing about.
+
+- **`+=` / `-=` in the state-machine DSL** (`ea64494`). Real AST node
+  (`CompoundAssignStmt`) rather than parse-time desugaring, because `format.go`
+  re-emits from the AST and desugaring would rewrite a user's `+=` into longhand.
+  Execution is in `statemachine/engine.go` and `sequence.go`, not `dsl/eval.go`,
+  which only evaluates expressions.
+- **Negative literals in `default` / `min` / `max`** (`ea64494`). The expression
+  parser wraps a sign in a `UnaryExpr`, and those fields asserted a bare
+  `*LiteralExpr`, so `default -60.0` was rejected outright. Folded for numeric
+  operands only.
+- **`controlnode/dsl/testdata/smokeTest.sm`** — one fixture covering the grammar,
+  with a parse -> format -> reparse round-trip test. Deliberately in `testdata/`
+  and NOT in `config/machines/`, which `main.go` loads wholesale at runtime.
+- `shippedconfig_test.go` follows the `daq001.sm` -> `engineControl.sm` rename and
+  stays pointed at live config on purpose: it exists to make a change to the real
+  firing sequence fail loudly.
+
 ## Known flakes
 
 - `controlnode/integration` `TestStateUpdateUndeliverableWhileDisconnected` failed
