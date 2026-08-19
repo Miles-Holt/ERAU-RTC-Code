@@ -91,6 +91,27 @@ type Record struct {
 	// connect/disconnect, stale, bad_data) and auto-generated sensor-bounds
 	// alerts have no `describe` in their vocabulary, so this is "" for them.
 	Description string `json:"description,omitempty"`
+
+	// PlotChannels overrides which channels the alarm panel charts (item 09) —
+	// empty means "no override", and the browser falls back to Channels (see
+	// Channels' own doc, and item 07's already-shipped client behavior).
+	PlotChannels []string `json:"plotChannels,omitempty"`
+	// Lines are optional reference lines the alarm panel draws behind its
+	// chart (item 09) — see webclient's Line type for the wire shape (this
+	// package doesn't need a JSON-tagged type of its own since Record embeds
+	// directly into the browser message the same way Channels/Description do).
+	Lines []Line `json:"lines,omitempty"`
+}
+
+// Line is one resolved reference line (item 09) — JSON tags define the wire
+// shape read by WebClient/js/alarmSidebar.js. Exactly one of Value/Channel
+// is non-zero; the browser reads Channel's CURRENT value live off
+// channelBuffers on every repaint rather than trusting a value resolved at
+// raise time, for the same reason PlotLine (alerts/config.go) documents.
+type Line struct {
+	Value   *float64 `json:"value,omitempty"`
+	Channel string   `json:"channel,omitempty"`
+	Label   string   `json:"label"`
 }
 
 // Sink publishes registry changes to connected browsers.  The webclient server
@@ -149,7 +170,7 @@ func (r *Registry) now() int64 { return r.nowFn().UnixMilli() }
 // Raise records an alert with no channel or node attribution — for alerts that
 // genuinely concern nothing on the panel. Prefer RaiseFor.
 func (r *Registry) Raise(id, severity, message string) {
-	r.RaiseFor(id, severity, message, nil, "", "")
+	r.RaiseFor(id, severity, message, nil, "", "", nil, nil)
 }
 
 // RaiseFor records an alert and says what it is about. `channels` are the
@@ -158,8 +179,24 @@ func (r *Registry) Raise(id, severity, message string) {
 // affected and listing them would be both long and redundant. `description`
 // is the alert definition's optional `describe "…"` long form (item 07a),
 // already interpolated by the caller; template/sensor call sites, which have
-// no `describe`, pass "".
-func (r *Registry) RaiseFor(id, severity, message string, channels []string, node string, description string) {
+// no `describe`, pass "". `plotChannels` and `lines` are the alert's
+// optional `channels` block (item 09) — nil/nil for every call site except
+// the rule one, since only rule alerts can declare one.
+//
+// This parameter list has grown by simple appending across three additions
+// now (channels/node in item 07, description in item 07a, plotChannels/lines
+// here in item 09) rather than becoming an options struct, deliberately: an
+// options struct would mean touching every existing call site's shape
+// again, re-risking calls the last two commits on this branch already
+// verified. The cost of that choice is real and worth flagging rather than
+// silently accepting: `channels []string` and `plotChannels []string` are
+// the same Go type in adjacent-ish positions, so a call that transposed them
+// would compile without complaint and fail only by attributing the wrong
+// channels to a rule at runtime. Every call site in this codebase is
+// covered by a test that checks the actual field values (not just "it
+// compiled"), which is the real guard against that mistake — not the
+// compiler.
+func (r *Registry) RaiseFor(id, severity, message string, channels []string, node string, description string, plotChannels []string, lines []Line) {
 	if !ValidSeverity(severity) {
 		severity = SeverityWarning
 	}
@@ -171,15 +208,17 @@ func (r *Registry) RaiseFor(id, severity, message string, channels []string, nod
 		return // already showing exactly this — nothing changed
 	}
 	rec := Record{
-		ID:          id,
-		Category:    severity,
-		Message:     message,
-		Timestamp:   r.now(),
-		Acked:       false,
-		Resolved:    false,
-		Channels:    channels,
-		Node:        node,
-		Description: description,
+		ID:           id,
+		Category:     severity,
+		Message:      message,
+		Timestamp:    r.now(),
+		Acked:        false,
+		Resolved:     false,
+		Channels:     channels,
+		Node:         node,
+		Description:  description,
+		PlotChannels: plotChannels,
+		Lines:        lines,
 	}
 	// A rule and its alert are one identity (package doc): RaiseFor is called
 	// only on a rule's rising edge (evalRules), and evalRules ALWAYS runs a

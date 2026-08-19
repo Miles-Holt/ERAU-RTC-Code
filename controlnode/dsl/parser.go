@@ -371,6 +371,18 @@ func literalOrNegatedLiteral(expr Expr) (*LiteralExpr, bool) {
 	return nil, false
 }
 
+// LiteralOrNegatedLiteral is the exported form of literalOrNegatedLiteral,
+// for callers outside this package that need the same literal-or-negated-
+// literal folding this parser already applies to `default`/`min`/`max`.
+// controlnode/alerts uses it to classify a `channels` block `line`'s value
+// (item 09) — see LineDef's doc for why that classification lives in
+// alerts, not here, and resolvePlotLine (controlnode/alerts/config.go) for
+// the call site. Exported as a thin wrapper rather than duplicated so the
+// two packages can never quietly diverge on what counts as a literal.
+func LiteralOrNegatedLiteral(expr Expr) (*LiteralExpr, bool) {
+	return literalOrNegatedLiteral(expr)
+}
+
 func (p *Parser) parseAssignOrOp() (Stmt, error) {
 	tok, err := p.expect(TOK_IDENT)
 	if err != nil {
@@ -835,6 +847,14 @@ func (p *Parser) parseAlert() (*AlertDef, error) {
 			p.advance()
 			alert.Latch = true
 
+		case TOK_CHANNELS:
+			plotChannels, lines, err := p.parseAlertChannels()
+			if err != nil {
+				return nil, err
+			}
+			alert.PlotChannels = plotChannels
+			alert.Lines = lines
+
 		case TOK_DEDENT:
 			p.advance()
 			return alert, nil
@@ -844,6 +864,59 @@ func (p *Parser) parseAlert() (*AlertDef, error) {
 
 		default:
 			return nil, p.errorf(tok.Line, "unexpected keyword in alert: %s", p.tokStr(tok))
+		}
+	}
+}
+
+// parseAlertChannels parses the `channels` block inside an `alert` (item 09)
+// — a nested indented block one level deeper than the alert's own, the same
+// shape parseState uses for `controller`/`sequence`, listing which channels
+// the alarm panel plots (`plot <ch>`) and what reference lines it draws
+// (`line <value-or-channel> "<label>"`). The line's value is left as a raw
+// Expr — see LineDef's doc for why classifying it is controlnode/alerts's
+// job, not this package's.
+func (p *Parser) parseAlertChannels() ([]string, []*LineDef, error) {
+	p.advance() // TOK_CHANNELS
+	if !p.is(TOK_INDENT) {
+		return nil, nil, p.errorf(p.peek().Line, "channels: expected an indented block")
+	}
+	p.advance()
+	p.skipNewlines()
+
+	var plotChannels []string
+	var lines []*LineDef
+	for {
+		tok := p.peek()
+		switch tok.Type {
+		case TOK_PLOT:
+			p.advance()
+			identTok, err := p.expect(TOK_IDENT)
+			if err != nil {
+				return nil, nil, err
+			}
+			plotChannels = append(plotChannels, identTok.Value)
+
+		case TOK_LINE:
+			p.advance()
+			valExpr, err := p.parseExpr()
+			if err != nil {
+				return nil, nil, err
+			}
+			labelTok, err := p.expect(TOK_STRING)
+			if err != nil {
+				return nil, nil, err
+			}
+			lines = append(lines, &LineDef{Value: valExpr, Label: labelTok.Value, LineNo: tok.Line})
+
+		case TOK_DEDENT:
+			p.advance()
+			return plotChannels, lines, nil
+
+		case TOK_EOF:
+			return plotChannels, lines, nil
+
+		default:
+			return nil, nil, p.errorf(tok.Line, "unexpected keyword in channels block: %s", p.tokStr(tok))
 		}
 	}
 }
@@ -1185,6 +1258,9 @@ func (p *Parser) tokName(typ TokenType) string {
 		TOK_ELSE:           "else",
 		TOK_SEVERITY:       "severity",
 		TOK_MESSAGE:        "message",
+		TOK_CHANNELS:       "channels",
+		TOK_PLOT:           "plot",
+		TOK_LINE:           "line",
 		TOK_LATCH:          "latch",
 		TOK_AND:            "and",
 		TOK_OR:             "or",

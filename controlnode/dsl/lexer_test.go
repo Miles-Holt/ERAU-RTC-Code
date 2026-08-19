@@ -93,6 +93,24 @@ func TestLexer_DescribeKeyword(t *testing.T) {
 	}
 }
 
+// channels/plot/line are their own keywords (item 09), for an alert's
+// `channels` block declaring what its alarm panel plots.
+func TestLexer_ChannelsPlotLineKeywords(t *testing.T) {
+	toks, err := NewLexer(`channels plot line`).Tokenize()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	expect := []TokenType{TOK_CHANNELS, TOK_PLOT, TOK_LINE, TOK_EOF}
+	if len(toks) != len(expect) {
+		t.Fatalf("got %d tokens, expected %d", len(toks), len(expect))
+	}
+	for i, expTyp := range expect {
+		if toks[i].Type != expTyp {
+			t.Errorf("token %d: got %v, expected %v", i, toks[i].Type, expTyp)
+		}
+	}
+}
+
 func TestLexer_Strings(t *testing.T) {
 	tests := []struct {
 		name   string

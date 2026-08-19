@@ -141,7 +141,7 @@ func TestSuppressSurvivesEngineStyleRetrigger(t *testing.T) {
 	s, _, ts := newTestServer(t, auth)
 
 	const id = "rule:X"
-	s.Alerts().RaiseFor(id, alerts.SeverityAlarm, "first message", []string{"CPT-01"}, "", "")
+	s.Alerts().RaiseFor(id, alerts.SeverityAlarm, "first message", []string{"CPT-01"}, "", "", nil, nil)
 
 	ctrl := authedCtrlConn(t, ts, auth, "alice", "1234")
 	defer ctrl.Close()
@@ -154,7 +154,7 @@ func TestSuppressSurvivesEngineStyleRetrigger(t *testing.T) {
 	// Condition clears (evalRules' !on && prev branch resolves it) ...
 	s.Alerts().Resolve(id)
 	// ... and re-triggers with a different, live-value-interpolated message.
-	s.Alerts().RaiseFor(id, alerts.SeverityAlarm, "second message, different value", []string{"CPT-01"}, "", "")
+	s.Alerts().RaiseFor(id, alerts.SeverityAlarm, "second message, different value", []string{"CPT-01"}, "", "", nil, nil)
 
 	rec, ok := s.Alerts().Get(id)
 	if !ok {

@@ -195,6 +195,83 @@ func TestRuleNoDescribeLeavesDescriptionEmpty(t *testing.T) {
 	}
 }
 
+// channelsSrc carries a `channels` block (item 09) with one `plot` and two
+// `line`s — one a literal value, one a channel reference — so a single test
+// can pin both PlotLine.Value and PlotLine.Channel reaching the wire-facing
+// Record correctly.
+const channelsSrc = `alert CHAMBER-HIGH
+    if CPT-01 > LIM-CPT01-HIGH
+    severity alarm
+    message "Chamber pressure high: {CPT-01} psia"
+    channels
+        plot CPT-01
+        line 850 "over-pressure ceiling"
+        line LIM-CPT01-HIGH "abort limit"
+`
+
+// A rule's `channels` block reaches the raised Record's PlotChannels/Lines
+// unchanged: the plot list verbatim, and each line resolved to exactly one
+// of Value/Channel (item 09).
+func TestRuleChannelsReachRecord(t *testing.T) {
+	eng, _, rec, _ := newTestEngine(t, channelsSrc, nil, nil)
+	s := space{"CPT-01": 500, "LIM-CPT01-HIGH": 450}
+	eng.Tick(s)
+
+	raises := rec.raises()
+	if len(raises) != 1 {
+		t.Fatalf("raises = %d, want 1", len(raises))
+	}
+	rec0 := raises[0]
+
+	if len(rec0.PlotChannels) != 1 || rec0.PlotChannels[0] != "CPT-01" {
+		t.Errorf("plot channels = %v, want [CPT-01]", rec0.PlotChannels)
+	}
+	if len(rec0.Lines) != 2 {
+		t.Fatalf("lines = %d, want 2", len(rec0.Lines))
+	}
+
+	lit := rec0.Lines[0]
+	if lit.Value == nil || *lit.Value != 850 {
+		t.Errorf("lines[0].Value = %v, want 850", lit.Value)
+	}
+	if lit.Channel != "" {
+		t.Errorf("lines[0].Channel = %q, want empty (literal line)", lit.Channel)
+	}
+	if lit.Label != "over-pressure ceiling" {
+		t.Errorf("lines[0].Label = %q", lit.Label)
+	}
+
+	chanLine := rec0.Lines[1]
+	if chanLine.Value != nil {
+		t.Errorf("lines[1].Value = %v, want nil (channel-valued line)", chanLine.Value)
+	}
+	if chanLine.Channel != "LIM-CPT01-HIGH" {
+		t.Errorf("lines[1].Channel = %q, want LIM-CPT01-HIGH", chanLine.Channel)
+	}
+	if chanLine.Label != "abort limit" {
+		t.Errorf("lines[1].Label = %q", chanLine.Label)
+	}
+}
+
+// A rule with no `channels` block raises with Record.PlotChannels/Lines both
+// nil — unchanged from before item 09, the common case.
+func TestRuleNoChannelsLeavesPlotFieldsEmpty(t *testing.T) {
+	eng, _, rec, _ := newTestEngine(t, ruleSrc, nil, nil)
+	s := space{"CPT-01": 500, "LIM-CPT01-HIGH": 450}
+	eng.Tick(s)
+
+	raises := rec.raises()
+	if len(raises) != 1 {
+		t.Fatalf("raises = %d, want 1", len(raises))
+	}
+	if raises[0].PlotChannels != nil {
+		t.Errorf("plot channels = %v, want nil (no channels block in ruleSrc)", raises[0].PlotChannels)
+	}
+	if raises[0].Lines != nil {
+		t.Errorf("lines = %v, want nil (no channels block in ruleSrc)", raises[0].Lines)
+	}
+}
+
 // A non-latching rule resolves itself when the condition clears.
 func TestRuleAutoClear(t *testing.T) {
 	eng, reg, rec, _ := newTestEngine(t, ruleSrc, nil, nil)

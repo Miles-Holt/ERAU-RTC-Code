@@ -486,7 +486,7 @@ func TestContractAlertRegistry(t *testing.T) {
 	// is about, and the object would sit grey while the board showed red.
 	raw := captureBroadcast(t, b, "alert", func() {
 		reg.RaiseFor("rule:CHAMBER-HIGH", alerts.SeverityAlarm,
-			"Chamber pressure high: 500 psia", []string{"CPT-01"}, "", "")
+			"Chamber pressure high: 500 psia", []string{"CPT-01"}, "", "", nil, nil)
 	})
 	m := requireType(t, "alert", raw, "alert", "id", "category", "message", "timestamp", "acked", "resolved", "channels")
 	// isChannelAlarmed() in alerts.js reads this array by name.

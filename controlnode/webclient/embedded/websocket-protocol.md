@@ -294,6 +294,25 @@ invents an alert.
 | `suppressed` | bool | Whether an operator has suppressed it |
 | `suppressedAt` | number | Unix **milliseconds** when suppressed; present only when `suppressed` is true |
 | `description` | string | Fully interpolated long form, from the alert definition's optional `describe "…"`; present only when the definition had one — template and sensor-bounds alerts never do |
+| `plotChannels` | array | Channel refDes the alarm panel's plot should draw, from the alert's optional `channels` block (`plot <ch>` lines, item 09); present only when the definition had one. Only rule alerts can carry this. Absent (or empty) means "no override" — the panel falls back to `channels` above (the condition's own attributed channels, item 07's default) |
+| `lines` | array | Reference lines the alarm panel draws behind its plot, from the alert's `channels` block (`line <value-or-channel> "<label>"`, item 09); present only when the definition declared at least one. Each entry is a `Line` object (below) |
+
+A `Line` object:
+
+| Field | Type | Description |
+|---|---|---|
+| `value` | number | A fixed value the alert definition wrote directly (`line 850 "limit"`); present only when the line was a literal |
+| `channel` | string | A channel refDes whose **current** reading the browser should plot instead (`line LIM-CPT01-HIGH "abort limit"`); present only when the line named a channel |
+| `label` | string | Always present |
+
+Exactly one of `value`/`channel` is present on a given `Line`, never both. A
+channel-valued line is deliberately not resolved to a number at raise time:
+the referenced channel (typically an operator-settable limit) may keep
+changing after the alert raises, and the browser reads its current value off
+`channelBuffers` on every repaint rather than trusting a value pinned to the
+moment the alert fired — so a drawn limit line always agrees with the limit
+that is actually in effect right now, not the one that was in effect when
+the alarm tripped.
 
 `acked` and `resolved` are independent, and together they are the three states an
 alert can be in:

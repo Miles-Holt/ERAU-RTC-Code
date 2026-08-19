@@ -100,6 +100,134 @@ func TestLoadNoDescribe(t *testing.T) {
 	}
 }
 
+// channels (item 09) is optional, same split as describe: present, `plot`
+// and `line` compile onto Rule.PlotChannels/Lines; a literal `line` value
+// compiles to Lines[0].Value set and Channel empty.
+func TestLoadChannels(t *testing.T) {
+	cfg, err := loadSrc(t, "alert CHAMBER-HIGH\n"+
+		"    if CPT-01 > LIM-CPT01-HIGH\n"+
+		"    severity alarm\n"+
+		"    message \"Chamber pressure high\"\n"+
+		"    channels\n"+
+		"        plot CPT-01\n"+
+		"        line 850 \"limit\"\n")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(cfg.Rules) != 1 {
+		t.Fatalf("rules = %d, want 1", len(cfg.Rules))
+	}
+	rule := cfg.Rules[0]
+	if len(rule.PlotChannels) != 1 || rule.PlotChannels[0] != "CPT-01" {
+		t.Errorf("plot channels = %v, want [CPT-01]", rule.PlotChannels)
+	}
+	if len(rule.Lines) != 1 {
+		t.Fatalf("lines = %d, want 1", len(rule.Lines))
+	}
+	if rule.Lines[0].Channel != "" {
+		t.Errorf("line channel = %q, want empty (literal value)", rule.Lines[0].Channel)
+	}
+	if rule.Lines[0].Value == nil || *rule.Lines[0].Value != 850 {
+		t.Errorf("line value = %v, want 850", rule.Lines[0].Value)
+	}
+	if rule.Lines[0].Label != "limit" {
+		t.Errorf("line label = %q, want %q", rule.Lines[0].Label, "limit")
+	}
+}
+
+// A negative literal line value (`line -60.0 "..."`) compiles to a negative
+// PlotLine.Value, folded the same way `default -60.0` is elsewhere in this
+// codebase (dsl.LiteralOrNegatedLiteral).
+func TestLoadChannelsNegativeLineValue(t *testing.T) {
+	cfg, err := loadSrc(t, "alert CHAMBER-LOW\n"+
+		"    if CPT-01 < -60.0\n"+
+		"    severity alarm\n"+
+		"    message \"Chamber pressure low\"\n"+
+		"    channels\n"+
+		"        line -60.0 \"floor\"\n")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	line := cfg.Rules[0].Lines[0]
+	if line.Value == nil || *line.Value != -60.0 {
+		t.Errorf("line value = %v, want -60", line.Value)
+	}
+}
+
+// A `line` naming a channel (no dot, no literal) compiles to Lines[0].Channel
+// set and Value nil — the worked example from the design doc.
+func TestLoadChannelsLineIsChannelReference(t *testing.T) {
+	cfg, err := loadSrc(t, "alert CHAMBER-HIGH\n"+
+		"    if CPT-01 > LIM-CPT01-HIGH\n"+
+		"    severity alarm\n"+
+		"    message \"Chamber pressure high\"\n"+
+		"    channels\n"+
+		"        plot CPT-01\n"+
+		"        line LIM-CPT01-HIGH \"abort limit\"\n")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	line := cfg.Rules[0].Lines[0]
+	if line.Value != nil {
+		t.Errorf("line value = %v, want nil (channel reference)", line.Value)
+	}
+	if line.Channel != "LIM-CPT01-HIGH" {
+		t.Errorf("line channel = %q, want LIM-CPT01-HIGH", line.Channel)
+	}
+	if line.Label != "abort limit" {
+		t.Errorf("line label = %q, want %q", line.Label, "abort limit")
+	}
+}
+
+// plot naming an unknown channel is a startup error, same contract as every
+// other channel reference in this file.
+func TestChannelsUnknownPlotChannelIsFatal(t *testing.T) {
+	_, err := loadSrc(t, "alert BAD\n"+
+		"    if CPT-01 > 5\n"+
+		"    severity alarm\n"+
+		"    message \"m\"\n"+
+		"    channels\n"+
+		"        plot NOPE-01\n")
+	if err == nil {
+		t.Fatal("expected a fatal error for the unknown plot channel")
+	}
+	if !strings.Contains(err.Error(), "NOPE-01") {
+		t.Errorf("error %q should name the offending channel", err)
+	}
+}
+
+// line naming an unknown channel is a startup error too.
+func TestChannelsUnknownLineChannelIsFatal(t *testing.T) {
+	_, err := loadSrc(t, "alert BAD\n"+
+		"    if CPT-01 > 5\n"+
+		"    severity alarm\n"+
+		"    message \"m\"\n"+
+		"    channels\n"+
+		"        line NOPE-01 \"limit\"\n")
+	if err == nil {
+		t.Fatal("expected a fatal error for the unknown line channel")
+	}
+	if !strings.Contains(err.Error(), "NOPE-01") {
+		t.Errorf("error %q should name the offending channel", err)
+	}
+}
+
+// No `channels` block at all is the common case (most alerts won't have
+// one) — Rule.PlotChannels/Lines stay nil, existing alerts keep compiling
+// unchanged.
+func TestLoadNoChannels(t *testing.T) {
+	cfg, err := loadSrc(t, goodSrc)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Rules[0].PlotChannels != nil {
+		t.Errorf("plot channels = %v, want nil (no channels block in goodSrc)", cfg.Rules[0].PlotChannels)
+	}
+	if cfg.Rules[0].Lines != nil {
+		t.Errorf("lines = %v, want nil (no channels block in goodSrc)", cfg.Rules[0].Lines)
+	}
+}
+
 func TestStaleDefaultWhenUnqualified(t *testing.T) {
 	cfg, err := loadSrc(t, "template every_daqnode\n    on stale -> warning \"{node} stale\"\n")
 	if err != nil {

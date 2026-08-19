@@ -268,8 +268,28 @@ type AlertDef struct {
 	Message  string
 	Description string // optional long form; "" when the alert has no `describe`
 	Latch    bool
+	// PlotChannels and Lines are the optional `channels` block (item 09),
+	// declaring what the alarm panel plots for this alert — nil/nil when the
+	// alert has none, in which case the panel falls back to the condition's
+	// own attributed channels (item 07's default). Only `alert` blocks carry
+	// this; the `every_daqnode` template does not (see LineDef's doc for why).
+	PlotChannels []string
+	Lines        []*LineDef
 	LineNo   int
 }
 
 func (d *AlertDef) decl()  {}
 func (d *AlertDef) Line() int { return d.LineNo }
+
+// LineDef is one `line <value-or-channel> "<label>"` declaration inside an
+// alert's `channels` block (item 09). Value is left as a raw Expr here — the
+// dsl package parses grammar, it doesn't know about "channels" semantics;
+// classifying Value into a literal number vs. a channel reference happens in
+// controlnode/alerts (compileRule), the same division of labor Condition
+// already has (dsl parses/type-checks the expression shape, alerts
+// interprets what a channel name in THIS position means).
+type LineDef struct {
+	Value  Expr
+	Label  string
+	LineNo int
+}

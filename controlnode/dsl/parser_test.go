@@ -291,6 +291,135 @@ func TestParser_AlertNoDescribe(t *testing.T) {
 	}
 }
 
+// channels is optional (item 09): a `plot` and a `line` inside it land on
+// AlertDef.PlotChannels/Lines. The line's value here is a bare channel
+// reference (LIM-CPT01-HIGH), which should parse to an *IdentExpr — the
+// classification into "literal number" vs. "channel name" is
+// controlnode/alerts's job (compileRule), not the parser's (see LineDef's
+// doc), so at this layer it is simply whatever expression shape was written.
+func TestParser_AlertChannels(t *testing.T) {
+	input := "alert CHAMBER-HIGH\n" +
+		indent(4) + "if CPT-01 > LIM-CPT01-HIGH\n" +
+		indent(4) + "severity alarm\n" +
+		indent(4) + "message \"Chamber pressure high: {CPT-01} psi\"\n" +
+		indent(4) + "channels\n" +
+		indent(8) + "plot CPT-01\n" +
+		indent(8) + "line LIM-CPT01-HIGH \"abort limit\"\n"
+
+	toks, err := NewLexer(input).Tokenize()
+	if err != nil {
+		t.Fatalf("lexer error: %v", err)
+	}
+	decl, err := Parse(toks)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	alert, ok := decl.(*AlertDef)
+	if !ok {
+		t.Fatalf("expected AlertDef, got %T", decl)
+	}
+	if len(alert.PlotChannels) != 1 || alert.PlotChannels[0] != "CPT-01" {
+		t.Errorf("plot channels: got %v, expected [CPT-01]", alert.PlotChannels)
+	}
+	if len(alert.Lines) != 1 {
+		t.Fatalf("lines: got %d, expected 1", len(alert.Lines))
+	}
+	line := alert.Lines[0]
+	if line.Label != "abort limit" {
+		t.Errorf("line label: got %q, expected %q", line.Label, "abort limit")
+	}
+	ident, ok := line.Value.(*IdentExpr)
+	if !ok || ident.Name != "LIM-CPT01-HIGH" {
+		t.Errorf("line value: got %#v, expected IdentExpr LIM-CPT01-HIGH", line.Value)
+	}
+}
+
+// A `line` with several entries and a negative numeric value: the expression
+// parser sees `-5.0` as a UnaryExpr("-") wrapping a LiteralExpr, same as
+// `default -60.0` elsewhere in this codebase (literalOrNegatedLiteral) —
+// this package does not fold the sign for `line` (that is controlnode/alerts's
+// job at compile time), so the raw shape should come through unchanged.
+func TestParser_AlertChannelsNegativeLineValue(t *testing.T) {
+	input := "alert CHAMBER-LOW\n" +
+		indent(4) + "if CPT-01 < -5.0\n" +
+		indent(4) + "severity alarm\n" +
+		indent(4) + "message \"Chamber pressure low\"\n" +
+		indent(4) + "channels\n" +
+		indent(8) + "plot CPT-01\n" +
+		indent(8) + "line -5.0 \"low limit\"\n" +
+		indent(8) + "line 850 \"high limit\"\n"
+
+	toks, err := NewLexer(input).Tokenize()
+	if err != nil {
+		t.Fatalf("lexer error: %v", err)
+	}
+	decl, err := Parse(toks)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	alert, ok := decl.(*AlertDef)
+	if !ok {
+		t.Fatalf("expected AlertDef, got %T", decl)
+	}
+	if len(alert.Lines) != 2 {
+		t.Fatalf("lines: got %d, expected 2", len(alert.Lines))
+	}
+
+	un, ok := alert.Lines[0].Value.(*UnaryExpr)
+	if !ok || un.Op != "-" {
+		t.Fatalf("line[0] value: got %#v, expected UnaryExpr(-)", alert.Lines[0].Value)
+	}
+	lit, ok := un.Operand.(*LiteralExpr)
+	if !ok {
+		t.Fatalf("line[0] operand: got %#v, expected LiteralExpr", un.Operand)
+	}
+	if f, ok := lit.Value.(float64); !ok || f != 5.0 {
+		t.Errorf("line[0] literal: got %#v, expected float64(5.0)", lit.Value)
+	}
+	if alert.Lines[0].Label != "low limit" {
+		t.Errorf("line[0] label: got %q", alert.Lines[0].Label)
+	}
+
+	lit2, ok := alert.Lines[1].Value.(*LiteralExpr)
+	if !ok {
+		t.Fatalf("line[1] value: got %#v, expected LiteralExpr", alert.Lines[1].Value)
+	}
+	if n, ok := lit2.Value.(int64); !ok || n != 850 {
+		t.Errorf("line[1] literal: got %#v, expected int64(850)", lit2.Value)
+	}
+	if alert.Lines[1].Label != "high limit" {
+		t.Errorf("line[1] label: got %q", alert.Lines[1].Label)
+	}
+}
+
+// No `channels` block at all is the common case (most alerts won't have
+// one) — PlotChannels/Lines stay nil, no error.
+func TestParser_AlertNoChannels(t *testing.T) {
+	input := "alert CHAMBER-HIGH\n" +
+		indent(4) + "if CPT-01 > LIM-CPT01-HIGH\n" +
+		indent(4) + "severity alarm\n" +
+		indent(4) + "message \"Chamber pressure high\"\n"
+
+	toks, err := NewLexer(input).Tokenize()
+	if err != nil {
+		t.Fatalf("lexer error: %v", err)
+	}
+	decl, err := Parse(toks)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	alert, ok := decl.(*AlertDef)
+	if !ok {
+		t.Fatalf("expected AlertDef, got %T", decl)
+	}
+	if alert.PlotChannels != nil {
+		t.Errorf("plot channels: got %v, expected nil", alert.PlotChannels)
+	}
+	if alert.Lines != nil {
+		t.Errorf("lines: got %v, expected nil", alert.Lines)
+	}
+}
+
 func TestParser_Template(t *testing.T) {
 	input := "template every_daqnode\n" +
 		indent(4) + "on disconnect -> alarm \"{node} disconnected\"\n" +

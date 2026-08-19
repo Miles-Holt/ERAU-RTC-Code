@@ -437,6 +437,41 @@ alert CHAMBER-HIGH
   `reconnect`, `bad_data`, `stale`) and auto-generated sensor-bounds alerts do
   not.
 
+**`channels`** is an optional block declaring what the alarm panel's plot
+draws for this alert (item 09):
+
+```
+alert CHAMBER-HIGH
+    if CPT-01 > LIM-CPT01-HIGH
+    severity alarm
+    message "Chamber pressure high: {CPT-01} psia (limit {LIM-CPT01-HIGH})"
+    channels
+        plot CPT-01
+        line LIM-CPT01-HIGH "abort limit"
+```
+
+- `plot <channel>` names a channel to chart. It may be repeated.
+- `line <value-or-channel> "<label>"` draws a reference line behind the plot.
+  The value may be a literal number (`line 850 "limit"`, negative numbers
+  allowed the same way `default -60.0` works elsewhere) or a channel name
+  (`line LIM-CPT01-HIGH "abort limit"`) — a channel-valued line reads that
+  channel's **current** value live in the browser rather than the value it
+  held when the alert raised, so a drawn limit that is itself
+  operator-settable always agrees with the setting actually in effect.
+- Both `plot` and `line` may name only real, known channels — an unknown one
+  is a startup error, same as everywhere else in this file.
+- The whole block is **optional**. An alert with no `channels` at all still
+  gets a plot: the alarm panel falls back to the channels its own condition
+  reads (item 07's default), so a simple alert needs no config here.
+- Only `alert` rules can have a `channels` block — **not** the
+  `every_daqnode` template's events (`disconnect`, `reconnect`, `bad_data`,
+  `stale`). A template fires once per node/channel at runtime, so there is no
+  single, statically-known channel to validate `plot`/`line` against at
+  compile time; giving the template's `bad_data` event lines at the firing
+  channel's validMin/validMax remains an open question (`{refDes}`
+  interpolation into a `channels` block) tracked in the side-panel worklog,
+  not built here.
+
 ---
 
 ## Compile errors and what they mean

@@ -48,8 +48,31 @@ type Rule struct {
 	// falls back to Message.
 	Description string
 	Latch       bool
+	// PlotChannels overrides which channels the alarm panel plots — nil means
+	// "no override", and the panel falls back to `channels` (the condition's
+	// own attributed channels; item 07's already-shipped default, resolving the
+	// worklog's "what plots by default" open question). Item 09.
+	PlotChannels []string
+	// Lines are optional reference lines (item 09) — a fixed value or a live
+	// channel reading, each with a label.
+	Lines []PlotLine
 	File        string
 	Line        int
+}
+
+// PlotLine is one resolved `line <value-or-channel> "<label>"` (item 09).
+// Exactly one of Value/Channel is set:
+//   - Value: a fixed number the author wrote directly (`line 850 "limit"`)
+//   - Channel: a channel refDes whose CURRENT reading the browser should
+//     read live (`line LIM-CPT01-HIGH "abort limit"`) — see the worklog's
+//     own reasoning for why this must stay a channel reference, not a
+//     resolved-once number: "LIM-CPT01-HIGH is operator-settable, so a
+//     drawn limit that reads the channel moves when the operator moves it
+//     and cannot disagree with the rule that fired."
+type PlotLine struct {
+	Value   *float64
+	Channel string
+	Label   string
 }
 
 // exprChannels walks a compiled condition and returns the channel refDes it
@@ -389,17 +412,71 @@ func compileRule(file string, def *dsl.AlertDef, known, machines map[string]bool
 		}
 	}
 
+	// channels (item 09) is optional, same as describe — most alerts declare
+	// none and simply inherit the condition's own attributed channels
+	// (item 07's default). `plot` names must be real channels, same
+	// unknown-reference-is-fatal contract every other channel reference in
+	// this file gets.
+	for _, ch := range def.PlotChannels {
+		if !known[ch] {
+			return nil, errf(file, def.LineNo, "alert %q: channels: plot %q is not a known channel", def.Name, ch)
+		}
+	}
+	var lines []PlotLine
+	for _, ld := range def.Lines {
+		line, lerr := resolvePlotLine(file, ld, known)
+		if lerr != nil {
+			return nil, lerr
+		}
+		lines = append(lines, line)
+	}
+
 	return &Rule{
-		Name:        def.Name,
-		Cond:        def.Condition,
-		channels:    exprChannels(def.Condition),
-		Severity:    def.Severity,
-		Message:     def.Message,
-		Description: def.Description,
-		Latch:       def.Latch,
-		File:        file,
-		Line:        def.LineNo,
+		Name:         def.Name,
+		Cond:         def.Condition,
+		channels:     exprChannels(def.Condition),
+		Severity:     def.Severity,
+		Message:      def.Message,
+		Description:  def.Description,
+		Latch:        def.Latch,
+		PlotChannels: def.PlotChannels,
+		Lines:        lines,
+		File:         file,
+		Line:         def.LineNo,
 	}, nil
+}
+
+// resolvePlotLine classifies one channels-block `line` declaration's Value
+// expression (item 09): a literal number (possibly unary-negated — same
+// folding `default -60.0` elsewhere in this codebase already needs, reused
+// here via dsl.LiteralOrNegatedLiteral rather than re-derived, so the two
+// packages can never quietly diverge on what counts as a literal) folds to a
+// fixed PlotLine.Value; a bare identifier with no dot (not a
+// `machine.<name>.state` style reference — those make no sense as a plotted
+// value) is a channel reference, validated against known the same way
+// Condition's channel references already are and stored as PlotLine.Channel.
+// Anything else — a string, a boolean, an arithmetic expression, a dotted
+// machine reference — is a startup error naming exactly what line and alert
+// it came from.
+func resolvePlotLine(file string, ld *dsl.LineDef, known map[string]bool) (PlotLine, error) {
+	if lit, ok := dsl.LiteralOrNegatedLiteral(ld.Value); ok {
+		switch v := lit.Value.(type) {
+		case int64:
+			f := float64(v)
+			return PlotLine{Value: &f, Label: ld.Label}, nil
+		case float64:
+			f := v
+			return PlotLine{Value: &f, Label: ld.Label}, nil
+		}
+		return PlotLine{}, errf(file, ld.LineNo, "channels: line %q: expected a number or a channel name", ld.Label)
+	}
+	if ident, ok := ld.Value.(*dsl.IdentExpr); ok && !strings.Contains(ident.Name, ".") {
+		if !known[ident.Name] {
+			return PlotLine{}, errf(file, ld.LineNo, "channels: line %q: %q is not a known channel", ld.Label, ident.Name)
+		}
+		return PlotLine{Channel: ident.Name, Label: ld.Label}, nil
+	}
+	return PlotLine{}, errf(file, ld.LineNo, "channels: line %q: expected a number or a channel name", ld.Label)
 }
 
 // checkPlaceholders rejects a message that interpolates something the running

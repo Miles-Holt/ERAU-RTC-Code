@@ -108,7 +108,7 @@ func TestSuppressSurvivesRuleRetrigger(t *testing.T) {
 	reg.SetClock(clk.now)
 
 	// First raise, then suppress it.
-	reg.RaiseFor("rule:X", SeverityAlarm, "first message", []string{"CPT-01"}, "", "")
+	reg.RaiseFor("rule:X", SeverityAlarm, "first message", []string{"CPT-01"}, "", "", nil, nil)
 	if !reg.Suppress("rule:X") {
 		t.Fatal("Suppress should have found the alert")
 	}
@@ -122,7 +122,7 @@ func TestSuppressSurvivesRuleRetrigger(t *testing.T) {
 
 	// Re-trigger: same id, DIFFERENT message (a live-value-interpolated
 	// message that changed on this raise, as a real re-trigger would have).
-	reg.RaiseFor("rule:X", SeverityAlarm, "second message, different value", []string{"CPT-01"}, "", "")
+	reg.RaiseFor("rule:X", SeverityAlarm, "second message, different value", []string{"CPT-01"}, "", "", nil, nil)
 
 	got, ok := reg.Get("rule:X")
 	if !ok {
@@ -155,10 +155,10 @@ func TestUnsuppressAfterRetriggerShowsCurrentState(t *testing.T) {
 	reg := NewRegistry()
 	reg.SetSink(rec)
 
-	reg.RaiseFor("rule:X", SeverityAlarm, "first message", nil, "", "")
+	reg.RaiseFor("rule:X", SeverityAlarm, "first message", nil, "", "", nil, nil)
 	reg.Suppress("rule:X")
 	reg.Resolve("rule:X")
-	reg.RaiseFor("rule:X", SeverityWarning, "second message", nil, "", "")
+	reg.RaiseFor("rule:X", SeverityWarning, "second message", nil, "", "", nil, nil)
 
 	if !reg.Unsuppress("rule:X") {
 		t.Fatal("Unsuppress should have found the alert")
@@ -183,7 +183,7 @@ func TestUnsuppressAfterRetriggerShowsCurrentState(t *testing.T) {
 // parameter unchanged (item 07a's wire path, at the registry layer).
 func TestRaiseForDescriptionRoundTrips(t *testing.T) {
 	reg := NewRegistry()
-	reg.RaiseFor("rule:X", SeverityAlarm, "short message", nil, "", "the long form, unabridged")
+	reg.RaiseFor("rule:X", SeverityAlarm, "short message", nil, "", "the long form, unabridged", nil, nil)
 
 	got, ok := reg.Get("rule:X")
 	if !ok {
@@ -195,7 +195,7 @@ func TestRaiseForDescriptionRoundTrips(t *testing.T) {
 
 	// And a subsequent raise with a different description overwrites it (no
 	// stale carry-forward the way Suppressed deliberately does).
-	reg.RaiseFor("rule:X", SeverityAlarm, "short message v2", nil, "", "a different long form")
+	reg.RaiseFor("rule:X", SeverityAlarm, "short message v2", nil, "", "a different long form", nil, nil)
 	got, ok = reg.Get("rule:X")
 	if !ok {
 		t.Fatal("record vanished")
