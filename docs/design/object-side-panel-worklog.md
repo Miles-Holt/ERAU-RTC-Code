@@ -298,6 +298,12 @@ Not side-panel items, but done in the same push and worth knowing about.
   once inside a full-suite run and passed alone, then passed three consecutive
   times under `-race`. Timing-sensitive and unrelated to the panel work, but it
   is real — do not assume a one-off failure there is your change.
+- `controlnode/softchan` `TestSoftchan_SetDoesNotBlockReaders` failed once in 5
+  runs (2026-08-19, local verification of the 1am cloud run's push) with
+  "readers were starved entirely during 2000 Sets". `controlnode/softchan` was
+  not touched by any commit on this branch — confirmed with `git diff --stat`
+  against the package — so this is pre-existing timing flakiness, not a
+  regression from this work.
 
 ## Pre-existing failures on this fresh clone (2026-08-19, not flakes — deterministic)
 
