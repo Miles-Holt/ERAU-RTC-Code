@@ -34,7 +34,7 @@ Reported 2026-08-18. Fix these before the menu items.
 | # | Bug | Status |
 |---|-----|--------|
 | B1 | The P&ID **editor** sometimes renders a valve in a different spot from where the code thinks it is. Self-corrects on refresh or on any re-render, so it is a stale-render / transform desync rather than bad geometry. | not started |
-| B2 | Pipes do not leave sensors (all four sides) or the machine "SM" block (top and bottom) perpendicular to the edge. | **fixed, awaiting validation** (`7d3933a`). Two causes. (1) The router snaps its first waypoint to the grid, so a port's held coordinate must already be a grid multiple; sensor/machine glyphs sat at `R+6=23` across and `H/2=32` down, neither a multiple of 20. Replaced by named `PID_OBJ.GX=20` / `CY=40`, and `pidObjectWidth` now rounds up to a grid multiple because a left-sided row puts its glyph at `width - GX`. (2) The `daqControl` port case still sized ports off a `gridW x gridH` box that stopped existing when the machine glyph became a bubble-and-text row — ports landed on empty space. Now mirrors the sensor branch, with `pidObstacleRects` following. **Visible side effect to check:** sensor and machine glyphs move 3px left and 8px down within their row. Valves are unchanged. **Regression found and fixed in `3126ae0`:** the first cut rounded *every* row width up to a grid multiple, which widened every obstacle rect by up to a full cell and broke routes on the test panel with "could not route without crossing an object". Only left-sided rows need it. **If routing still fails, the next suspect is the `daqControl` obstacle rect** — it changed from a vestigial 200x60 box to the real measured row, which is correct but genuinely makes machine objects larger obstacles than before, so pipes that used to route through a machine's text now have nowhere to go. That is an honest obstacle, not a bug; the fix would be moving the object or the pipe, not shrinking the rect. |
+| B2 | Pipes do not leave sensors (all four sides) or the machine "SM" block (top and bottom) perpendicular to the edge. | **PARKED 2026-08-18 — do not merge as-is.** The angle fix works (user-confirmed), but the test panel still reports "could not route without crossing an object" on routes that used to build. Commits `7d3933a` + `3126ae0` are on `side-panel-buildout` only; `main` is clean. Two causes. (1) The router snaps its first waypoint to the grid, so a port's held coordinate must already be a grid multiple; sensor/machine glyphs sat at `R+6=23` across and `H/2=32` down, neither a multiple of 20. Replaced by named `PID_OBJ.GX=20` / `CY=40`, and `pidObjectWidth` now rounds up to a grid multiple because a left-sided row puts its glyph at `width - GX`. (2) The `daqControl` port case still sized ports off a `gridW x gridH` box that stopped existing when the machine glyph became a bubble-and-text row — ports landed on empty space. Now mirrors the sensor branch, with `pidObstacleRects` following. **Visible side effect to check:** sensor and machine glyphs move 3px left and 8px down within their row. Valves are unchanged. **Regression found and fixed in `3126ae0`:** the first cut rounded *every* row width up to a grid multiple, which widened every obstacle rect by up to a full cell and broke routes on the test panel with "could not route without crossing an object". Only left-sided rows need it. **If routing still fails, the next suspect is the `daqControl` obstacle rect** — it changed from a vestigial 200x60 box to the real measured row, which is correct but genuinely makes machine objects larger obstacles than before, so pipes that used to route through a machine's text now have nowhere to go. That is an honest obstacle, not a bug; the fix would be moving the object or the pipe, not shrinking the rect. |
 | B3 | Pinned actuation panels belong to the P&ID tab and correctly survive a tab switch, but they keep painting over the content of whatever tab you switch to. They should hide while P&ID is not the active tab and come back unchanged — still pinned, same binding — on return. | **closed** (`fc39256`) — user-validated 2026-08-18. — the panels are `position:fixed` on `document.body`, not inside a tab pane, so `activateTab`'s display toggle never reached them. Panels now carry their opening tab's id and `activateTab` asserts visibility. |
 
 ## Menu items
@@ -155,6 +155,40 @@ Notes for whoever picks up L1:
   cadence and sample cadence stop being the same question, and a viewer that
   conflates them will mislead. Build it before 04 lands, or make it explicit
   about which of the two it is measuring.
+
+## B2 — where to pick it up
+
+The angular-exit fix is confirmed working. The outstanding problem is that
+routes which used to build now fail. Two things make this hard to chase and
+should be fixed first:
+
+1. **There is no way to run the router outside a browser on this machine.**
+   `pidRouter.js` is pure functions with no DOM and no globals but `PID`, so it
+   is trivially testable — except Node is not installed (checked both the bash
+   PATH and Windows `Get-Command`). Installing Node and writing a harness that
+   loads `pidRender.js` + `pidRouter.js`, parses `config/test_panel.yaml`, and
+   prints every connection that fails is maybe an hour of work and turns this
+   from "ask the user to look" into a regression test. Do that before touching
+   the routing code again — this regression reached the user precisely because
+   it could not be exercised locally.
+2. **The obstacle change for `daqControl` is a real behaviour change, not a
+   bug.** It went from a vestigial 200x60 box to the measured row. Pipes that
+   previously routed through a machine's name and reading will now correctly
+   fail to route. Distinguish those from genuine regressions before "fixing"
+   anything: shrinking the rect back would restore the old lie.
+
+Suspects not yet ruled out, in order:
+
+- `PID_OBJ.CY` moved the glyph from 32 to 40 within a 64px row, so the top port
+  sits at `gridY*20 + 20` and the bottom at `+60`. Both are still inside the
+  object's own obstacle rect (0..64), which the router skips for the endpoint's
+  own component — but check that the *other* endpoint's rect, and any
+  neighbouring object's rect, are not now clipping the first stub.
+- `OBS_MARGIN` is 4px on every side. With the glyph 8px lower, the bottom port's
+  20px stub now ends 4px from the rect edge instead of 12px away.
+- Whether `_objW` is cached at the time the router first runs. If routing happens
+  before the first render, every width comes from the fallback estimate, and the
+  estimate and the measured width no longer have to agree.
 
 ## Known flakes
 
