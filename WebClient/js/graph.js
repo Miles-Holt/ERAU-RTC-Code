@@ -23,6 +23,66 @@ function graphGetUnits(refDes) {
 }
 
 // =============================================================================
+// State-machine channels on the chart (design item 14)
+// =============================================================================
+//
+// SM-<NAME>-STATE is an auto-generated, read-only softchan (see
+// controlnode/softchan/store.go RegisterStateMachineChannels and
+// docs/websocket-protocol.md) carrying the machine's current state as a
+// numeric INDEX on the ordinary `data` path — nothing new on the wire. It is
+// chartable exactly like any other channel; what's different is how it's
+// drawn and read back:
+//   - stepped, not interpolated (a straight segment between index 3 and 4
+//     would depict a state that never existed) — see addDatasetToChart.
+//   - its own y-axis by default — the index shares units with nothing else
+//     on the plot (see graphDefaultYAxisId).
+//   - its tooltip resolves the index through state_config (machineStateConfig,
+//     ws.js applyStateConfig) back to a name — see the tooltip label
+//     callback in createCellChart.
+//
+// The match is done on refDes alone (no state_config lookup) so stepping and
+// axis placement are correct even before state_config has arrived, or for a
+// machine that no longer exists — only the tooltip's name lookup needs the
+// config, and it degrades to the raw index when that lookup fails.
+//
+// NOTE for item 04 (server-side aggregation, not yet built): when history
+// gets bucketed, this channel wants **last-per-bucket**, not the min/max a
+// bucketed analogue reading wants. Averaging or min/maxing a state index
+// produces a fractional value with no corresponding state and must not
+// happen here — bucketing needs to be per-channel policy, not one global
+// rule, once item 04 lands.
+function graphStateChannelMachine(refDes) {
+    const m = /^SM-(.+)-STATE$/.exec(refDes);
+    return m ? m[1] : null;
+}
+
+// graphStateName resolves a state INDEX to its NAME via state_config for the
+// machine named in refDes. Returns null (never "undefined") when refDes
+// isn't a state channel, state_config hasn't arrived yet, or the index has
+// no matching entry (stale config, machine removed) — callers fall back to
+// the raw number in all of those cases.
+function graphStateName(refDes, index) {
+    const machine = graphStateChannelMachine(refDes);
+    if (!machine) return null;
+    const cfg = machineStateConfig[machine];
+    const state = cfg?.states?.find(s => s.index === index);
+    return state ? state.name : null;
+}
+
+// graphDefaultYAxisId picks the y-axis a newly-added channel starts on.
+// State-index channels default to the first axis (1-6) not already used in
+// this cell rather than the usual shared axis 1, so they don't land on the
+// same scale as an analogue reading and make both unreadable. The operator
+// can still move it with the axis badge (updateCellPanel) same as any
+// channel; this only sets the starting point.
+function graphDefaultYAxisId(cell, refDes) {
+    if (!graphStateChannelMachine(refDes)) return 1;
+    const used = new Set(cell.channels.map(c => c.yAxisId));
+    for (let i = 1; i <= 6; i++) if (!used.has(i)) return i;
+    return 1; // all six axes already taken; badge click still moves it
+}
+
+// =============================================================================
 // Graph layout YAML save / load
 // =============================================================================
 
@@ -455,7 +515,18 @@ function createCellChart(canvas) {
                         label: (item) => {
                             const refDes = item.dataset.label;
                             const units  = graphGetUnits(refDes);
-                            const val    = typeof item.parsed.y === 'number' ? item.parsed.y.toFixed(2) : item.parsed.y;
+                            let val;
+                            if (typeof item.parsed.y === 'number') {
+                                // SM-<NAME>-STATE: render the state NAME through
+                                // state_config, not the raw index — falls back to
+                                // the number itself when there's no config yet, no
+                                // matching index (stale config, machine removed),
+                                // or this isn't a state channel at all.
+                                const stateName = graphStateName(refDes, Math.round(item.parsed.y));
+                                val = stateName ?? item.parsed.y.toFixed(2);
+                            } else {
+                                val = item.parsed.y;
+                            }
                             const showDesc = item.chart.options._showDesc;
                             const desc   = showDesc ? graphGetDesc(refDes) : '';
                             const name   = desc ? `${refDes} (${desc})` : refDes;
@@ -478,7 +549,7 @@ function addChannelToCell(tabId, cellIdx, refDes) {
 
     const used  = cell.channels.map(c => c.color);
     const color = CHART_COLORS.find(c => !used.includes(c)) ?? CHART_COLORS[cell.channels.length % CHART_COLORS.length];
-    const ch = { refDes, color, hidden: false, yAxisId: 1 };
+    const ch = { refDes, color, hidden: false, yAxisId: graphDefaultYAxisId(cell, refDes) };
     cell.channels.push(ch);
 
     if (!channelBuffers[refDes]) channelBuffers[refDes] = { ts: [], vals: [] };
@@ -510,7 +581,12 @@ function addDatasetToChart(chart, refDes, color, hidden, ch) {
         backgroundColor: color + '22',
         hidden,
         fill:            false,
-        yAxisID:         'y' + (ch?.yAxisId ?? 1)
+        yAxisID:         'y' + (ch?.yAxisId ?? 1),
+        // A state INDEX must step from one value to the next, not interpolate
+        // — a straight line between index 3 and 4 draws a state that never
+        // existed. Chart.js `stepped: true` holds the previous value until
+        // the next sample instead. See graphStateChannelMachine above.
+        stepped:         !!graphStateChannelMachine(refDes)
     });
     chart.update('none');
 }
