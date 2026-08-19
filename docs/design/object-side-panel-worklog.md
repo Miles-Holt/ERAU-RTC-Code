@@ -66,7 +66,7 @@ in the Artifact comment threads, and here.
 | 01 | Glow the object while its panel is open | **done, awaiting validation** (`9f8548a`) — glow was already built and simply never switched on. |
 | 02 | Esc and ✕ close it; a right-click elsewhere does not | **done, awaiting validation** (`9f8548a`) — the old document-level contextmenu listener never governed retargeting (object handlers stopPropagation); it only closed the panel on an empty-canvas right-click, which was the defect. |
 | 03 | Catch a missing control in the editor, not at right-click. Runtime stays silent; at load time walk the panel's declared controls and warn per key with no config entry, naming the control id and its location | done — the problem-list mechanism (`computeEdProblems`/`pidSensorUnboundReason`/warn dropdown) landed in `3e83f68`; this pass added the grid position to each row's detail text so a dangling binding is identifiable without clicking every row |
-| 04 | Send aggregates, not every point — server-side per-bucket **min/max/last** at the requested resolution, raw points only for short windows | **server half done, awaiting validation** (`f114425`) — new `controlnode/history` package retains 25 min of raw samples per channel in memory, fed from `broker.Run`'s `dataIn` case at the DAQ's real sample rate; `GET /api/history?refDes=..&from=..&to=..&buckets=N` (repeatable `refDes`) buckets on request into min/max/last/n, omitting empty buckets, no separate raw-points code path (a short window naturally degenerates to 1-sample buckets). Discreteness classification (`last`-only vs min/max meaningful) mirrors `graphChannelIsDiscrete` (items 14/15) exactly, server-side, so client and server can never disagree about which channels are stepped. No auth, matching `/ws/data`. Documented in `docs/websocket-protocol.md` Part 3. **Client half not started** — no chart on the Graph tab or the object side panel fetches from this endpoint yet; `channelBuffers` is still purely the live-stream buffer described in "How the pieces fit" above. Verified with `go test -race` on the touched packages, not just `-count=1`. |
+| 04 | Send aggregates, not every point — server-side per-bucket **min/max/last** at the requested resolution, raw points only for short windows | **done, awaiting validation** — server half `f114425`, client half `3715e63`. Server: new `controlnode/history` package retains 25 min of raw samples per channel in memory, fed from `broker.Run`'s `dataIn` case at the DAQ's real sample rate; `GET /api/history?refDes=..&from=..&to=..&buckets=N` (repeatable `refDes`) buckets on request into min/max/last/n, omitting empty buckets, no separate raw-points code path (a short window naturally degenerates to 1-sample buckets). Discreteness classification (`last`-only vs min/max meaningful) mirrors `graphChannelIsDiscrete` (items 14/15) exactly, server-side, so client and server can never disagree about which channels are stepped. No auth, matching `/ws/data`. Documented in `docs/websocket-protocol.md` Part 3. Verified with `go test -race`, not just `-count=1`. Client: `ensureCellHistory`/`mergeHistoryBuckets` (graph.js) — per cell, batches every channel whose local buffer doesn't reach the visible window's start into one request, prepends whatever's strictly older than the earliest buffered point, never touches the live tail. Every bucket plots as `last` uniformly (min/max ride the wire, unused for now). Wired at all three places a graph cell is built — Graph tab, the side panel, and P&ID-embedded graph objects (`pid.js`'s `makeGraphGroup`) — since only two of those get item 14/15's treatment for free from shared functions. `CONFIG.graphBufferMinutes` raised 15→25 (`state.js`) to match server retention, a one-line prerequisite bundled in — without it the client would discard fetched history past 15 min on the very next live sample regardless of what the server now retains. No browser/Node available to run any of this — reasoned through by hand, including the merge's ordering/interleaving safety under a fetch racing a client-side trim. |
 | ~~10~~ | *Cut.* Command block in the panel — commanding stays in the command panel, one route to a command | — |
 
 ### Show what the object is doing
@@ -248,6 +248,20 @@ Not side-panel items, but done in the same push and worth knowing about.
   charted via a saved graph-layout YAML or a P&ID graph object's configured
   `lines[]`, never by typing into the search box. Pre-existing, not introduced by
   item 14, and not specific to state channels. Worth its own small fix.
+
+- **P&ID-embedded graph objects never got item 16's Freeze/Now buttons.**
+  Found while wiring item 04's client half, which needed to reach all three
+  places a "graph cell" gets built (`buildGraphCell`/`resizeGraphGrid`,
+  `objectSidebar.js`, and `pid.js`'s `makeGraphGroup`) — items 14 and 15 reach
+  all three for free because their logic lives inside functions all three
+  already share (`addDatasetToChart`, `createCellChart`), but item 16's
+  Freeze/Now buttons are per-cell UI that only got wired into the Graph tab
+  and the side panel. `makeGraphGroup` already calls
+  `attachDragPan`/`attachScrollZoom` on its cell, so a P&ID-embedded graph
+  object can be panned away from live exactly like the other two, with no
+  button saying so and no way back except dragging by hand. Introduced by
+  item 16's own commit (`a07cc3e`), not by item 04. Small — same two buttons,
+  same wiring pattern, third call site.
 
 ## Known flakes
 
