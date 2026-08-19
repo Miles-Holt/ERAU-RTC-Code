@@ -69,6 +69,31 @@ function graphStateName(refDes, index) {
     return state ? state.name : null;
 }
 
+// graphChannelIsDiscrete decides whether refDes carries a small, fixed set of
+// values rather than something that genuinely moves through the readings
+// between two samples — item 14's SM-<NAME>-STATE channels, a boolean
+// command (role cmd-bool), or the boolean side of an IO-CMD_IO-FB valve pair
+// (item 15). A continuous channel — cmd-pct/cmd-float commands, POS-FB
+// feedback, an ordinary sensor reading — must NOT be stepped: it really does
+// take the values in between, and forcing a step there draws the "state that
+// never existed" bug item 14's own comment describes, from the other side.
+// The valve case needs the parent CONTROL, not just the channel — a
+// feedback channel's role is empty/'sensor' either way; only ctrl.subType
+// says whether that feedback is a pair of limit switches (IO-FB) or a
+// continuous position (POS-FB) — the same distinction _valveSubtypeInfo
+// (pidRender.js) draws for the glyph itself (limit ticks vs. an arc).
+function graphChannelIsDiscrete(refDes) {
+    if (graphStateChannelMachine(refDes)) return true;
+    const info = lookupChannel(refDes);
+    if (!info) return false;
+    const { ctrl, ch } = info;
+    if (ch.role === 'cmd-bool') return true;
+    if ((ch.role === '' || ch.role === 'sensor') && ctrl?.type === 'valve') {
+        return (ctrl.subType || '').toUpperCase().includes('IO-FB');
+    }
+    return false;
+}
+
 // graphDefaultYAxisId picks the y-axis a newly-added channel starts on.
 // State-index channels default to the first axis (1-6) not already used in
 // this cell rather than the usual shared axis 1, so they don't land on the
@@ -610,11 +635,16 @@ function addDatasetToChart(chart, refDes, color, hidden, ch) {
         hidden,
         fill:            false,
         yAxisID:         'y' + (ch?.yAxisId ?? 1),
-        // A state INDEX must step from one value to the next, not interpolate
-        // — a straight line between index 3 and 4 draws a state that never
-        // existed. Chart.js `stepped: true` holds the previous value until
-        // the next sample instead. See graphStateChannelMachine above.
-        stepped:         !!graphStateChannelMachine(refDes)
+        // A discrete channel — a state INDEX, a boolean command, a boolean
+        // valve feedback — must step from one value to the next, not
+        // interpolate: a straight line between index 3 and 4 draws a state
+        // that never existed, and the same is true of a diagonal ramp
+        // between CMD=0 and CMD=1. Chart.js `stepped: true` holds the
+        // previous value until the next sample instead, which is also what
+        // makes command/feedback lag read as a clean horizontal GAP between
+        // two vertical edges (item 15) rather than two overlapping ramps.
+        // See graphChannelIsDiscrete above.
+        stepped:         graphChannelIsDiscrete(refDes)
     });
     chart.update('none');
 }
