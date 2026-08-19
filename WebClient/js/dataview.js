@@ -271,6 +271,16 @@ function updateAllDataViews() {
     // interval doing the same job would just be more skew to reason about.
     updateObjectSidebarReadings();
 
+    // The alarm panel's elapsed-time pill and its own condition-readings
+    // mini-list (item 07) need the same fixed-cadence tick, for the same
+    // reason — both are a function of the current wall clock / rolling
+    // buffer, not of the alert record changing, so they need to advance even
+    // when nothing about the alert itself has. (The alarm panel's CONTENT —
+    // ack/suppress/message/description — refreshes separately, from
+    // alerts.js's ingestAlert; see alarmSidebar.js's updateAlarmSidebar for
+    // why both call the same repaint function.)
+    updateAlarmSidebar();
+
     const now = Date.now() / 1000;
     for (const tab of tabs) {
         if (tab.type !== 'dataView') continue;

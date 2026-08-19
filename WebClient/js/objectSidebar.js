@@ -49,6 +49,14 @@ let sidebarPillObserver = null;
 let sidebarClickedRefDes = null;
 let sidebarClickedDecimals = undefined;
 
+// The channel/node lists the Raised section (item 07) is currently querying
+// alertsFor() with — i.e. the currently-bound control's own attribution,
+// same shape openObjectSidebar already computes for the readings table, just
+// held onto so updateObjectSidebarRaised can re-run the same query on a live
+// refresh without needing the DOM's `ctrl` object again.
+let sidebarRaisedChannels = [];
+let sidebarRaisedNodes    = [];
+
 // Build the sidebar DOM once at load time and register it in graphState.
 (function initObjectSidebar() {
     // ── Outer container ──────────────────────────────────────────────────────
@@ -127,6 +135,24 @@ let sidebarClickedDecimals = undefined;
     el._readingsEl  = readingsEl;
     el._readingsRowsEl = readingsRows;
     el._readingRows = {};   // refDes -> { rowEl, valEl }
+
+    // ── Raised alerts (item 07) ────────────────────────────────────────────
+    // Sits between "what is it doing right now" (readings, above) and "what
+    // can I do to it" (the channel-management panel, below) — matching the
+    // mockup's stacking order. Rows only, no inline Ack (spec) — clicking a
+    // row opens the alarm detail panel (alarmSidebar.js) scoped to that one
+    // alert. Rebuilt wholesale on every open/refresh rather than diffed in
+    // place — the same "acceptable for now" tradeoff the readings table and
+    // chart already make (see the worklog), and for the same reason: a
+    // small, bounded list, not a hot path.
+    const raisedEl   = mkEl('div', 'object-sidebar-raised');
+    const raisedLbl  = mkEl('div', 'object-sidebar-raised-label', 'Raised');
+    const raisedRows = mkEl('div', 'object-sidebar-raised-rows');
+    raisedEl.append(raisedLbl, raisedRows);
+    cellEl.appendChild(raisedEl);
+    el._raisedEl     = raisedEl;
+    el._raisedRowsEl = raisedRows;
+    el._raisedRows   = {};   // id -> rowEl
 
     // Channel panel (bottom): list + search bar
     const panel       = mkEl('div', 'graph-cell-panel');
@@ -363,6 +389,66 @@ function _sidebarFindPidObj(g) {
 }
 
 // =============================================================================
+// Raised alerts (item 07)
+// =============================================================================
+
+// _sidebarClearRaised empties the Raised list and drops the row index —
+// mirrors _sidebarClearReadings exactly, for the same reason: called on
+// every open (before repopulating) and on close, so a retarget never leaves
+// a stale row from the previous object's alerts behind.
+function _sidebarClearRaised(sidebarEl) {
+    sidebarEl._raisedRowsEl.innerHTML = '';
+    sidebarEl._raisedRows = {};
+}
+
+// _sidebarAddRaisedRow builds one row for `alert` and appends it to the
+// Raised list. Rows only, no inline Ack (spec) — clicking anywhere on the
+// row opens the alarm detail panel (alarmSidebar.js) scoped to this one
+// alert; there is nothing else to click. The category icon/colour reuses
+// alerts.js's own vocabulary (_categoryIcon, .alert-badge-<category>'s
+// colour language) via the .object-sidebar-raised-row-<category> class,
+// rather than inventing a second severity language for the same three
+// categories.
+function _sidebarAddRaisedRow(sidebarEl, alert) {
+    const row  = mkEl('div', 'object-sidebar-raised-row object-sidebar-raised-row-' + alert.category);
+    const icon = mkEl('span', 'object-sidebar-raised-icon',
+        typeof _categoryIcon === 'function' ? _categoryIcon(alert.category) : '•');
+    const msg   = mkEl('span', 'object-sidebar-raised-msg', alert.message);
+    const chev  = mkEl('span', 'object-sidebar-raised-chevron', '›');
+    row.append(icon, msg, chev);
+    row.addEventListener('click', () => {
+        if (typeof openAlarmSidebar === 'function') openAlarmSidebar(alert.id);
+    });
+    sidebarEl._raisedRowsEl.appendChild(row);
+    sidebarEl._raisedRows[alert.id] = row;
+}
+
+// updateObjectSidebarRaised (item 07) rebuilds the Raised list for whichever
+// control the panel is CURRENTLY bound to (sidebarRaisedChannels/Nodes, set
+// by openObjectSidebar), from alertsFor() (alerts.js). Hides the whole
+// section when there is nothing to show — a "Raised" label over an empty
+// list would look broken, not simply quiet.
+//
+// Called from alerts.js's ingestAlert — every 'alert'/'alert_snapshot'
+// message — rather than the periodic redraw tick: Ack/Suppress/resolve/a
+// new alert are all EVENTS that arrive as exactly that message, so reacting
+// to the message is a tighter, simpler trigger than piggybacking on a
+// 500ms poll that has nothing to do with when alert state actually changes.
+// (The alarm panel's own live refresh, alarmSidebar.js, makes the same
+// choice for its content — see that file's comment — and additionally
+// piggybacks its elapsed-time/readings ticking on the periodic tick, which
+// this list has no equivalent need for.)
+function updateObjectSidebarRaised() {
+    const sidebarEl = document.getElementById('object-sidebar');
+    if (!sidebarEl || sidebarEl.style.display === 'none') return;
+    if (typeof alertsFor !== 'function') return;
+    _sidebarClearRaised(sidebarEl);
+    const alerts = alertsFor(sidebarRaisedChannels, sidebarRaisedNodes);
+    for (const a of alerts) _sidebarAddRaisedRow(sidebarEl, a);
+    sidebarEl._raisedEl.style.display = alerts.length ? '' : 'none';
+}
+
+// =============================================================================
 // Open
 // =============================================================================
 
@@ -381,6 +467,13 @@ function openObjectSidebar(refDes, objEl) {
     // Find the parent control that owns this channel refDes
     const ctrl = configControls.find(c => c.channels?.some(ch => ch.refDes === refDes));
     if (!ctrl) return;
+
+    // The alarm panel (item 07) is a drill-down scoped to whichever object
+    // this panel is CURRENTLY showing — see alarmSidebar.js. Retargeting to
+    // a different object makes whatever alarm it had open belong to the
+    // object being left behind, so it closes here rather than silently
+    // keep showing an alert for an object the operator has moved on from.
+    if (typeof closeAlarmSidebar === 'function') closeAlarmSidebar();
 
     const state = graphState[SIDEBAR_TAB_ID];
     if (!state) return;
@@ -421,6 +514,7 @@ function openObjectSidebar(refDes, objEl) {
     // already made for the chart, and for the same reason: a small, bounded
     // list rebuilt on every open, not a hot path.
     _sidebarClearReadings(sidebarEl);
+    _sidebarClearRaised(sidebarEl);
 
     // Add ALL channels from this control
     for (const ch of (ctrl.channels ?? [])) {
@@ -429,7 +523,23 @@ function openObjectSidebar(refDes, objEl) {
     }
     updateObjectSidebarReadings();   // paint immediately, don't wait for the next tick
 
+    // Raised alerts for this object (item 07). Attribution off the SAME
+    // channel/node lists isChannelAlarmed/isNodeAlarmed already use for this
+    // control — see alertsFor's own comment (alerts.js) — stored so a later
+    // live refresh (updateObjectSidebarRaised) can re-run the query without
+    // needing `ctrl` again.
+    sidebarRaisedChannels = (ctrl.channels ?? []).map(c => c.refDes);
+    sidebarRaisedNodes    = [...new Set((ctrl.channels ?? []).map(c => c.node).filter(Boolean))];
+
+    // Set visible BEFORE the paint-immediately calls below: both
+    // updateObjectSidebarRaised (and, on a true first-ever open,
+    // updateObjectSidebarReadings just above) bail out early while the
+    // panel is still display:none, which it still is at this exact point on
+    // the very first open of the whole session. Raised's own empty-state
+    // handling (hide the section when there is nothing to show) depends on
+    // that early-return NOT firing here, so display is flipped first.
     sidebarEl.style.display = '';
+    updateObjectSidebarRaised();   // paint immediately, don't wait for the next alert message
 
     // Trigger an immediate resize so the chart fills its container correctly
     setTimeout(() => cell.chart?.resize(), 0);
@@ -454,8 +564,23 @@ function openObjectSidebar(refDes, objEl) {
 // or any other object type with no handler of its own — which is the real
 // defect item 02 fixes. Removing it, and keeping the per-object retarget call
 // and the new sidebarSetGlow() below, is the whole fix.
+// The alarm panel (item 07, alarmSidebar.js) is a drill-down scoped to
+// whichever object THIS panel currently has open — Esc must close only the
+// topmost one. Checked here, inside this SAME listener, rather than as a
+// second independent document-level 'keydown' listener registered from
+// alarmSidebar.js: two independent listeners on the same event both fire
+// regardless of registration order or stopPropagation (only
+// stopImmediatePropagation prevents a later-registered listener from running
+// at all, which would make script load order in index.html load-bearing for
+// correctness) — checking the alarm panel first, inside one listener,
+// sidesteps that question entirely instead of relying on it.
 document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    const alarmEl = document.getElementById('alarm-sidebar');
+    if (alarmEl && alarmEl.style.display !== 'none') {
+        if (typeof closeAlarmSidebar === 'function') closeAlarmSidebar();
+        return;
+    }
     const sidebarEl = document.getElementById('object-sidebar');
     if (sidebarEl && sidebarEl.style.display !== 'none') closeObjectSidebar();
 });
@@ -464,12 +589,20 @@ function closeObjectSidebar() {
     const sidebarEl = document.getElementById('object-sidebar');
     if (!sidebarEl) return;
 
+    // The alarm panel is a child of this one (Part C) — closing the parent
+    // closes the child. The reverse is deliberately not true: closing the
+    // alarm panel must not touch this one (see closeAlarmSidebar).
+    if (typeof closeAlarmSidebar === 'function') closeAlarmSidebar();
+
     sidebarEl.style.display = 'none';
     sidebarSetGlow(null);
     _sidebarBindStatePill(sidebarEl, null);
     _sidebarClearReadings(sidebarEl);
+    _sidebarClearRaised(sidebarEl);
     sidebarClickedRefDes   = null;
     sidebarClickedDecimals = undefined;
+    sidebarRaisedChannels  = [];
+    sidebarRaisedNodes     = [];
 
     const state = graphState[SIDEBAR_TAB_ID];
     if (!state) return;

@@ -1042,6 +1042,12 @@ function updateAllGraphs() {
         if (tabId === '__sidebar__') {
             const sidebarEl = document.getElementById('object-sidebar');
             if (!sidebarEl || sidebarEl.style.display === 'none') continue;
+        } else if (tabId === '__alarm_sidebar__') {
+            // The alarm detail panel (item 07, alarmSidebar.js) — same
+            // "only advance the live-follow window while actually visible"
+            // treatment as the object sidebar above.
+            const alarmEl = document.getElementById('alarm-sidebar');
+            if (!alarmEl || alarmEl.style.display === 'none') continue;
         } else if (tabId.startsWith('__pid_graph_')) {
             // Embedded graph object in a front panel — always update
         } else {

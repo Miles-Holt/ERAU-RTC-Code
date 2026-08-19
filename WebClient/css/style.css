@@ -1797,6 +1797,293 @@ header h1 {
 .object-sidebar-reading-row:hover .object-sidebar-reading-promote { opacity: 1; }
 .object-sidebar-reading-promote:hover { color: var(--text); border-color: var(--border); }
 
+/* ── Raised alerts (item 07) ─────────────────────────────────────────────── */
+/* Same row shape as the readings table above (.object-sidebar-reading-row),
+   new class name because it's a different kind of row (a whole row is one
+   click target, no per-row action button). Category colour reuses the exact
+   language .alert-badge-<category> already established in the bottom bar —
+   see alerts.js's file banner — rather than inventing a second one. */
+
+.object-sidebar-raised {
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    padding: 7px 12px;
+    max-height: 140px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.object-sidebar-raised-label {
+    font-family: monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+    flex-shrink: 0;
+}
+
+.object-sidebar-raised-rows {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.object-sidebar-raised-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    padding: 3px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+.object-sidebar-raised-row:hover { background: var(--card-bg); }
+
+.object-sidebar-raised-icon { flex-shrink: 0; font-size: 12px; }
+
+.object-sidebar-raised-msg {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.object-sidebar-raised-row-info    .object-sidebar-raised-msg { color: #58a6ff; }
+.object-sidebar-raised-row-warning .object-sidebar-raised-msg { color: #e3b341; }
+.object-sidebar-raised-row-alarm   .object-sidebar-raised-msg { color: #f78166; }
+
+.object-sidebar-raised-chevron {
+    flex-shrink: 0;
+    color: var(--muted);
+}
+
+/* =============================================================================
+   Alarm detail sidebar (item 07)
+   ============================================================================= */
+/* A second, right-of-the-object-panel drill-down — "same template, different
+   subject" per the design doc, so it matches .object-sidebar's positioning
+   language (top/bottom/width/z-index/background/border-left/box-shadow)
+   exactly except `right`, which sits it flush against the object panel's own
+   left edge, and uses its own class names throughout rather than reusing
+   .object-sidebar's. */
+
+.alarm-sidebar {
+    position: absolute;
+    right: 320px;
+    top: 0;
+    bottom: 0;
+    width: 320px;
+    z-index: 150;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.5);
+}
+
+.alarm-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    gap: 8px;
+}
+
+.alarm-sidebar-title {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.alarm-sidebar-name {
+    font-family: monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.alarm-sidebar-sub {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.alarm-sidebar-close {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: background 0.1s, color 0.1s;
+}
+.alarm-sidebar-close:hover { color: var(--text); background: var(--card-bg); }
+
+/* Scrollable body — everything below the header. Sections stack vertically
+   with their own top borders (mirroring the mockup's .sp-sec dividers)
+   rather than nesting inside one flex:1 "card" the way the object panel's
+   readings/raised sections nest inside its .graph-cell — this panel is a
+   flatter stack of independent sections, so it scrolls as a whole instead. */
+.alarm-sidebar-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.alarm-sidebar-body .graph-cell {
+    margin: 0 12px 8px;
+    flex-shrink: 0;
+}
+
+/* ── Status row: elapsed-time + ack-state pills ──────────────────────────── */
+/* Colour language matches .object-sidebar-pill (item 06) — --status-connected
+   for a calm/handled state, --status-disconnected + --tint-alarm for one
+   that still needs attention, --muted/border for a plain informational pill —
+   no new palette. */
+
+.alarm-sidebar-status {
+    padding: 7px 12px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.alarm-sidebar-pill {
+    display: inline-block;
+    font-family: monospace;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 2px 7px;
+    color: var(--muted);
+}
+.alarm-sidebar-pill--raised   { color: var(--muted); }
+.alarm-sidebar-pill--unacked  { color: var(--status-disconnected); border-color: var(--status-disconnected); background: var(--tint-alarm); }
+.alarm-sidebar-pill--acked    { color: var(--status-connected); border-color: var(--status-connected); }
+
+.alarm-sidebar-section {
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    padding: 7px 12px;
+}
+
+.alarm-sidebar-label {
+    font-family: monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+}
+
+/* ── Message section (item 07a) ──────────────────────────────────────────── */
+
+.alarm-sidebar-message {
+    font-size: 13px;
+    color: var(--status-disconnected);
+}
+
+.alarm-sidebar-description {
+    margin: 6px 0 0;
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: var(--muted);
+}
+
+/* ── Condition / readings mini-list ──────────────────────────────────────── */
+/* Same row shape as .object-sidebar-reading-row, new class name — this list
+   has no click-to-copy and no promote button, just name + current value. */
+
+.alarm-sidebar-readings-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.alarm-sidebar-reading-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 12px;
+    padding: 2px 3px;
+}
+
+.alarm-sidebar-reading-name {
+    flex: 1;
+    min-width: 0;
+    font-family: monospace;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.alarm-sidebar-reading-value {
+    margin-left: auto;
+    font-family: monospace;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    white-space: nowrap;
+}
+.alarm-sidebar-reading-value.bad { color: var(--status-disconnected); }
+
+/* ── Actions: Ack / Suppress ──────────────────────────────────────────────── */
+/* No Reset — see alarmSidebar.js's file banner comment: it has no defined
+   meaning anywhere in the design and is deliberately not built. */
+
+.alarm-sidebar-actions-row {
+    display: flex;
+    gap: 8px;
+}
+
+.alarm-sidebar-btn {
+    flex: 1;
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--card-bg);
+    color: var(--text);
+}
+.alarm-sidebar-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* "Quiet" (Suppress/Unsuppress) sits visually lighter than Ack until it's
+   the active state — suppressing is a bigger, less-frequent decision than
+   acking, so it shouldn't read with the same weight by default. */
+.alarm-sidebar-btn--quiet { color: var(--muted); }
+.alarm-sidebar-btn--active {
+    background: var(--tint-stale);
+    color: var(--status-stale);
+    border-color: var(--status-stale);
+}
+
+.alarm-sidebar-note {
+    margin-top: 7px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
 /* =============================================================================
    Console tab
    ============================================================================= */
@@ -3121,6 +3408,21 @@ header h1 {
 .alert-badge-alarm   { color: #f78166; }
 .alert-badge.pulsing { animation: alert-pulse 1s ease-in-out infinite; }
 
+/* "View suppressed" badge (item 07b) — a STANDING count, not an urgency
+   signal, so no pulse ever, even while suppressed alerts exist: it is a
+   toggle with a number on it, not another thing demanding attention. Its
+   'active' modifier (applied while the filter is on) is the only visual
+   state change it ever gets. */
+.alert-badge-suppressed {
+    cursor: pointer;
+    color: var(--muted);
+}
+.alert-badge-suppressed:hover { border-color: var(--accent); color: var(--accent); }
+.alert-badge-suppressed.active {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
 .alert-toggle-btn {
     background: none;
     border: none;
@@ -3155,6 +3457,15 @@ header h1 {
 
 .alert-row.acked { opacity: 0.45; }
 .alert-row.unacked { border-left: 3px solid; }
+/* Suppressed rows only ever appear with "View suppressed" on (item 07b —
+   no row at all otherwise); marked rather than left to blend into an acked
+   row, and NOT pulsing even if technically unacked, matching the header
+   badge's own "standing indicator, not urgency" treatment. */
+.alert-row-suppressed {
+    opacity: 0.6;
+    border-left: 3px dashed var(--muted) !important;
+    animation: none !important;
+}
 .alert-row-info.unacked    { border-left-color: #58a6ff; animation: alert-pulse 1.8s ease-in-out infinite; }
 .alert-row-warning.unacked { border-left-color: #e3b341; animation: alert-pulse 1.8s ease-in-out infinite; }
 .alert-row-alarm.unacked   { border-left-color: #f78166; animation: alert-pulse 1.2s ease-in-out infinite; }
