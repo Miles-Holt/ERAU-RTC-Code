@@ -75,9 +75,9 @@ in the Artifact comment threads, and here.
 |---|------|--------|
 | 05 | Live readings table under the chart — every channel with current value, units, per-object decimals | **done, awaiting validation** — table renders under the chart, repainted from `channelBuffers` on the same interval as the DataView tab (`updateAllDataViews`/app.js), no timer of its own. Per-object decimals apply to the row for the specifically-clicked channel via `pidFormatValue`/`_sidebarFindPidObj`; other rows use its default. No browser available to confirm rendering. |
 | 06 | State line in the header — `LIVE / STALE / NO DATA / UNBOUND / ALARMING` as a pill, same vocabulary as the glyph | **done, awaiting validation** — the pill reads the SAME classList the glyph is colored from (`st-live`/`st-nodata`/`st-stale`/`st-unbound`/`alarmed`, via a `MutationObserver` on the clicked object's `<g>`), so it cannot disagree with the glyph by construction rather than by re-deriving state independently. Shares the glow's known limitation: a config/layout reload rebuilds the SVG groups and orphans the observed node. |
-| 07 | Raised alerts as rows, **no inline Ack**; a row opens a second right-side panel scoped to the alarm (plot, time-in-alarm, long description, Ack / Reset / Suppress) | not started — Suppress semantics settled 2026-08-19: targets the alert, not the rule (see Decisions) |
-| 07a | A long description on the alert definition — optional `describe "…"` beside `message` in `config/alerts/alerts.alert`, same placeholder interpolation, rendered in the alarm panel | not started |
-| 07b | Somewhere to see what is suppressed — a "View suppressed" filter plus a standing count; suppressed alerts have **no row** in the default list (not greyed — hidden) | not started |
+| 07 | Raised alerts as rows, **no inline Ack**; a row opens a second right-side panel scoped to the alarm (plot, time-in-alarm, long description, Ack / Reset / Suppress) | **server half done** (`5ad7106`) — `Registry.Suppress`/`Unsuppress` (registry.go), `Record.Suppressed`/`SuppressedAt`. The load-bearing fix: `RaiseFor` now carries `Suppressed`/`SuppressedAt` forward from any existing record onto a fresh re-raise — without it, suppression would silently break on a rule's very first re-trigger, since `evalRules` only calls `RaiseFor` on the rising edge and always runs `Resolve`/`ResolveAndAck` first, guaranteeing every re-trigger builds a brand-new `Record`. Verified at both the registry-unit level and the ctrl-message-end-to-end level. **"Reset" was deliberately NOT built** — no design text, worklog entry, or comment thread anywhere gives it a meaning distinct from Ack; guessing at a control-action's behavior was judged not worth it. See the open question below. **Client half not started** — no "Raised" section on the object panel, no alarm detail panel yet. |
+| 07a | A long description on the alert definition — optional `describe "…"` beside `message` in `config/alerts/alerts.alert`, same placeholder interpolation, rendered in the alarm panel | **server half done** (`5ad7106`) — new DSL token `TOK_DESCRIBE` (deliberately distinct from the pre-existing `TOK_DESCRIPTION`, a different keyword used by `.chan` files), optional (unlike `message`), same placeholder validation, flows through `RaiseFor`'s new `description` param onto `Record.Description`. Documented in `docs/dsl-guide.md`. **Client half not started** — nothing renders it yet. |
+| 07b | Somewhere to see what is suppressed — a "View suppressed" filter plus a standing count; suppressed alerts have **no row** in the default list (not greyed — hidden) | **not started** — purely client-side (the server already has everything needed via `Record.Suppressed`); depends on 07's client half landing first. |
 | 08 | Which node owns it, and is that node up — `DAQ001 · connected 4m` in the header | **not implemented — half the data doesn't exist on the wire.** Node *ownership* is genuinely published: `controlnode/config/yaml.go`'s `webclientChannel.Node` (`json:"node"`) is set from `ch.RefDesDaq` and reaches the browser as `channel.node` in the `config` message (the browser stores it in `channelIndex[refDes].ch.node` — `pid.js` already reads it for `isNodeAlarmed`). But *node up/down and "connected 4m"* have no wire representation at all: there is no node-status message, and `lastSeen`/`everConnected` (`controlnode/alerts/engine.go`) never leave the server. The only browser-visible proxy is a disconnect/reconnect **alert**, and that's not a substitute — it depends on a `disconnect`/`reconnect` rule actually being configured per node (engine_test.go: "no disconnect rule configured, so nothing should be raised"), it conflates connectivity with ack state (an acked disconnect alert reads as not-alarmed even if the node is still down), and it carries no duration. Building "connected 4m" from that would be guessing dressed up as a feature. Left unimplemented per instruction; would need a new node-status message (refDes, connected bool, since-timestamp) built from the engine's existing `lastSeen`/`everConnected` maps — a protocol change, not a client one. |
 | 09 | A `channels` section on the alert declaring what its plot draws (`plot <ch>`, `line <value-or-channel> "<label>"`); the `bad_data` template becomes one consumer, emitting lines at validMin/validMax | not started |
 
@@ -142,6 +142,23 @@ Raised but not answered. Each blocks part of an item.
    `acked` and `resolved` — no operator identity, and the browser connects
    anonymously. "Acked by" and "suppressed by" cannot be built without adding
    identity first. Affects 07 and 07b.
+5. **What does "Reset" do?** The design mockup's alarm panel shows an
+   "ACK / RESET / SUPPRESS" button row, but no design text, comment thread, or
+   worklog entry anywhere gives Reset a meaning distinct from Ack — it is a
+   label with no specified behaviour. Not built (2026-08-19, item 07's server
+   half) rather than guessed: this system controls a rocket test stand, and a
+   wrong guess on a control action is a worse outcome than a missing button.
+   The alarm panel ships with Ack and Suppress/Unsuppress only. Needs an
+   answer from the user before it can be built at all.
+6. **Should the existing bottom alert bar (`WebClient/js/alerts.js`) also open
+   the new alarm panel when a row is clicked?** As specified, item 07's alarm
+   panel is reachable ONLY from the object side panel's new "Raised" list —
+   but not every alert is attributable to a single front-panel object with a
+   right-click menu (a node-level connect/disconnect alert, or a rule whose
+   condition spans channels on several different objects), so those alerts
+   have no path at all to Suppress or the long description. Left as an open
+   question rather than decided either way — see item 07's client-half work
+   for where this was noticed.
 
 ## Later — raised, not scheduled
 
