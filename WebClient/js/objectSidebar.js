@@ -253,12 +253,24 @@ function _copyToClipboard(text, done) {
 // refDes from the header — because that is what config, alert rules and graph
 // cells actually reference; copying the wrong one of the two is its own class
 // of bug (see the design doc's rationale for item 12).
+//
+// The promote button (item 11) is a separate control on the same row rather
+// than a second meaning for the row's own click, so "copy the name" and "send
+// it to a real graph" stay two distinct, unambiguous actions instead of one
+// click doing different things depending on where exactly it lands. It calls
+// stopPropagation so clicking it doesn't also fire the row's copy handler.
 function _sidebarAddReadingRow(sidebarEl, ctrl, ch) {
     const row   = mkEl('div', 'object-sidebar-reading-row');
     const nameEl = mkEl('span', 'object-sidebar-reading-name', ch.refDes);
     const valEl  = mkEl('span', 'object-sidebar-reading-value', '--');
     const unitsEl = mkEl('span', 'object-sidebar-reading-units', ch.units || '');
-    row.append(nameEl, valEl, unitsEl);
+    const promoteBtn = mkEl('button', 'object-sidebar-reading-promote', '↗');
+    promoteBtn.title = 'Send to Graph tab';
+    promoteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        promoteChannelToGraph(ch.refDes);
+    });
+    row.append(nameEl, valEl, unitsEl, promoteBtn);
     row.title = 'Click to copy channel name';
     row.addEventListener('click', () => {
         _copyToClipboard(ch.refDes, (ok) => {

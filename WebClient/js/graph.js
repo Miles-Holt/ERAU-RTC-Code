@@ -83,6 +83,34 @@ function graphDefaultYAxisId(cell, refDes) {
 }
 
 // =============================================================================
+// Promote a channel from the object side panel to the Graph tab (item 11)
+// =============================================================================
+
+// promoteChannelToGraph is the one-click side of the side panel: "the channel
+// you are looking at" lands in a real, pannable/zoomable/saveable graph cell,
+// not the panel's own stripped-down chart. Deliberately does not offer a
+// picker for which tab/cell to target — that is exactly the kind of chrome
+// item 13 (time presets) got cut for being more control than the workflow
+// needs. The rule instead:
+//   - reuse the currently active tab if it is already a Graph tab, so
+//     repeated promotes from the sidebar land where the operator is already
+//     looking rather than jumping them around,
+//   - else reuse the first existing Graph tab, so one click doesn't multiply
+//     tabs,
+//   - else create one.
+// Always targets cell 0 of that tab. A multi-cell grid has no "the cell the
+// operator meant" without asking them to pick one, and addChannelToCell is
+// already idempotent per refDes, so promoting the same channel twice is a
+// no-op rather than a duplicate dataset.
+function promoteChannelToGraph(refDes) {
+    let tab = tabs.find(t => t.id === activeTabId && t.type === 'graph')
+           || tabs.find(t => t.type === 'graph');
+    if (!tab) tab = addTab('graph');
+    addChannelToCell(tab.id, 0, refDes);
+    activateTab(tab.id);
+}
+
+// =============================================================================
 // Graph layout YAML save / load
 // =============================================================================
 

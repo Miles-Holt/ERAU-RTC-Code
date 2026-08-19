@@ -1749,6 +1749,24 @@ header h1 {
     white-space: nowrap;
 }
 
+/* Promote-to-Graph button (item 11) — hidden until the row is hovered so the
+   table doesn't grow a permanent column of controls most of the time; only
+   the row currently under the pointer needs it. */
+.object-sidebar-reading-promote {
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1;
+    padding: 1px 4px;
+    border-radius: 3px;
+    cursor: pointer;
+    opacity: 0;
+}
+.object-sidebar-reading-row:hover .object-sidebar-reading-promote { opacity: 1; }
+.object-sidebar-reading-promote:hover { color: var(--text); border-color: var(--border); }
+
 /* =============================================================================
    Console tab
    ============================================================================= */
