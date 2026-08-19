@@ -7,7 +7,14 @@ const CONFIG = {
     staleThresholdMs:   500,
     channelStaleMs:     2000,
     reconnect:          { baseMs: 1000, maxMs: 10000, factor: 2 },
-    graphBufferMinutes: 15,
+    // Matches history.DefaultRetention (25 min, controlnode/history/store.go)
+    // exactly, so the client is never the tighter constraint on how far back
+    // a chart can show: a chart's max zoom is 1200s/20min (attachScrollZoom's
+    // clamp in graph.js), and item 04's server-side history fetch
+    // (ensureCellHistory, graph.js) prepends server history into this same
+    // buffer — a client trim shorter than the server's retention would throw
+    // away fetched history on the very next live sample.
+    graphBufferMinutes: 25,
     consoleBufferLimit: 500
 };
 

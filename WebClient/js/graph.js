@@ -376,6 +376,11 @@ function resizeGraphGrid(tabId, rows, cols) {
         if (!('viewEnd'       in cell)) cell.viewEnd       = null;
         if (!('axisLocks'     in cell)) cell.axisLocks     = {};   // { [axisId]: { min, max } }, values are numbers or absent (=auto)
         if (!('frozen'        in cell)) cell.frozen        = false;
+        // Item 04: debounced per-cell history fetch. Idempotent-init like the
+        // lines above — resizeGraphGrid PRESERVES the cell object across a
+        // grid resize, so this must not clobber an existing wrapper (and the
+        // in-flight/last-args state debounce() closes over) on every resize.
+        if (!cell._debouncedEnsureHistory) cell._debouncedEnsureHistory = debounce(() => ensureCellHistory(cell), 200);
 
         const cellEl = buildGraphCell(tabId, i);
         gridEl.appendChild(cellEl);
@@ -622,6 +627,14 @@ function addChannelToCell(tabId, cellIdx, refDes) {
     addDatasetToChart(cell.chart, refDes, color, false, ch);
     syncYAxisVisibility(cell);
     updateCellPanel(tabId, cellIdx);
+    // Item 04: a channel just added has an empty/short local buffer by
+    // definition — check whether the visible window now reaches further back
+    // than what's buffered, and fetch the gap if so. Optional-chaining is
+    // defensive only: every cell-construction site sets
+    // _debouncedEnsureHistory before any addChannelToCell call it will ever
+    // receive (see the three call-site comments), so this should never
+    // actually be a no-op in practice.
+    cell._debouncedEnsureHistory?.();
 }
 
 function removeChannelFromCell(tabId, cellIdx, refDes) {
@@ -633,6 +646,112 @@ function removeChannelFromCell(tabId, cellIdx, refDes) {
     syncYAxisVisibility(cell);
     updateCellPanel(tabId, cellIdx);
     updateActiveGraphChannels();
+}
+
+// =============================================================================
+// Server-side history fetch (item 04)
+// =============================================================================
+
+// ensureCellHistory (item 04) is the client half of server-side chart
+// aggregation: for every channel in `cell` whose buffered local history
+// (channelBuffers) doesn't already reach back to the visible window's
+// start, fetch bucketed history from GET /api/history and prepend it ahead
+// of whatever the live stream has already accumulated. Never touches or
+// duplicates the live tail — see mergeHistoryBuckets. Safe to call directly
+// (not just via a debounce wrapper): a call while one is already in flight
+// for this cell is a no-op, and the next debounced call naturally retries.
+async function ensureCellHistory(cell) {
+    if (!cell.channels.length || cell._historyFetchInFlight) return;
+
+    const now         = Date.now() / 1000;
+    const windowEnd   = cell.viewEnd ?? now;
+    const windowStart = windowEnd - cell.viewWindowSec;
+
+    // Only channels whose buffered history doesn't already reach back to
+    // windowStart need anything. 1s of slack absorbs float/tick noise so a
+    // channel that's already essentially covered doesn't trigger a fetch
+    // for one sample's worth of gap.
+    const need = [];
+    for (const ch of cell.channels) {
+        const buf = channelBuffers[ch.refDes];
+        const earliestBuffered = buf?.ts.length ? buf.ts[0] : now;
+        if (earliestBuffered > windowStart + 1) need.push(ch.refDes);
+    }
+    if (!need.length) return;
+
+    // One request for the whole cell, not one per channel — the server
+    // endpoint already supports repeating refDes for exactly this reason.
+    // Different channels can have different actual gap edges (one might
+    // already have a minute of live data, another was just added with an
+    // empty buffer); rather than issuing a different `to` per channel,
+    // request the single widest span that covers every gap
+    // [windowStart, now). mergeHistoryBuckets below only ever prepends
+    // points strictly older than what's already buffered, so a channel
+    // that gets back some buckets it didn't strictly need is harmless
+    // (deduplicated on merge), not wrong.
+    const from = windowStart;
+    const to   = now;
+
+    // Bucket count from the chart's actual pixel width — a 300px-wide side
+    // panel chart doesn't want the same resolution as a full Graph tab
+    // cell. Clamped to the endpoint's own [1,2000] range with a sane floor
+    // so a not-yet-laid-out canvas (clientWidth 0) still asks for something
+    // useful.
+    const width   = cell.chart?.canvas?.clientWidth || 300;
+    const buckets = Math.max(50, Math.min(800, Math.round(width)));
+
+    const params = new URLSearchParams();
+    for (const refDes of need) params.append('refDes', refDes);
+    params.set('from', String(from));
+    params.set('to', String(to));
+    params.set('buckets', String(buckets));
+
+    cell._historyFetchInFlight = true;
+    try {
+        const resp = await fetch('/api/history?' + params.toString());
+        if (!resp.ok) return; // stale/older control node, or a transient error — the chart
+                               // already works without this; the next pan/zoom/add retries.
+        const data = await resp.json();
+        for (const refDes of need) {
+            const result = data.channels?.[refDes];
+            if (result) mergeHistoryBuckets(refDes, result.buckets);
+        }
+        // Paint immediately rather than wait out the periodic redraw's own
+        // interval — the whole point of this item is a chart that doesn't
+        // sit visibly empty for a moment after opening/panning.
+        cell.chart?.update('none');
+    } catch (e) {
+        console.warn('history fetch failed for', need, e);
+    } finally {
+        cell._historyFetchInFlight = false;
+    }
+}
+
+// mergeHistoryBuckets prepends server-fetched bucket points that are OLDER
+// than anything already buffered for `refDes` — this only ever fills the
+// gap further back in time than the live buffer has accumulated on its own,
+// never touches or duplicates the live tail. Every bucket's single y-value
+// is its `last` sample, uniformly for discrete and continuous channels
+// alike: min/max travel over the wire (docs/websocket-protocol.md Part 3)
+// but nothing renders them as an envelope yet — that's future work, not
+// this item. Buckets arrive in ascending time order and the filtered subset
+// stays in that order, so prepending keeps channelBuffers monotonic, which
+// buildChartData's binary search already assumes.
+function mergeHistoryBuckets(refDes, buckets) {
+    if (!buckets || !buckets.length) return;
+    if (!channelBuffers[refDes]) channelBuffers[refDes] = { ts: [], vals: [] };
+    const buf = channelBuffers[refDes];
+    const cutoff = buf.ts.length ? buf.ts[0] : Infinity;
+
+    const newTs = [], newVals = [];
+    for (const b of buckets) {
+        if (b.t >= cutoff) continue; // already covered by the live buffer or an earlier fetch
+        newTs.push(b.t);
+        newVals.push(b.last);
+    }
+    if (!newTs.length) return;
+    buf.ts   = newTs.concat(buf.ts);
+    buf.vals = newVals.concat(buf.vals);
 }
 
 function addDatasetToChart(chart, refDes, color, hidden, ch) {
@@ -1158,6 +1277,7 @@ function attachDragPan(canvas, cell) {
         if (!dragging) return;
         dragging = false;
         canvas.style.cursor = 'grab';
+        cell._debouncedEnsureHistory?.();
     };
 
     canvas.addEventListener('pointerup',           endDrag);
@@ -1199,6 +1319,7 @@ function attachScrollZoom(canvas, cell) {
                 cell.chart.update('none');
                 _cellSyncLiveControls(cell);
                 updateAxisLockLabels(cell);
+                cell._debouncedEnsureHistory?.();
             });
         }
     }, { passive: false });

@@ -162,6 +162,13 @@ let sidebarClickedDecimals = undefined;
     nowBtn.addEventListener('click', () => returnCellToLive(cell));
     freezeBtn.addEventListener('click', () => toggleCellFreeze(cell));
 
+    // Item 04: debounced per-cell history fetch. Built once here (no rebuild
+    // path for this cell, unlike the Graph tab's resizeGraphGrid), so a plain
+    // assignment is enough — well before openObjectSidebar ever calls
+    // addChannelToCell on this cell (that only happens on a later right-click,
+    // long after this IIFE has finished running).
+    cell._debouncedEnsureHistory = debounce(() => ensureCellHistory(cell), 200);
+
     // Attach drag-pan, scroll-zoom and proximity tooltip — same as graph tab cells
     attachDragPan(canvas, cell);
     attachScrollZoom(canvas, cell);

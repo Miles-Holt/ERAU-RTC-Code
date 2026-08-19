@@ -631,6 +631,13 @@ function makeGraphGroup(obj, tab) {
         sizeBtn: null, showDesc: false, _dismissHandler: null,
     };
 
+    // Item 04: debounced per-cell history fetch. Must be assigned BEFORE the
+    // addChannelToCell loop just below — addChannelToCell calls
+    // cell._debouncedEnsureHistory?.() at its end, and this cell's very first
+    // channel-add can happen right there for a pre-configured (obj.lines)
+    // graph object.
+    cell._debouncedEnsureHistory = debounce(() => ensureCellHistory(cell), 200);
+
     // Pre-populate configured channels
     for (const line of (obj.lines || [])) {
         addChannelToCell(GRAPH_TAB_ID, 0, line.refDes);
