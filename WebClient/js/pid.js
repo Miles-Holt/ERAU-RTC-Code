@@ -1026,6 +1026,15 @@ function openObjectSidebarForGraph(obj) {
     // while the panel it supposedly marks has moved on to different content.
     sidebarSetGlow(null);
 
+    // Same reasoning for the state pill (item 06) and readings table (item
+    // 05): a graph object is a multi-channel plot, not a single object with a
+    // data-condition/alarm axis, so it gets neither — but retargeting from a
+    // sensor/valve must not leave that object's pill or rows showing.
+    _sidebarBindStatePill(sidebarEl, null);
+    _sidebarClearReadings(sidebarEl);
+    sidebarClickedRefDes   = null;
+    sidebarClickedDecimals = undefined;
+
     // Add the graph's configured channels
     for (const line of (obj.lines || [])) {
         addChannelToCell(SIDEBAR_TAB_ID, SIDEBAR_CELL_IDX, line.refDes);

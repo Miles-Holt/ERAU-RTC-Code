@@ -87,6 +87,7 @@ document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
         updateAllGraphs();
         updateAllDataViews();
+        updateObjectSidebarReadings();
     }
 });
 

@@ -264,6 +264,13 @@ function _createDvSparkline(canvas, color) {
 // ---------------------------------------------------------------------------
 
 function updateAllDataViews() {
+    // The object sidebar's readings table (item 05) piggybacks on this same
+    // interval (see app.js) rather than getting a timer of its own — it reads
+    // a channel's latest value out of a rolling buffer on a fixed cadence,
+    // exactly what this function already does for DataView rows, so a second
+    // interval doing the same job would just be more skew to reason about.
+    updateObjectSidebarReadings();
+
     const now = Date.now() / 1000;
     for (const tab of tabs) {
         if (tab.type !== 'dataView') continue;

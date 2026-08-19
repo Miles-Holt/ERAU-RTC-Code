@@ -1643,6 +1643,112 @@ header h1 {
     border-radius: 0;
 }
 
+/* ── State pill (item 06) ────────────────────────────────────────────────── */
+/* Same five-word vocabulary as the glyph — see pidObjStateClass/PID_OBJ in
+   pidRender.js — with the same colour mapping the glyph's ring/value use:
+   .status-connected for live, .status-stale for stale, .status-disconnected
+   for alarming, --muted for nodata/unbound. No new palette. */
+
+.object-sidebar-status {
+    padding: 7px 12px 0;
+    flex-shrink: 0;
+}
+
+.object-sidebar-pill {
+    display: inline-block;
+    font-family: monospace;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 2px 7px;
+    color: var(--muted);
+}
+.object-sidebar-pill--live     { color: var(--status-connected); border-color: var(--status-connected); }
+.object-sidebar-pill--stale    { color: var(--status-stale); border-color: var(--status-stale); background: var(--tint-stale); }
+.object-sidebar-pill--nodata   { color: var(--muted); }
+.object-sidebar-pill--unbound  { color: var(--muted); border-style: dashed; }
+.object-sidebar-pill--alarming { color: var(--status-disconnected); border-color: var(--status-disconnected); background: var(--tint-alarm); }
+
+/* ── Live readings table (item 05) ───────────────────────────────────────── */
+
+.object-sidebar-readings {
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    padding: 7px 12px;
+    max-height: 160px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.object-sidebar-readings-label {
+    font-family: monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+    flex-shrink: 0;
+}
+
+.object-sidebar-readings-rows {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.object-sidebar-reading-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 12px;
+    padding: 2px 3px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+.object-sidebar-reading-row:hover { background: var(--card-bg); }
+
+/* Click-to-copy confirmation (item 12) — a brief flash rather than swapping
+   the row's text, so the channel name being copied stays on screen the whole
+   time and a second click elsewhere can't race a text reversion. */
+.object-sidebar-reading-row--copied      { animation: sidebar-copy-flash 0.7s ease-out; }
+.object-sidebar-reading-row--copy-failed { animation: sidebar-copy-flash-fail 0.7s ease-out; }
+@keyframes sidebar-copy-flash {
+    0%   { background: var(--status-connected); }
+    100% { background: transparent; }
+}
+@keyframes sidebar-copy-flash-fail {
+    0%   { background: var(--status-disconnected); }
+    100% { background: transparent; }
+}
+
+.object-sidebar-reading-name {
+    flex: 1;
+    min-width: 0;
+    font-family: monospace;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.object-sidebar-reading-value {
+    margin-left: auto;
+    font-family: monospace;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    white-space: nowrap;
+}
+.object-sidebar-reading-value.bad { color: var(--status-disconnected); }
+
+.object-sidebar-reading-units {
+    font-size: 9.5px;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
 /* =============================================================================
    Console tab
    ============================================================================= */

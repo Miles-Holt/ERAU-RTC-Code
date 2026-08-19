@@ -31,6 +31,24 @@ function sidebarSetGlow(el) {
     if (sidebarGlowEl) sidebarGlowEl.classList.add('selected');
 }
 
+// The MutationObserver behind the header pill (item 06). Same one-slot pattern
+// as sidebarGlowEl: at most one object's classList is being watched at a time.
+// Watching the object's OWN classList — rather than recomputing dataCond/alarmed
+// from channelBuffers/alerts.js independently — is what makes "same vocabulary
+// as the glyph" a guarantee instead of a hope: pidSetObjectState (pid.js,
+// pidRender.js) is the one place st-live/st-nodata/st-stale/st-unbound/alarmed
+// ever get written, so reading them back is reading the glyph's own answer, not
+// a second opinion that could drift from it.
+let sidebarPillObserver = null;
+
+// The refDes and decimals of the specific channel the operator right-clicked,
+// as opposed to every channel on its control (which the readings table also
+// lists). Decimals are a property of the front-panel OBJECT, not the channel —
+// see pidFormatValue's comment — so only the row for the clicked channel gets
+// them; every other row in the table falls back to pidFormatValue's default.
+let sidebarClickedRefDes = null;
+let sidebarClickedDecimals = undefined;
+
 // Build the sidebar DOM once at load time and register it in graphState.
 (function initObjectSidebar() {
     // ── Outer container ──────────────────────────────────────────────────────
@@ -51,6 +69,14 @@ function sidebarSetGlow(el) {
     header.append(titleWrap, closeBtn);
     el.appendChild(header);
 
+    // ── Status row: data-condition/alarm pill (item 06) ───────────────────────
+    const statusRow = mkEl('div', 'object-sidebar-status');
+    const pillEl    = mkEl('span', 'object-sidebar-pill');
+    statusRow.appendChild(pillEl);
+    el.appendChild(statusRow);
+    el._statusRow = statusRow;
+    el._pillEl    = pillEl;
+
     // ── Graph cell (column layout: chart on top, panel below) ────────────────
     const cellEl = document.createElement('div');
     cellEl.className = 'graph-cell graph-cell--column';
@@ -60,6 +86,23 @@ function sidebarSetGlow(el) {
     const canvas    = document.createElement('canvas');
     chartArea.appendChild(canvas);
     cellEl.appendChild(chartArea);
+
+    // ── Live readings table (item 05) ─────────────────────────────────────────
+    // Sits between the chart and the "channels on the chart" management panel
+    // below it — the chart answers "what has this been doing", this answers
+    // "what is it doing right now", and the panel below manages what the chart
+    // plots. Rows are built in openObjectSidebar (one per channel on the
+    // control) and repainted by updateObjectSidebarReadings on the same redraw
+    // tick as the Graph/DataView tabs (see app.js) rather than a timer of its
+    // own.
+    const readingsEl  = mkEl('div', 'object-sidebar-readings');
+    const readingsLbl = mkEl('div', 'object-sidebar-readings-label', 'Now');
+    const readingsRows = mkEl('div', 'object-sidebar-readings-rows');
+    readingsEl.append(readingsLbl, readingsRows);
+    cellEl.appendChild(readingsEl);
+    el._readingsEl  = readingsEl;
+    el._readingsRowsEl = readingsRows;
+    el._readingRows = {};   // refDes -> { rowEl, valEl }
 
     // Channel panel (bottom): list + search bar
     const panel       = mkEl('div', 'graph-cell-panel');
@@ -118,6 +161,160 @@ function sidebarSetGlow(el) {
 })();
 
 // =============================================================================
+// State pill (item 06)
+// =============================================================================
+
+// _sidebarPillInfo reads the two axes straight off the object's own classList —
+// the same classes pidSetObjectState/pidObjStateClass put there for the glyph
+// (see the two-axis comment above PID_OBJ in pidRender.js). Returns null for a
+// null/detached element so callers can blank the pill rather than guess.
+function _sidebarPillInfo(g) {
+    if (!g || !g.classList) return null;
+    const alarmed = g.classList.contains('alarmed');
+    // The design's pill vocabulary (LIVE/STALE/NO DATA/UNBOUND/ALARMING) has
+    // five words for a two-axis, eight-combination state. Alarm wins the text
+    // when both are true — "decided: the pill reads ALARMING, not ALARM" plus
+    // the object turning red is already how alarm-over-stale/live reads on the
+    // glyph itself (see .pid-object.alarmed.st-live/.st-stale in style.css).
+    if (alarmed) return { text: 'ALARMING', mod: 'alarming' };
+    if (g.classList.contains('st-stale'))   return { text: 'STALE',   mod: 'stale' };
+    if (g.classList.contains('st-unbound')) return { text: 'UNBOUND', mod: 'unbound' };
+    if (g.classList.contains('st-nodata'))  return { text: 'NO DATA', mod: 'nodata' };
+    return { text: 'LIVE', mod: 'live' };   // st-live, or no st-* class yet
+}
+
+function _sidebarPaintPill(sidebarEl, g) {
+    const info = _sidebarPillInfo(g);
+    const pillEl = sidebarEl._pillEl;
+    if (!info) {
+        sidebarEl._statusRow.style.display = 'none';
+        return;
+    }
+    sidebarEl._statusRow.style.display = '';
+    pillEl.textContent = info.text;
+    pillEl.className = 'object-sidebar-pill object-sidebar-pill--' + info.mod;
+}
+
+// _sidebarBindStatePill retargets the pill's MutationObserver to `g` (or tears
+// it down for null) and paints once immediately — the observer only fires on
+// FUTURE class changes, so without an immediate paint the pill would show
+// nothing (or the previous object's state) until the next data tick.
+//
+// Known limitation, shared with sidebarGlowEl: a config/layout reload rebuilds
+// the SVG groups from scratch (renderPidAll), which orphans `g` — the observer
+// keeps watching a detached node that will never change again. Same failure
+// mode the selection glow already has; not fixed here.
+function _sidebarBindStatePill(sidebarEl, g) {
+    if (sidebarPillObserver) { sidebarPillObserver.disconnect(); sidebarPillObserver = null; }
+    _sidebarPaintPill(sidebarEl, g || null);
+    if (!g) return;
+    sidebarPillObserver = new MutationObserver(() => _sidebarPaintPill(sidebarEl, g));
+    sidebarPillObserver.observe(g, { attributes: true, attributeFilter: ['class'] });
+}
+
+// =============================================================================
+// Live readings table (item 05)
+// =============================================================================
+
+// _sidebarClearReadings empties the table and drops the row index, mirroring
+// the channel-buffer teardown already done for the chart. Called on every open
+// (before repopulating) and on close, so a retarget never leaves a stale row
+// from the previous object behind.
+function _sidebarClearReadings(sidebarEl) {
+    sidebarEl._readingsRowsEl.innerHTML = '';
+    sidebarEl._readingRows = {};
+}
+
+// _copyToClipboard writes `text` and reports success/failure via callback,
+// falling back to a hidden-textarea + execCommand for contexts where the
+// async Clipboard API is unavailable (e.g. non-HTTPS). No existing helper in
+// the codebase does this — dataview.js and the graph tab only ever read
+// channel names, never copy them.
+function _copyToClipboard(text, done) {
+    if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(text).then(() => done(true), () => done(false));
+        return;
+    }
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity  = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        done(ok);
+    } catch { done(false); }
+}
+
+// _sidebarAddReadingRow builds one row for `ch` and appends it to the table.
+// Click-to-copy (item 12) copies ch.refDes — the CHANNEL name, never ctrl's
+// refDes from the header — because that is what config, alert rules and graph
+// cells actually reference; copying the wrong one of the two is its own class
+// of bug (see the design doc's rationale for item 12).
+function _sidebarAddReadingRow(sidebarEl, ctrl, ch) {
+    const row   = mkEl('div', 'object-sidebar-reading-row');
+    const nameEl = mkEl('span', 'object-sidebar-reading-name', ch.refDes);
+    const valEl  = mkEl('span', 'object-sidebar-reading-value', '--');
+    const unitsEl = mkEl('span', 'object-sidebar-reading-units', ch.units || '');
+    row.append(nameEl, valEl, unitsEl);
+    row.title = 'Click to copy channel name';
+    row.addEventListener('click', () => {
+        _copyToClipboard(ch.refDes, (ok) => {
+            // Minimal confirmation (item 12): flash the row rather than swap its
+            // text, so a fast double-click on two different rows can't leave the
+            // wrong name displayed if the second click lands mid-flash.
+            row.classList.remove('object-sidebar-reading-row--copied', 'object-sidebar-reading-row--copy-failed');
+            void row.offsetWidth;   // restart the CSS animation on repeat clicks
+            row.classList.add(ok ? 'object-sidebar-reading-row--copied'
+                                  : 'object-sidebar-reading-row--copy-failed');
+        });
+    });
+    sidebarEl._readingsRowsEl.appendChild(row);
+    sidebarEl._readingRows[ch.refDes] = { rowEl: row, valEl, unitsEl };
+}
+
+// updateObjectSidebarReadings repaints every row in the currently-open table
+// from channelBuffers — the same rolling buffer the chart itself reads,
+// already kept current by bufferGraphData() on every 'data' frame (ws.js).
+// Called from app.js on the SAME redraw tick as updateAllGraphs/
+// updateAllDataViews (item 05's "not a second timer"), not on its own timer.
+function updateObjectSidebarReadings() {
+    const sidebarEl = document.getElementById('object-sidebar');
+    if (!sidebarEl || sidebarEl.style.display === 'none') return;
+    for (const [refDes, row] of Object.entries(sidebarEl._readingRows || {})) {
+        const buf = channelBuffers[refDes];
+        const v = buf && buf.vals.length ? buf.vals[buf.vals.length - 1] : undefined;
+        if (v === undefined) {
+            // No sample has arrived yet this session — render sanely rather
+            // than NaN/undefined, same placeholder pidBuildObject uses.
+            row.valEl.textContent = '--';
+            row.valEl.classList.remove('bad');
+            continue;
+        }
+        const decimals = refDes === sidebarClickedRefDes ? sidebarClickedDecimals : undefined;
+        row.valEl.textContent = typeof v === 'number' ? pidFormatValue(v, decimals) : String(v);
+        row.valEl.classList.toggle('bad', typeof isChannelBad === 'function' && isChannelBad(refDes));
+    }
+}
+
+// _sidebarFindPidObj recovers the layout object behind the SVG group the
+// operator right-clicked, by the data-pid-id every front-panel group carries
+// (pid.js). Used only to read obj.decimals for the ONE row matching the
+// clicked channel — see sidebarClickedDecimals above.
+function _sidebarFindPidObj(g) {
+    const id = g?.getAttribute('data-pid-id');
+    if (!id) return null;
+    for (const t of tabs) {
+        if (t.type !== 'frontPanel' || !t.pid?.objects) continue;
+        const obj = t.pid.objects.find(o => o.id === id);
+        if (obj) return obj;
+    }
+    return null;
+}
+
+// =============================================================================
 // Open
 // =============================================================================
 
@@ -155,10 +352,27 @@ function openObjectSidebar(refDes, objEl) {
     // panel — and whatever it was already glowing — exactly as it was.
     sidebarSetGlow(objEl);
 
+    // Retarget the state pill (item 06) to the same object the glow just
+    // bound to, so the two can never disagree about which object they describe.
+    _sidebarBindStatePill(sidebarEl, objEl);
+
+    // The clicked channel's own decimals (item 05) — see sidebarClickedDecimals.
+    const clickedObj = _sidebarFindPidObj(objEl);
+    sidebarClickedRefDes  = refDes;
+    sidebarClickedDecimals = clickedObj?.decimals;
+
+    // Replace the readings table wholesale rather than diffing it against the
+    // previous control's rows — same "acceptable for now" tradeoff item 04
+    // already made for the chart, and for the same reason: a small, bounded
+    // list rebuilt on every open, not a hot path.
+    _sidebarClearReadings(sidebarEl);
+
     // Add ALL channels from this control
     for (const ch of (ctrl.channels ?? [])) {
         addChannelToCell(SIDEBAR_TAB_ID, SIDEBAR_CELL_IDX, ch.refDes);
+        _sidebarAddReadingRow(sidebarEl, ctrl, ch);
     }
+    updateObjectSidebarReadings();   // paint immediately, don't wait for the next tick
 
     sidebarEl.style.display = '';
 
@@ -197,6 +411,10 @@ function closeObjectSidebar() {
 
     sidebarEl.style.display = 'none';
     sidebarSetGlow(null);
+    _sidebarBindStatePill(sidebarEl, null);
+    _sidebarClearReadings(sidebarEl);
+    sidebarClickedRefDes   = null;
+    sidebarClickedDecimals = undefined;
 
     const state = graphState[SIDEBAR_TAB_ID];
     if (!state) return;
