@@ -613,11 +613,16 @@ function pidObjectWidth(spec) {
     const nameW = (spec.showName === false) ? 0 : String(spec.name || '').length * 6.4;
     const textW = Math.max(valChars * PID_OBJ.CHAR_W + unitW, nameW);
     const glyphW = (spec.glyph === false) ? 0 : 2 * PID_OBJ.R + PID_OBJ.GAP;
-    // Rounded up to a grid multiple (not just an integer pixel): a left-sided
-    // row's glyph sits at `width - PID_OBJ.GX` (see portPos/pidBuildObject), so
-    // the width itself has to be on-grid too or that port drifts off-grid right
-    // along with it, same failure as PID_OBJ.GX/CY fixed for the right side.
-    return Math.ceil((glyphW + textW + 8) / PID.GRID) * PID.GRID;
+    const raw = Math.ceil(glyphW + textW + 8);
+    // Only a LEFT-sided row needs its width on the grid: it mirrors the glyph to
+    // `width - PID_OBJ.GX`, so an off-grid width drags that port off-grid and
+    // the router's snap bends the first segment. A right-sided row puts its
+    // glyph at PID_OBJ.GX no matter how wide the row is, so its width is left
+    // exactly as measured — rounding every row up widened every obstacle rect
+    // in pidObstacleRects by up to a full grid cell, which closed routing
+    // corridors that had fit for as long as the drawing had existed.
+    if ((spec.side || 'right') === 'right') return raw;
+    return Math.ceil(raw / PID.GRID) * PID.GRID;
 }
 
 // pidSensorBoxW is the object's drawn width. The renderer caches the measured
@@ -633,16 +638,18 @@ function pidSensorBoxW(obj) {
         showUnits: !obj || obj.showUnits !== false,
         showName: !obj || obj.showRefDes !== false,
         glyph: !obj || obj.showGlyph !== false,
+        // side decides whether the width gets grid-rounded, so the estimate has
+        // to carry it or a left-sided row's port and its drawn glyph disagree.
+        side: obj && obj.side,
     });
 }
 
 // pidMachineBoxW is pidSensorBoxW's counterpart for daqControl (state-machine)
 // objects: same "cached width first, estimate from raw fields otherwise"
 // contract, but the machine row has no units and its value text is a state
-// name rather than a reading, so the fallback's sample text is a generic
-// state-name pair (see pid.js's _machineSampleValue) instead of a number.
-// The fallback only matters before a first render, since makeDaqControlGroup
-// always caches the real measured width onto obj._objW right after building.
+// name rather than a reading. The fallback only matters before a first render,
+// since makeDaqControlGroup caches the real measured width onto obj._objW right
+// after building.
 function pidMachineBoxW(obj) {
     if (obj && typeof obj._objW === 'number') return obj._objW;
     return pidObjectWidth({
@@ -650,7 +657,11 @@ function pidMachineBoxW(obj) {
         showUnits: false,
         showName: !obj || obj.showRefDes !== false,
         glyph: !obj || obj.showGlyph !== false,
-        sampleValue: 'autoSequence → autoSequence',
+        side: obj && obj.side,
+        // Matches _machineSampleValue's no-states fallback in pid.js exactly.
+        // Guessing wider here inflates the obstacle rect past what is drawn and
+        // blocks routes around an object that is not really that big.
+        sampleValue: 'autoSequence',
     });
 }
 
