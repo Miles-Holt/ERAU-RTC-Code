@@ -1067,10 +1067,24 @@ function updateAllGraphs() {
             // the gap under that threshold on the very next tick and instantly undo itself.
             if (!cell.frozen && cell.viewEnd !== null && latestTs - cell.viewEnd < cell.viewWindowSec * 0.1) cell.viewEnd = null;
             const displayEnd = cell.viewEnd ?? latestTs;
-            // Build relative-coord data for each dataset
+            // Build relative-coord data for each dataset. A dataset with no
+            // channelBuffers entry is left alone rather than blanked (item
+            // 09, alarmSidebar.js): every REAL dataset in every cell in this
+            // codebase always has a channelBuffers[refDes] entry, because
+            // addChannelToCell seeds it synchronously before
+            // addDatasetToChart ever runs — so `buf` was never falsy here
+            // for any dataset that existed before item 09, making this an
+            // `if` instead of a ternary a behavior-preserving change for the
+            // Graph tab, the object side panel, and P&ID-embedded graph
+            // objects alike. The one new case this affects is a synthetic
+            // reference-line dataset (a.lines) whose `label` is a line's
+            // label text, not a real channel refDes — it manages its own
+            // `data` elsewhere (alarmSidebar.js's periodic tick), and
+            // blanking it here on every tick (much faster than that tick)
+            // would make it invisible almost immediately after being drawn.
             for (const ds of cell.chart.data.datasets) {
                 const buf = channelBuffers[ds.label];
-                ds.data = buf ? buildChartData(buf, displayEnd, cell.viewWindowSec) : [];
+                if (buf) ds.data = buildChartData(buf, displayEnd, cell.viewWindowSec);
             }
             // Offset used by tick/tooltip callbacks: how far displayEnd is behind real now
             cell.chart.options._timeOffset = displayEnd - Date.now() / 1000;

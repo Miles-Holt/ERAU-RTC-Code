@@ -306,6 +306,29 @@ function _paintAlarmSidebar(a) {
     el._ackBtn.style.display = a.acked ? 'none' : '';
     el._suppressBtn.textContent = a.suppressed ? 'Unsuppress' : 'Suppress';
     el._suppressBtn.classList.toggle('alarm-sidebar-btn--active', !!a.suppressed);
+
+    // Item 09: channel-valued reference lines track their channel's CURRENT
+    // reading, re-read here on every tick rather than resolved once at
+    // raise time (see openAlarmSidebar's comment and the wire doc's `Line`
+    // object notes) — an operator-settable limit's drawn line must always
+    // agree with its live value. Fixed-value (literal) lines never need
+    // touching after being drawn, so they're skipped. Same channelBuffers
+    // lookup/undefined-handling as _alarmUpdateReadings above.
+    if (el._lineDatasets?.length) {
+        let changed = false;
+        for (const { line, dataset } of el._lineDatasets) {
+            if (!line.channel) continue;
+            const buf = channelBuffers[line.channel];
+            const v = buf && buf.vals.length ? buf.vals[buf.vals.length - 1] : undefined;
+            if (v === undefined) continue; // nothing has arrived yet — leave the placeholder
+            dataset.data[0].y = v;
+            dataset.data[1].y = v;
+            changed = true;
+        }
+        const state = graphState[ALARM_TAB_ID];
+        const cell  = state?.cells[0];
+        if (changed && cell?.chart) cell.chart.update('none');
+    }
 }
 
 // =============================================================================
@@ -335,15 +358,96 @@ function openAlarmSidebar(alertId) {
         for (const rd of [...cell.channels.map(c => c.refDes)]) {
             removeChannelFromCell(ALARM_TAB_ID, ALARM_CELL_IDX, rd);
         }
+        // Item 09: reference-line datasets (below) are never tracked in
+        // cell.channels — they're not real channels — so the loop above
+        // doesn't touch them. Drop them here too: a Raised-list click can
+        // retarget straight from one open alert to another (see
+        // objectSidebar.js's _sidebarAddRaisedRow) without an intervening
+        // closeAlarmSidebar, so el._lineDatasets may still hold a previous
+        // alert's entries the first time this runs for a new one.
+        if (el._lineDatasets?.length) {
+            cell.chart.data.datasets = cell.chart.data.datasets.filter(
+                ds => !el._lineDatasets.some(l => l.dataset === ds));
+        }
+        el._lineDatasets = [];
         // Same reasoning as objectSidebar.js's openObjectSidebar: a Freeze
         // or manual pan left over from a DIFFERENT alert's window must not
         // carry into this one.
         returnCellToLive(cell);
-        // May be empty (a node-level alert) — an empty chart with no
-        // channels is the correct, honest result; nothing is substituted.
-        for (const refDes of (a.channels ?? [])) {
+        // Item 09: the alert's optional `plotChannels` (from its `channels`
+        // block's `plot <ch>` lines) overrides the condition's own
+        // channels when present and non-empty; otherwise fall back to the
+        // item 07 default. May be empty either way (a node-level alert) —
+        // an empty chart with no channels is the correct, honest result;
+        // nothing is substituted.
+        const plotChannels = (a.plotChannels && a.plotChannels.length) ? a.plotChannels : (a.channels ?? []);
+        for (const refDes of plotChannels) {
             addChannelToCell(ALARM_TAB_ID, ALARM_CELL_IDX, refDes);
         }
+
+        // Item 09: reference lines (a.lines) drawn behind the plot — a
+        // literal value is a fixed horizontal line; a channel reference
+        // tracks that channel's CURRENT reading, re-read on every periodic
+        // tick (_paintAlarmSidebar) rather than resolved once here, because
+        // the referenced channel is typically an operator-settable limit
+        // that can keep changing after the alert raises (see the wire
+        // doc's `Line` object notes). Pushed straight onto the chart's own
+        // dataset list rather than through addChannelToCell/
+        // addDatasetToChart — those are for real channels, and a
+        // reference line isn't one.
+        const lineColor = getChartColors().tick;
+        for (const line of (a.lines ?? [])) {
+            let y;
+            if (line.channel) {
+                const alreadyPlotted = plotChannels.includes(line.channel);
+                addChannelToCell(ALARM_TAB_ID, ALARM_CELL_IDX, line.channel);
+                if (!alreadyPlotted) {
+                    // Tracked ONLY so its live value is available, not
+                    // because the operator asked to see its own trend —
+                    // hide the raw dataset so only the reference line
+                    // shows, not a duplicate. Mirrors updateCellPanel's
+                    // visibility-toggle pattern (graph.js).
+                    const ch = cell.channels.find(c => c.refDes === line.channel);
+                    if (ch) ch.hidden = true;
+                    const rawDs = cell.chart.data.datasets.find(d => d.label === line.channel);
+                    if (rawDs) rawDs.hidden = true;
+                }
+                const buf = channelBuffers[line.channel];
+                // No sample has arrived yet for a channel just added this
+                // instant — 0 is a momentary, self-correcting placeholder
+                // until the next periodic tick fills in the real reading.
+                y = buf && buf.vals.length ? buf.vals[buf.vals.length - 1] : 0;
+            } else {
+                // A literal — `value` is always present per the wire doc
+                // when `channel` isn't (exactly one of the two).
+                y = line.value;
+            }
+            const dataset = {
+                label:       line.label,
+                data:        [{ x: -1e6, y }, { x: 1e6, y }],
+                borderColor: lineColor,
+                borderDash:  [5, 4],
+                borderWidth: 1,
+                pointRadius: 0,
+                fill:        false,
+                // Every other dataset in this codebase sets yAxisID
+                // explicitly (addDatasetToChart: 'y' + yAxisId) because the
+                // chart's scales are named y1..y6, never a bare 'y' — Chart.js
+                // has no default scale to fall back to here, so an unset
+                // yAxisID would either fail to render or auto-create its own
+                // independently-scaled axis, in which case the line's
+                // vertical position would no longer correspond to the
+                // channel it's meant to sit alongside. 'y1' matches
+                // graphDefaultYAxisId's own default for an ordinary channel
+                // — the common case this alarm panel's own plot channels
+                // land on.
+                yAxisID:     'y1',
+            };
+            cell.chart.data.datasets.push(dataset);
+            el._lineDatasets.push({ line, dataset });
+        }
+        if (a.lines?.length) syncYAxisVisibility(cell);
+        cell.chart.update('none');
     }
 
     _alarmBuildReadings(el, a.channels ?? []);
@@ -371,7 +475,16 @@ function closeAlarmSidebar() {
         for (const rd of [...cell.channels.map(c => c.refDes)]) {
             removeChannelFromCell(ALARM_TAB_ID, ALARM_CELL_IDX, rd);
         }
+        // Item 09: reference-line datasets were never added via
+        // addChannelToCell (they're not real channels, so they're not in
+        // cell.channels), so the loop above doesn't remove them — drop
+        // them here so a later open for a different alert starts clean.
+        if (el._lineDatasets?.length) {
+            cell.chart.data.datasets = cell.chart.data.datasets.filter(
+                ds => !el._lineDatasets.some(l => l.dataset === ds));
+        }
     }
+    el._lineDatasets = [];
     _alarmClearReadings(el);
 }
 
