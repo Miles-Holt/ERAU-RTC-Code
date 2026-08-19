@@ -59,11 +59,15 @@ function pidObstacleRects(objects) {
                 x2: x + b.dx + b.w + M, y2: y + b.dy + b.h + M,
             });
         } else if (o.type === 'daqControl') {
+            // Same sensor-style row as the 'sensor' branch below (see
+            // portPos's 'daqControl' case in pidRender.js) — obj.gridW/gridH
+            // is a vestigial field from the old fixed-box machine widget and
+            // no longer describes what's drawn.
             rects.push({
                 x1: o.gridX * PID.GRID - M,
                 y1: o.gridY * PID.GRID - M,
-                x2: o.gridX * PID.GRID + (o.gridW || 10) * PID.GRID + M,
-                y2: o.gridY * PID.GRID + (o.gridH || 3) * PID.GRID + M,
+                x2: o.gridX * PID.GRID + pidMachineBoxW(o) + M,
+                y2: o.gridY * PID.GRID + PID_OBJ.H + M,
             });
         } else if (o.type === 'sensor') {
             // The front-panel object is wider and taller than the old 120x50

@@ -192,8 +192,8 @@ function portPos(obj, port) {
         // moves the bubble across the object, and the ports go with it.
         const R = PID_OBJ.R;
         const w = pidSensorBoxW(obj);
-        const bx = ((obj.side || 'right') === 'right') ? R + 6 : w - (R + 6);
-        const by = PID_OBJ.H / 2;
+        const bx = ((obj.side || 'right') === 'right') ? PID_OBJ.GX : w - PID_OBJ.GX;
+        const by = PID_OBJ.CY;
         const off = R + 3;
         if (port === 'top')   return { x: x + bx,       y: y + by - off };
         if (port === 'right') return { x: x + bx + off, y: y + by };
@@ -213,12 +213,23 @@ function portPos(obj, port) {
         if (port === 'left')   return { x: x-off, y };
     }
     if (obj.type === 'daqControl') {
-        const w = (obj.gridW || 10) * PID.GRID;
-        const h = (obj.gridH || 3)  * PID.GRID;
-        if (port === 'top')    return { x: x + w / 2, y };
-        if (port === 'right')  return { x: x + w,     y: y + h / 2 };
-        if (port === 'bottom') return { x: x + w / 2, y: y + h };
-        if (port === 'left')   return { x,             y: y + h / 2 };
+        // Despite the name, this renders as the same bubble-and-text row as a
+        // sensor/valve (pidBuildObject type:'machine' — see
+        // makeDaqControlGroup / pidGlyphMachine), not the fixed gridW x gridH
+        // box this branch assumed. That box hasn't existed on screen since the
+        // machine glyph redesign (flagged in editor.js's
+        // makeDaqControlGroupEditor comment); ports still sized off it landed
+        // on empty space near the object instead of the glyph. Mirror the
+        // sensor branch instead.
+        const R = PID_OBJ.R;
+        const w = pidMachineBoxW(obj);
+        const bx = ((obj.side || 'right') === 'right') ? PID_OBJ.GX : w - PID_OBJ.GX;
+        const by = PID_OBJ.CY;
+        const off = R + 3;
+        if (port === 'top')    return { x: x + bx,       y: y + by - off };
+        if (port === 'right')  return { x: x + bx + off, y: y + by };
+        if (port === 'left')   return { x: x + bx - off, y: y + by };
+        if (port === 'bottom') return { x: x + bx,       y: y + by + off };
     }
     if (obj.type === 'tank') {
         const w = (obj.gridW || 5) * PID.GRID;
@@ -365,6 +376,19 @@ const PID_OBJ = {
     H:      64,     // row height (the selection bloom needs the room)
     GAP:    16,     // glyph edge to text block
     CHAR_W: 10.3,   // monospace advance at the 17px value size
+    // GX/CY are the glyph centre's offset from the row's near edge and its
+    // vertical centre. Sensor and machine rows draw their bubble here AND sit
+    // straight on the grid (no compensating translate, unlike valve — see
+    // pid.js's makeValveGroup), so a pipe attaches at (gridX*GRID + GX,
+    // gridY*GRID + CY) or the mirror image. Both must land on a PID.GRID
+    // multiple or the router's defensive grid-snap (pidRouter.js) yanks the
+    // first waypoint away from the real glyph and the pipe leaves at an
+    // angle. R + 6 (≈23) and H / 2 (32) did the same job but weren't grid
+    // multiples; GX/CY are the same geometry rounded onto the grid, kept as
+    // named constants so pidBuildObject, portPos, and pidValveBox can't drift
+    // apart from each other again.
+    GX:     20,
+    CY:     40,
 };
 
 // pidObjStateClass maps the two axes onto the classes CSS keys off.
@@ -589,7 +613,11 @@ function pidObjectWidth(spec) {
     const nameW = (spec.showName === false) ? 0 : String(spec.name || '').length * 6.4;
     const textW = Math.max(valChars * PID_OBJ.CHAR_W + unitW, nameW);
     const glyphW = (spec.glyph === false) ? 0 : 2 * PID_OBJ.R + PID_OBJ.GAP;
-    return Math.ceil(glyphW + textW + 8);
+    // Rounded up to a grid multiple (not just an integer pixel): a left-sided
+    // row's glyph sits at `width - PID_OBJ.GX` (see portPos/pidBuildObject), so
+    // the width itself has to be on-grid too or that port drifts off-grid right
+    // along with it, same failure as PID_OBJ.GX/CY fixed for the right side.
+    return Math.ceil((glyphW + textW + 8) / PID.GRID) * PID.GRID;
 }
 
 // pidSensorBoxW is the object's drawn width. The renderer caches the measured
@@ -608,6 +636,24 @@ function pidSensorBoxW(obj) {
     });
 }
 
+// pidMachineBoxW is pidSensorBoxW's counterpart for daqControl (state-machine)
+// objects: same "cached width first, estimate from raw fields otherwise"
+// contract, but the machine row has no units and its value text is a state
+// name rather than a reading, so the fallback's sample text is a generic
+// state-name pair (see pid.js's _machineSampleValue) instead of a number.
+// The fallback only matters before a first render, since makeDaqControlGroup
+// always caches the real measured width onto obj._objW right after building.
+function pidMachineBoxW(obj) {
+    if (obj && typeof obj._objW === 'number') return obj._objW;
+    return pidObjectWidth({
+        name: (obj && (obj.label || obj.daqRefDes)) || '',
+        showUnits: false,
+        showName: !obj || obj.showRefDes !== false,
+        glyph: !obj || obj.showGlyph !== false,
+        sampleValue: 'autoSequence → autoSequence',
+    });
+}
+
 // pidValveBox returns the drawn extent of a valve object relative to its grid
 // point. A valve is positioned by its GLYPH CENTRE rather than by the row's
 // corner — its pipes attach around that point and a panel is mostly valve
@@ -616,8 +662,8 @@ function pidSensorBoxW(obj) {
 function pidValveBox(obj) {
     const w = pidSensorBoxW(obj);
     const gx = ((obj && obj.side) || 'right') === 'right'
-        ? PID_OBJ.R + 6 : w - (PID_OBJ.R + 6);
-    return { dx: -gx, dy: -PID_OBJ.H / 2, w: w, h: PID_OBJ.H };
+        ? PID_OBJ.GX : w - PID_OBJ.GX;
+    return { dx: -gx, dy: -PID_OBJ.CY, w: w, h: PID_OBJ.H };
 }
 
 // pidBuildObject returns { g, refs }. `g` is an SVG group positioned by the
@@ -625,7 +671,11 @@ function pidValveBox(obj) {
 function pidBuildObject(spec) {
     const W = spec.width || pidObjectWidth(spec);
     const H = PID_OBJ.H;
-    const cy = H / 2;
+    // The glyph centre (gx, cy) is NOT H / 2 — see PID_OBJ.GX/CY's comment:
+    // sensor and machine rows sit flush on the grid with no compensating
+    // translate, so this is also the pixel portPos() hands the router, and it
+    // has to land on a grid multiple or pipes leave the glyph at an angle.
+    const cy = PID_OBJ.CY;
     const hasGlyph = spec.glyph !== false;
     const textRight = (spec.side || 'right') === 'right';
     const R = PID_OBJ.R;
@@ -633,7 +683,7 @@ function pidBuildObject(spec) {
     const g = svgN('g', { class: 'pid-object ' + pidObjStateClass(spec.dataCond, spec.alarmed) });
     const refs = { width: W, height: H, textRight: textRight };
 
-    const gx = !hasGlyph ? 0 : (textRight ? R + 6 : W - (R + 6));
+    const gx = !hasGlyph ? 0 : (textRight ? PID_OBJ.GX : W - PID_OBJ.GX);
     const edge = hasGlyph ? (textRight ? 2 * R + PID_OBJ.GAP : W - (2 * R + PID_OBJ.GAP))
                           : (textRight ? 4 : W - 4);
 

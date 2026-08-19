@@ -463,10 +463,11 @@ function makeTankGroup(obj) {
 // GEOMETRY: a valve's pipe ports are computed around its CENTRE at
 // (gridX*GRID, gridY*GRID) by portPos, and most of a P&ID is valve pipes, so
 // that centre must not move. pidBuildObject lays the row out from its own
-// origin with the GLYPH centre at (R + 6, H / 2) for a right-sided object
-// (mirrored to W - (R + 6) for a left-sided one), so the group is translated by
-// the negative of that offset: the glyph centre then lands exactly on the grid
-// point every existing pipe already attaches to, and portPos is untouched.
+// origin with the GLYPH centre at (PID_OBJ.GX, PID_OBJ.CY) for a right-sided
+// object (mirrored to W - PID_OBJ.GX for a left-sided one), so the group is
+// translated by the negative of that offset: the glyph centre then lands
+// exactly on the grid point every existing pipe already attaches to, and
+// portPos is untouched.
 function makeValveGroup(obj, tab) {
     const ctrl  = configControls.find(c => c.refDes === obj.controlRefDes);
     const info  = _valveSubtypeInfo(ctrl);
@@ -505,10 +506,9 @@ function makeValveGroup(obj, tab) {
 
     // Shift the row so the GLYPH centre — not the row origin — sits on the grid
     // point. This is the constraint above: valve ports do not move.
-    const R = PID_OBJ.R;
     const gx = (obj.showGlyph === false) ? 0
-             : (((obj.side || 'right') === 'right') ? R + 6 : built.refs.width - (R + 6));
-    const gy = PID_OBJ.H / 2;
+             : (((obj.side || 'right') === 'right') ? PID_OBJ.GX : built.refs.width - PID_OBJ.GX);
+    const gy = PID_OBJ.CY;
     g.classList.add('pid-obj');
     g.setAttribute('data-pid-id', obj.id);
     g.setAttribute('transform', 'translate(' +

@@ -870,10 +870,9 @@ function makeValveGroupEditor(obj) {
 
     // Shift the row so the GLYPH centre — not the row origin — sits on the
     // grid point (same constraint as pid.js's makeValveGroup).
-    const R = PID_OBJ.R;
     const gx = (obj.showGlyph === false) ? 0
-             : (((obj.side || 'right') === 'right') ? R + 6 : built.refs.width - (R + 6));
-    const gy = PID_OBJ.H / 2;
+             : (((obj.side || 'right') === 'right') ? PID_OBJ.GX : built.refs.width - PID_OBJ.GX);
+    const gy = PID_OBJ.CY;
     const ox = obj.gridX * PID.GRID - gx, oy = obj.gridY * PID.GRID - gy;
     g.classList.add('pid-obj');
     g.setAttribute('data-pid-id', obj.id);
@@ -901,14 +900,10 @@ function makeValveGroupEditor(obj) {
 // makeDaqControlGroupEditor mirrors pid.js's makeDaqControlGroup (the
 // object-system bubble + name line + value row, machine/diamond interior)
 // plus the edit-mode affordances: a full-row hit rectangle, port circles and
-// `.selected`. NOTE: portPos's 'daqControl' case still sizes ports off
-// obj.gridW/gridH (the old box), which no longer matches this row's drawn
-// extent (now text-sized, like sensor/valve) — that mismatch lives in the
-// shared portPos() in pidRender.js and predates this change; ports here use
-// portPos as the single source of truth the router also uses, so editor and
-// viewer still agree with each other even though the dots may sit off the
-// visible glyph. Flagged rather than silently patched, since portPos also
-// drives the live viewer's routing.
+// `.selected`. portPos's 'daqControl' case now mirrors the sensor branch's
+// bubble math (it used to size ports off obj.gridW/gridH, a box this row
+// stopped drawing when it became text-sized like sensor/valve) so the dots
+// land on the visible glyph, same as viewer routing.
 function makeDaqControlGroupEditor(obj) {
     const sel = (tab.pid.selectedId === obj.id);
     const machineName = obj.daqRefDes || '';
