@@ -119,6 +119,43 @@ Raised but not answered. Each blocks part of an item.
    anonymously. "Acked by" and "suppressed by" cannot be built without adding
    identity first. Affects 07 and 07b.
 
+## Later — raised, not scheduled
+
+| # | Item |
+|---|------|
+| L1 | **A viewer for data-stream cadence.** Watching the console log, the data stream does not look constant. Build something that shows whether it actually is, rather than judging it by eye from a scrolling log. |
+
+Notes for whoever picks up L1:
+
+- **The console is not a fair instrument for this, and may be the whole finding.**
+  `logConsole` in `WebClient/js/console.js` stamps `Date.now()` on arrival, which
+  is the right moment — but it then appends every entry synchronously to the DOM
+  for every open console tab. At any real sample rate that is enough layout work
+  to stutter the main thread, and a stuttering main thread makes a steady socket
+  *look* bursty. Rule that out before concluding the stream itself is irregular.
+- The default buffer is 500 entries (`CONFIG.consoleBufferLimit`,
+  `WebClient/js/state.js`), so at a few hundred messages a second the visible
+  window is a couple of seconds. Judging constancy from that window is judging it
+  from a keyhole.
+- `Date.now()` is millisecond resolution. For anything at or above ~100 Hz,
+  timestamps want `performance.now()` instead, or the quantisation itself shows up
+  as fake jitter.
+- What the viewer should actually show: inter-arrival time per channel — not just
+  aggregate message rate — as a histogram or a strip of gaps over time, plus the
+  count of intervals beyond some multiple of the expected period. "Constant" is a
+  claim about the tail, not the mean, so a mean rate of 100 Hz tells you nothing
+  about whether it ever stalled for 300 ms.
+- Worth separating three candidate causes before designing the fix: the DAQ node
+  not sampling evenly, the control node batching or coalescing before it
+  publishes, and the browser being too busy to service the socket promptly. Those
+  are three different bugs and the viewer should be able to tell them apart —
+  which probably means timestamping at the source and carrying that through,
+  rather than only measuring arrival in the browser.
+- This interacts with item 04: once history is bucketed server-side, arrival
+  cadence and sample cadence stop being the same question, and a viewer that
+  conflates them will mislead. Build it before 04 lands, or make it explicit
+  about which of the two it is measuring.
+
 ## Known flakes
 
 - `controlnode/integration` `TestStateUpdateUndeliverableWhileDisconnected` failed
