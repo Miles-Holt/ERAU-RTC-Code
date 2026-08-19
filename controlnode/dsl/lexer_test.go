@@ -392,6 +392,61 @@ func TestLexer_MinusAdjacency(t *testing.T) {
 	}
 }
 
+// TestLexer_CompoundAssign covers the tricky tokenisation cases for += and
+// -=: hyphenated identifiers (legal, and themselves built from '-') sitting
+// right next to a "-=" operator, with and without surrounding space, plus a
+// negative-literal RHS.
+func TestLexer_CompoundAssign(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  []TokenType
+	}{
+		{"spaced +=", "A += B", []TokenType{TOK_IDENT, TOK_PLUS_ASSIGN, TOK_IDENT}},
+		{"spaced -=", "A -= B", []TokenType{TOK_IDENT, TOK_MINUS_ASSIGN, TOK_IDENT}},
+		{"hyphenated target -=", "T-TIME -= B", []TokenType{TOK_IDENT, TOK_MINUS_ASSIGN, TOK_IDENT}},
+		{"hyphenated target and value -=", "A-B -= C", []TokenType{TOK_IDENT, TOK_MINUS_ASSIGN, TOK_IDENT}},
+		{"glued -= after hyphenated ident", "T-TIME-=1", []TokenType{TOK_IDENT, TOK_MINUS_ASSIGN, TOK_INT}},
+		{"glued -= after plain ident", "A-=B", []TokenType{TOK_IDENT, TOK_MINUS_ASSIGN, TOK_IDENT}},
+		{"negative literal RHS", "A -= -1", []TokenType{TOK_IDENT, TOK_MINUS_ASSIGN, TOK_MINUS, TOK_INT}},
+		{"negative literal RHS glued", "A -=-1", []TokenType{TOK_IDENT, TOK_MINUS_ASSIGN, TOK_MINUS, TOK_INT}},
+		{"glued +=", "A+=1", []TokenType{TOK_IDENT, TOK_PLUS_ASSIGN, TOK_INT}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			toks, err := NewLexer(tt.input).Tokenize()
+			if err != nil {
+				t.Fatalf("tokenize %q: %v", tt.input, err)
+			}
+			var got []TokenType
+			for _, tk := range toks {
+				if tk.Type == TOK_EOF || tk.Type == TOK_INDENT || tk.Type == TOK_DEDENT {
+					continue
+				}
+				got = append(got, tk.Type)
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("tokenize %q: got %d tokens %v, want %d %v", tt.input, len(got), got, len(tt.want), tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("tokenize %q: token %d = %v, want %v", tt.input, i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+
+	// The target must not swallow the "-" that belongs to "-=".
+	toks, err := NewLexer("T-TIME-=1").Tokenize()
+	if err != nil {
+		t.Fatalf("tokenize: %v", err)
+	}
+	if toks[0].Value != "T-TIME" {
+		t.Errorf("target = %q, want T-TIME", toks[0].Value)
+	}
+}
+
 // TestLexer_DurationSuffixes covers `5min`: an unrecognised duration unit is a
 // lex error, not a silently truncated `5m` plus a stray identifier.
 func TestLexer_DurationSuffixes(t *testing.T) {

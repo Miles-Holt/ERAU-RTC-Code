@@ -384,6 +384,62 @@ func TestParser_Statements(t *testing.T) {
 	}
 }
 
+func TestParser_CompoundAssign(t *testing.T) {
+	input := "machine test\n" +
+		"state s\n" +
+		indent(4) + "controller\n" +
+		indent(8) + "T-TIME += CYCLE_TIME\n" +
+		indent(8) + "T-TIME -= 1\n"
+
+	toks, err := NewLexer(input).Tokenize()
+	if err != nil {
+		t.Fatalf("lexer error: %v", err)
+	}
+	decl, err := Parse(toks)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	machine := decl.(*MachineDef)
+	stmts := machine.States[0].Controller
+	if len(stmts) != 2 {
+		t.Fatalf("expected 2 statements, got %d", len(stmts))
+	}
+
+	add, ok := stmts[0].(*CompoundAssignStmt)
+	if !ok {
+		t.Fatalf("statement 0: expected CompoundAssignStmt, got %T", stmts[0])
+	}
+	if add.Target != "T-TIME" || add.Op != "+=" {
+		t.Errorf("statement 0: got target=%q op=%q, want T-TIME +=", add.Target, add.Op)
+	}
+	if ident, ok := add.Value.(*IdentExpr); !ok || ident.Name != "CYCLE_TIME" {
+		t.Errorf("statement 0: value = %#v, want ident CYCLE_TIME", add.Value)
+	}
+
+	sub, ok := stmts[1].(*CompoundAssignStmt)
+	if !ok {
+		t.Fatalf("statement 1: expected CompoundAssignStmt, got %T", stmts[1])
+	}
+	if sub.Target != "T-TIME" || sub.Op != "-=" {
+		t.Errorf("statement 1: got target=%q op=%q, want T-TIME -=", sub.Target, sub.Op)
+	}
+}
+
+func TestParser_AssignOrOpError(t *testing.T) {
+	src := "machine m\nstate s\n    sequence\n        X *\n"
+	toks, err := NewLexer(src).Tokenize()
+	if err != nil {
+		t.Fatalf("lex: %v", err)
+	}
+	_, err = Parse(toks)
+	if err == nil {
+		t.Fatalf("expected a parse error")
+	}
+	if !strings.Contains(err.Error(), "expected =, ++, --, +=, or -=") {
+		t.Errorf("error %q does not mention the new forms", err)
+	}
+}
+
 func TestParser_IfElseElse(t *testing.T) {
 	input := "machine test\n" +
 		"state s\n" +
@@ -790,5 +846,71 @@ func TestParser_OperatorFromErrors(t *testing.T) {
 				t.Errorf("error %q does not contain %q", err, tt.want)
 			}
 		})
+	}
+}
+
+// TestParser_ChannelNegativeLiterals covers `default`/`min`/`max` written with a
+// leading minus. The expression parser produces a UnaryExpr around the number
+// rather than a negative literal, so these fields used to be rejected outright
+// with "expected literal value" — which took out every real config declaring a
+// T-time that counts up from before ignition, or a range crossing zero.
+func TestParser_ChannelNegativeLiterals(t *testing.T) {
+	input := "channel T-TIME\n" +
+		indent(4) + "type float\n" +
+		indent(4) + "default -60.0\n" +
+		indent(4) + "min -120\n" +
+		indent(4) + "max 30\n" +
+		indent(4) + "units seconds\n"
+
+	lexer := NewLexer(input)
+	toks, err := lexer.Tokenize()
+	if err != nil {
+		t.Fatalf("lexer error: %v", err)
+	}
+
+	decl, err := Parse(toks)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	ch, ok := decl.(*ChannelDef)
+	if !ok {
+		t.Fatalf("expected ChannelDef, got %T", decl)
+	}
+
+	for _, c := range []struct {
+		field string
+		lit   *LiteralExpr
+		want  interface{}
+	}{
+		{"default", ch.Default, -60.0},
+		{"min", ch.Min, int64(-120)},
+		{"max", ch.Max, int64(30)},
+	} {
+		if c.lit == nil {
+			t.Errorf("%s: nil literal", c.field)
+			continue
+		}
+		if c.lit.Value != c.want {
+			t.Errorf("%s: got %v (%T), expected %v (%T)",
+				c.field, c.lit.Value, c.lit.Value, c.want, c.want)
+		}
+	}
+}
+
+// TestParser_ChannelNegativeNonNumericRejected keeps the fold narrow: a sign in
+// front of something that is not a number is still an error, not a silent zero.
+func TestParser_ChannelNegativeNonNumericRejected(t *testing.T) {
+	input := "channel BAD-CHAN\n" +
+		indent(4) + "type string\n" +
+		indent(4) + "default -\"text\"\n"
+
+	lexer := NewLexer(input)
+	toks, err := lexer.Tokenize()
+	if err != nil {
+		return // rejecting at the lexer is an acceptable place to fail
+	}
+	if _, err := Parse(toks); err == nil {
+		t.Fatal("expected an error for a negated string default, got none")
 	}
 }

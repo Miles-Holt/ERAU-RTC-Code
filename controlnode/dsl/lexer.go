@@ -79,6 +79,8 @@ const (
 	TOK_ASSIGN
 	TOK_INCREMENT
 	TOK_DECREMENT
+	TOK_PLUS_ASSIGN
+	TOK_MINUS_ASSIGN
 
 	// Delimiters
 	TOK_LPAREN
@@ -354,10 +356,17 @@ func (l *Lexer) isIdentifierChar(c byte) bool {
 func (l *Lexer) readIdentOrDuration() error {
 	start := l.pos
 	for l.pos < len(l.input) && l.isIdentifierChar(l.input[l.pos]) {
-		// Stop if we encounter "--" or "++" (which should be separate tokens)
+		// Stop if we encounter "--", "++", or "-=" (which should be separate
+		// tokens).  The "-=" case is the subtle one: '-' is itself a legal
+		// identifier character (hyphenated names like T-TIME are legal), so
+		// without this check `T-TIME-=1` would greedily swallow the trailing
+		// hyphen into the identifier ("T-TIME-") and leave a stray "=" behind.
+		// '+' is never a legal identifier character, so the loop condition
+		// above already stops before a bare "+="; no matching case is needed.
 		if l.pos+1 < len(l.input) {
 			if (l.input[l.pos] == '-' && l.input[l.pos+1] == '-') ||
-				(l.input[l.pos] == '+' && l.input[l.pos+1] == '+') {
+				(l.input[l.pos] == '+' && l.input[l.pos+1] == '+') ||
+				(l.input[l.pos] == '-' && l.input[l.pos+1] == '=') {
 				break
 			}
 		}
@@ -530,6 +539,10 @@ func (l *Lexer) twoCharOp(s string) (TokenType, bool) {
 		return TOK_INCREMENT, true
 	case "--":
 		return TOK_DECREMENT, true
+	case "+=":
+		return TOK_PLUS_ASSIGN, true
+	case "-=":
+		return TOK_MINUS_ASSIGN, true
 	case "->":
 		return TOK_ARROW, true
 	}

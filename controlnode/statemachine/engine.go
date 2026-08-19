@@ -894,6 +894,37 @@ func (e *Engine) execStep(r Reader, target string, delta float64, line int) erro
 	return nil
 }
 
+// execCompoundAssign evaluates s.Value and adds/subtracts it from the current
+// value of s.Target: `a += b` is exactly `a = a + b`.  It reads-then-writes
+// the target the same way execStep does for ++ / --, except the delta comes
+// from evaluating an expression instead of a constant 1.
+func (e *Engine) execCompoundAssign(r Reader, s *dsl.CompoundAssignStmt) error {
+	cur, ok := r.Get(s.Target)
+	if !ok {
+		return e.describe(&dsl.UnresolvedError{Name: s.Target, Line: s.LineNo})
+	}
+	if cur.Type() != "float" {
+		return fmt.Errorf("line %d: %q is not numeric", s.LineNo, s.Target)
+	}
+	delta, err := e.evalNumber(r, s.Value)
+	if err != nil {
+		return err
+	}
+	var f float64
+	switch s.Op {
+	case "+=":
+		f = cur.Float() + delta
+	case "-=":
+		f = cur.Float() - delta
+	default:
+		return fmt.Errorf("line %d: unknown compound assign operator %q", s.LineNo, s.Op)
+	}
+	if err := e.writer.Set(s.Target, f); err != nil {
+		return fmt.Errorf("line %d: set %s: %w", s.LineNo, s.Target, err)
+	}
+	return nil
+}
+
 // execController runs a controller block top to bottom.  It returns the target
 // state as soon as a `transition` is reached; "" means no transition.
 func (e *Engine) execController(r Reader, m *machineRT, stmts []dsl.Stmt) (string, error) {
@@ -911,6 +942,11 @@ func (e *Engine) execController(r Reader, m *machineRT, stmts []dsl.Stmt) (strin
 
 		case *dsl.DecrementStmt:
 			if err := e.execStep(r, v.Target, -1, v.LineNo); err != nil {
+				return "", err
+			}
+
+		case *dsl.CompoundAssignStmt:
+			if err := e.execCompoundAssign(r, v); err != nil {
 				return "", err
 			}
 

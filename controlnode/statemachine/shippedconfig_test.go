@@ -8,13 +8,19 @@ import (
 	"time"
 )
 
-// daq001Path is the machine that actually runs the stand.
-const daq001Path = "../../config/machines/daq001.sm"
+// standMachinePath is the machine that actually runs the stand. It is live
+// config, not a fixture: these tests exist to make a change to the real firing
+// sequence fail loudly rather than ship quietly. That coupling is deliberate,
+// but it does mean renaming the file breaks the suite — which is exactly what
+// happened when daq001.sm became engineControl.sm. Grammar-level coverage
+// belongs in dsl/testdata/smokeTest.sm instead, so this file can stay about
+// the sequence's behaviour rather than the parser's.
+const standMachinePath = "../../config/machines/engineControl.sm"
 
-// shippedDefaults are the defaults declared in config/channels/softchannels.chan.
+// shippedDefaults are the defaults declared in config/channels/engineChannels.chan.
 // They are duplicated here on purpose: if someone changes a default, this test
 // should fail and make them re-read the schedule it produces.  Values are in
-// the DSL's base time unit (seconds), matching softchannels.chan.
+// the DSL's base time unit (seconds), matching engineChannels.chan.
 var shippedDefaults = map[string]float64{
 	"SEQ-IGN-LEAD":   0.5,
 	"SEQ-CUTOFF-T":   3.0,
@@ -24,13 +30,13 @@ var shippedDefaults = map[string]float64{
 
 func loadFiringSequence(t *testing.T) *Machine {
 	t.Helper()
-	prog, err := LoadFiles([]string{daq001Path}, Options{})
+	prog, err := LoadFiles([]string{standMachinePath}, Options{})
 	if err != nil {
-		t.Fatalf("load %s: %v", daq001Path, err)
+		t.Fatalf("load %s: %v", standMachinePath, err)
 	}
 	m, ok := prog.Machine("firingSequence")
 	if !ok {
-		t.Fatalf("machine firingSequence missing from %s", daq001Path)
+		t.Fatalf("machine firingSequence missing from %s", standMachinePath)
 	}
 	return m
 }
@@ -70,9 +76,9 @@ func driveFiringSequence(t *testing.T, values map[string]float64, tickHz, maxTic
 	t.Helper()
 	loadFiringSequence(t) // fails fast with a clear message if the machine is missing/renamed
 
-	prog, err := LoadFiles([]string{daq001Path}, Options{})
+	prog, err := LoadFiles([]string{standMachinePath}, Options{})
 	if err != nil {
-		t.Fatalf("load %s: %v", daq001Path, err)
+		t.Fatalf("load %s: %v", standMachinePath, err)
 	}
 
 	seed := map[string]float64{
@@ -260,7 +266,7 @@ func TestShippedConfig_AutoSequenceSchedule(t *testing.T) {
 // the sequence survivable, across the operator-settable range rather than only
 // at the defaults. These must hold for ANY setpoints the operator dials in.
 func TestShippedConfig_IgnitionOrdering(t *testing.T) {
-	// min/max come from config/channels/softchannels.chan (seconds).
+	// min/max come from config/channels/engineChannels.chan (seconds).
 	cases := []struct{ ignLead, cutoff float64 }{
 		{0.5, 3.0},  // defaults
 		{0.5, 10.0}, // longest burn

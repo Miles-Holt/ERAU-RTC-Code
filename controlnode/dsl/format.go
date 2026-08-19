@@ -104,6 +104,8 @@ func StmtLines(stmts []Stmt, indent int) []string {
 			out = append(out, pad+v.Target+"++")
 		case *DecrementStmt:
 			out = append(out, pad+v.Target+"--")
+		case *CompoundAssignStmt:
+			out = append(out, pad+v.Target+" "+v.Op+" "+ExprString(v.Value))
 		case *TransitionStmt:
 			out = append(out, pad+"transition "+v.Target)
 		case *CommandStmt:
@@ -154,4 +156,49 @@ func AbortRuleString(r *AbortRule) string {
 	}
 	return fmt.Sprintf("abort_rule %s %s %s from %s to %s",
 		r.Channel, r.Op, ExprString(r.Value), ExprString(r.FromMs), ExprString(r.ToMs))
+}
+
+// FormatMachine renders a whole machine definition back to DSL source text,
+// state by state, in declaration order.  It is assembled from the same
+// per-piece helpers this file already exposes for /docs (OperatorString,
+// StmtLines, AbortRuleString) rather than adding a second, parallel
+// reconstruction path — so Parse -> FormatMachine -> Parse exercises those
+// helpers against the DSL's own parser on a WHOLE file, which is what catches
+// formatter/parser drift that a single expression or statement block round
+// trip would miss (e.g. state-level ordering of operator/daq_local/
+// abort_rule/controller/sequence/abort_sequence).
+func FormatMachine(m *MachineDef) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "machine %s\n", m.Name)
+	for _, st := range m.States {
+		fmt.Fprintf(&b, "state %s\n", st.Name)
+		if st.Operator {
+			fmt.Fprintf(&b, "    %s\n", OperatorString(st.OperatorFrom))
+		}
+		if st.DaqLocal != "" {
+			fmt.Fprintf(&b, "    daq_local %s\n", st.DaqLocal)
+		}
+		for _, r := range st.AbortRules {
+			fmt.Fprintf(&b, "    %s\n", AbortRuleString(r))
+		}
+		if len(st.Controller) > 0 {
+			b.WriteString("    controller\n")
+			for _, line := range StmtLines(st.Controller, 2) {
+				b.WriteString(line + "\n")
+			}
+		}
+		if len(st.Sequence) > 0 {
+			b.WriteString("    sequence\n")
+			for _, line := range StmtLines(st.Sequence, 2) {
+				b.WriteString(line + "\n")
+			}
+		}
+		if st.HasAbortSequence {
+			b.WriteString("    abort_sequence\n")
+			for _, line := range StmtLines(st.AbortSequence, 2) {
+				b.WriteString(line + "\n")
+			}
+		}
+	}
+	return b.String()
 }

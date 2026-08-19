@@ -71,6 +71,26 @@ func TestStmtLines(t *testing.T) {
 	}
 }
 
+// TestStmtLines_CompoundAssign checks += / -= render back to their original
+// surface syntax rather than being desugared into target = target + expr.
+func TestStmtLines_CompoundAssign(t *testing.T) {
+	src := "machine m\nstate s\n    controller\n        T-TIME += CYCLE_TIME\n        T-TIME -= 1\n"
+	toks, err := NewLexer(src).Tokenize()
+	if err != nil {
+		t.Fatalf("lex: %v", err)
+	}
+	decl, err := Parse(toks)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	m := decl.(*MachineDef)
+	got := strings.Join(StmtLines(m.States[0].Controller, 0), "\n")
+	want := "T-TIME += CYCLE_TIME\nT-TIME -= 1"
+	if got != want {
+		t.Errorf("StmtLines:\n got %q\nwant %q", got, want)
+	}
+}
+
 // TestDescribeEvalError checks the distinction operators actually care about:
 // a configured channel with no value yet is not a config typo.
 func TestDescribeEvalError(t *testing.T) {

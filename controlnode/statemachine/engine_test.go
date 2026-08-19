@@ -888,6 +888,44 @@ func TestEngine_ControllerCounters(t *testing.T) {
 	h.assertNoErrors(t)
 }
 
+// TestEngine_ControllerCompoundAssign covers += and -=: `a += b` must behave
+// exactly like `a = a + b`, reading the current value of the target and the
+// current value of the RHS channel each tick rather than a fixed delta.
+func TestEngine_ControllerCompoundAssign(t *testing.T) {
+	src := Source{Name: "ctr.sm", Text: "" +
+		"machine ctr\n" +
+		"state running\n" +
+		"    controller\n" +
+		"        T-TIME += CYCLE_TIME\n" +
+		"        if T-TIME >= 6\n" +
+		"            transition stopped\n" +
+		"state stopped\n" +
+		"    controller\n" +
+		"        T-TIME -= 1\n"}
+
+	prog, err := Compile([]Source{src}, Options{KnownChannels: []string{"T-TIME", "CYCLE_TIME"}})
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	space := newFakeSpace(map[string]float64{"T-TIME": 0, "CYCLE_TIME": 2}, nil)
+	h := startEngine(t, prog, space)
+
+	h.clock.TickN(3)
+	if got, _ := h.eng.State("ctr"); got != "stopped" {
+		t.Errorf("state: got %q, want stopped", got)
+	}
+	v, _ := space.Get("T-TIME")
+	if v.Float() != 6 {
+		t.Errorf("T-TIME after 3 ticks of += CYCLE_TIME(2): got %v, want 6", v.Float())
+	}
+	h.clock.TickN(1)
+	v, _ = space.Get("T-TIME")
+	if v.Float() != 5 {
+		t.Errorf("T-TIME after -= 1: got %v, want 5", v.Float())
+	}
+	h.assertNoErrors(t)
+}
+
 // TestEngine_RuntimeErrorsReported checks that evaluation failures surface via
 // OnError instead of panicking or wedging the loop.
 func TestEngine_RuntimeErrorsReported(t *testing.T) {

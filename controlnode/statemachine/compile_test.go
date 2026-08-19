@@ -232,6 +232,22 @@ func TestCompile_Errors(t *testing.T) {
 			want: "must be a literal, soft-channel identifier, or constant arithmetic",
 		},
 		{
+			// += / -= need to read the target's live value, which a daq_local
+			// block cannot: it is reduced to a fixed schedule the DAQ node runs
+			// with no channel space to read from at send time.  Rejecting this
+			// here (rather than, say, silently treating it as a plain
+			// assignment) is the correct behavior, not just the "got %T"
+			// default case being reached — this test pins that.
+			name: "daq_local compound assign",
+			sources: []Source{{Name: "a.sm", Text: "" +
+				"machine a\n" +
+				"state safe\n" +
+				"    daq_local DAQ001\n" +
+				"    sequence\n" +
+				"        X += 1\n"}},
+			want: "allow only assignments, sleeps, and a trailing transition",
+		},
+		{
 			name: "daq_local wait_until",
 			sources: []Source{{Name: "a.sm", Text: "" +
 				"machine a\n" +

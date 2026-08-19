@@ -1,0 +1,111 @@
+# smokeTest.sm — a grammar smoke-test fixture, not a real machine.
+#
+# This exercises every construct the state-machine DSL's parser accepts (see
+# controlnode/dsl/parser.go and ast.go).  It is parsed (and round-tripped
+# through the formatter) by TestSmokeTest_ParsesAndRoundTrips in
+# smoke_test.go — never by anything that runs a control node.  Identifiers
+# here need not name real channels or machines: nothing here is checked
+# against a live channel space or another machine's states.
+#
+# Do NOT copy this file into config/machines/: main.go loads every .sm file
+# in that directory into the running control node at startup.  This file
+# lives in testdata/, which the Go toolchain ignores for builds and `go run`.
+
+machine smokeTest
+
+# ── Bare state ──────────────────────────────────────────────────────────────
+# A state with no body at all is legal — e.g. a manual-control resting mode
+# that only ever exits via an external command.
+state idle
+
+# ── operator flag: ungated, and gated with `operator from a, b` ─────────────
+state manual
+    operator
+
+state armed
+    operator from idle, manual
+
+# ── controller block: every statement form a controller allows ─────────────
+# (sleep / wait_until are grammar-legal here too, but statemachine/compile.go
+# rejects them at compile time since controllers run every tick — this
+# fixture sticks to what is both parser- and compile-legal, so it reads as
+# real usage.)
+state running
+    controller
+        # plain assignment
+        COUNTER = 0
+        # increment / decrement
+        COUNTER++
+        COUNTER--
+        # compound assignment: += and -=, this task's part 1
+        T-TIME += CYCLE_TIME
+        T-TIME -= 1
+        # arithmetic operators, precedence, and explicit parentheses
+        DERIVED = (A + B) * C - D / E % F
+        # unary minus
+        NEGATED = -A
+        # literal types: int, float, bool, string, and a duration (normalised
+        # to seconds by the lexer regardless of its ms/s/m suffix)
+        INT-LIT = 1
+        FLOAT-LIT = 1.5
+        BOOL-LIT = true
+        BOOL-LIT2 = false
+        STR-LIT = "hello world"
+        DUR-LIT = 5s
+        # comparisons, and/or, not, and if/elif/elif/else chains
+        if A == B
+            transition running
+        elif A != B
+            transition idle
+        elif A < B and B <= C
+            transition manual
+        elif A > B or B >= C
+            transition armed
+        else
+            transition idle
+        if not IGNITION-OK
+            transition abort
+        # member access: machine.<name>.state, compared against a state-name
+        # string literal
+        if machine.other.state == "armed"
+            transition armed
+        elif machine.other.state != "idle"
+            transition idle
+        # cross-machine command (issuing machine's own logic commanding
+        # another machine directly, bypassing the operator gate)
+        command other -> armed
+        # bare transition (no condition)
+        transition running
+
+# ── sequence block: sleep, wait_until (with/without timeout and -> target),
+#    and every duration-literal suffix ───────────────────────────────────────
+state sequenced
+    sequence
+        SOME-CMD = 1
+        sleep 100ms
+        sleep 2s
+        sleep 1m
+        sleep CYCLE_TIME
+        wait_until PRESSURE > 50
+        wait_until PRESSURE > 50 timeout 5s
+        wait_until PRESSURE > 50 timeout 5s -> abort
+        # compound assignment is legal in a sequence too, not just a
+        # controller
+        T-TIME += CYCLE_TIME
+        transition idle
+
+# ── daq_local state: abort_rule with every comparison operator, plus a
+#    trailing abort_sequence (timed set-steps + trailing transition) ────────
+state abort
+    daq_local DAQ001
+    abort_rule CPT-01 > 850 from 0ms to 20s
+    abort_rule CPT-01 < 10 from 0ms to 20s
+    abort_rule CPT-01 >= 850 from 0ms to 20s
+    abort_rule CPT-01 <= 10 from 0ms to 20s
+    abort_rule CPT-01 == 0 from 0ms to 20s
+    abort_rule CPT-01 != 0 from 0ms to 20s
+    abort_sequence
+        FV-02-CMD = 0
+        OV-05-CMD = 0
+        sleep 100ms
+        transition idle

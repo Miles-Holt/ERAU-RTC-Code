@@ -107,6 +107,12 @@ func (c *Checker) checkStmt(stmt Stmt) {
 			c.addError(s.LineNo, "unknown channel %q", s.Target)
 		}
 
+	case *CompoundAssignStmt:
+		if !c.isKnownChannel(s.Target) {
+			c.addError(s.LineNo, "unknown channel %q", s.Target)
+		}
+		c.checkExpr(s.Value)
+
 	case *IfStmt:
 		c.checkExpr(s.Condition)
 		for _, stmt := range s.Body {

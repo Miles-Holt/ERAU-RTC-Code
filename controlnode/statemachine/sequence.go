@@ -96,6 +96,11 @@ func (e *Engine) execSequence(m *machineRT, r *seqRun, stmts []dsl.Stmt) error {
 				return err
 			}
 
+		case *dsl.CompoundAssignStmt:
+			if err := e.execCompoundAssign(e.reader, v); err != nil {
+				return err
+			}
+
 		case *dsl.TransitionStmt:
 			return e.requestTransition(m, r, v.Target)
 

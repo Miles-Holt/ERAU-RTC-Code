@@ -83,6 +83,25 @@ type DecrementStmt struct {
 func (s *DecrementStmt) stmt()  {}
 func (s *DecrementStmt) Line() int { return s.LineNo }
 
+// CompoundAssignStmt represents a compound assignment: target += expr or
+// target -= expr.  This is deliberately its own node rather than being
+// desugared into an AssignStmt{Target, BinaryExpr{Target, Op, expr}} at parse
+// time: format.go reconstructs source from the AST, and desugaring here would
+// silently rewrite a user's `T-TIME += CYCLE_TIME` into
+// `T-TIME = T-TIME + CYCLE_TIME` the next time the file was formatted.  One
+// node with an Op field (rather than separate AddAssignStmt/SubAssignStmt
+// types) keeps the many switches over statement kinds (check, format, engine,
+// sequence execution) from needing two more near-duplicate cases each.
+type CompoundAssignStmt struct {
+	Target string
+	Op     string // "+=" or "-="
+	Value  Expr
+	LineNo int
+}
+
+func (s *CompoundAssignStmt) stmt()  {}
+func (s *CompoundAssignStmt) Line() int { return s.LineNo }
+
 // IfStmt represents an if/elif/else statement.
 type IfStmt struct {
 	Condition Expr

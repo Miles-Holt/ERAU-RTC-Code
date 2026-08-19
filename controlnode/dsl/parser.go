@@ -337,6 +337,40 @@ func (p *Parser) parseStmt() (Stmt, error) {
 	}
 }
 
+// literalOrNegatedLiteral accepts a literal, or a unary minus applied to a
+// numeric one, and returns it as a single negative literal.
+//
+// `default -60.0` and `min -100` are ordinary things to write — a T-time that
+// counts up from before ignition, a channel whose valid range crosses zero —
+// but the expression parser sees the sign as a UnaryExpr wrapping the number,
+// not as part of the literal, so a bare type assertion to *LiteralExpr rejected
+// them with "expected literal value". Folding the sign here keeps the fields
+// declared as literals (nothing downstream has to evaluate an expression to
+// read a default) while letting the file say what its author meant.
+//
+// Only a numeric operand folds. `-"text"` and `-true` stay errors, and `not`
+// is not a sign, so both fall through to the caller's error.
+func literalOrNegatedLiteral(expr Expr) (*LiteralExpr, bool) {
+	if lit, ok := expr.(*LiteralExpr); ok {
+		return lit, true
+	}
+	un, ok := expr.(*UnaryExpr)
+	if !ok || un.Op != "-" {
+		return nil, false
+	}
+	lit, ok := un.Operand.(*LiteralExpr)
+	if !ok {
+		return nil, false
+	}
+	switch v := lit.Value.(type) {
+	case int64:
+		return &LiteralExpr{Value: -v, LineNo: lit.LineNo}, true
+	case float64:
+		return &LiteralExpr{Value: -v, LineNo: lit.LineNo}, true
+	}
+	return nil, false
+}
+
 func (p *Parser) parseAssignOrOp() (Stmt, error) {
 	tok, err := p.expect(TOK_IDENT)
 	if err != nil {
@@ -361,8 +395,24 @@ func (p *Parser) parseAssignOrOp() (Stmt, error) {
 		p.advance()
 		return &DecrementStmt{Target: target, LineNo: line}, nil
 
+	case TOK_PLUS_ASSIGN:
+		p.advance()
+		expr, err := p.parseExpr()
+		if err != nil {
+			return nil, err
+		}
+		return &CompoundAssignStmt{Target: target, Op: "+=", Value: expr, LineNo: line}, nil
+
+	case TOK_MINUS_ASSIGN:
+		p.advance()
+		expr, err := p.parseExpr()
+		if err != nil {
+			return nil, err
+		}
+		return &CompoundAssignStmt{Target: target, Op: "-=", Value: expr, LineNo: line}, nil
+
 	default:
-		return nil, p.errorf(line, "expected =, ++, or --, got %s", p.tokStr(p.peek()))
+		return nil, p.errorf(line, "expected =, ++, --, +=, or -=, got %s", p.tokStr(p.peek()))
 	}
 }
 
@@ -585,7 +635,7 @@ func (p *Parser) parseChannel() (*ChannelDef, error) {
 			if err != nil {
 				return nil, err
 			}
-			lit, ok := expr.(*LiteralExpr)
+			lit, ok := literalOrNegatedLiteral(expr)
 			if !ok {
 				return nil, p.errorf(tok.Line, "%s: expected literal value", p.tokName(tok.Type))
 			}
@@ -1145,6 +1195,8 @@ func (p *Parser) tokName(typ TokenType) string {
 		TOK_ASSIGN:         "=",
 		TOK_INCREMENT:      "++",
 		TOK_DECREMENT:      "--",
+		TOK_PLUS_ASSIGN:    "+=",
+		TOK_MINUS_ASSIGN:   "-=",
 		TOK_LPAREN:         "(",
 		TOK_RPAREN:         ")",
 		TOK_DOT:            ".",

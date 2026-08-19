@@ -348,3 +348,29 @@ func TestCheck_IncrementDecrement(t *testing.T) {
 		t.Errorf("expected 1 error, got %d", len(result.Errors))
 	}
 }
+
+func TestCheck_CompoundAssign(t *testing.T) {
+	machine := &MachineDef{
+		Name: "fuel",
+		States: []*StateDef{
+			{
+				Name: "safe",
+				Controller: []Stmt{
+					&CompoundAssignStmt{Target: "COUNTER", Op: "+=", Value: &IdentExpr{Name: "COUNTER", LineNo: 2}, LineNo: 2},
+					&CompoundAssignStmt{Target: "UNKNOWN", Op: "-=", Value: &LiteralExpr{Value: int64(1), LineNo: 3}, LineNo: 3},
+					&CompoundAssignStmt{Target: "COUNTER", Op: "+=", Value: &IdentExpr{Name: "ALSO-UNKNOWN", LineNo: 4}, LineNo: 4},
+				},
+				LineNo: 1,
+			},
+		},
+		LineNo: 1,
+	}
+
+	checker := NewChecker([]string{"COUNTER"}, nil)
+	result := checker.Check(machine)
+
+	// UNKNOWN target (line 3) and ALSO-UNKNOWN in the RHS expr (line 4): 2 errors.
+	if len(result.Errors) != 2 {
+		t.Errorf("expected 2 errors, got %d: %v", len(result.Errors), result.Errors)
+	}
+}
