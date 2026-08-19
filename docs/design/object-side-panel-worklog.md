@@ -47,9 +47,9 @@ in the Artifact comment threads, and here.
 
 | # | Item | Status |
 |---|------|--------|
-| 01 | Glow the object while its panel is open — wire the existing `.selected` class on open, clear on close | not started |
-| 02 | Esc and ✕ close it; a right-click on another object retargets rather than dismisses. **No pin** — side panels do not pin | not started |
-| 03 | Catch a missing control in the editor, not at right-click. Runtime stays silent; at load time walk the panel's declared controls and warn per key with no config entry, naming the control id and its location | not started |
+| 01 | Glow the object while its panel is open — wire the existing `.selected` class on open, clear on close | in progress |
+| 02 | Esc and ✕ close it; a right-click on another object retargets rather than dismisses. **No pin** — side panels do not pin | in progress |
+| 03 | Catch a missing control in the editor, not at right-click. Runtime stays silent; at load time walk the panel's declared controls and warn per key with no config entry, naming the control id and its location | in progress |
 | 04 | Send aggregates, not every point — server-side per-bucket **min/max/last** at the requested resolution, raw points only for short windows | not started |
 | ~~10~~ | *Cut.* Command block in the panel — commanding stays in the command panel, one route to a command | — |
 
