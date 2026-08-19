@@ -76,7 +76,7 @@ in the Artifact comment threads, and here.
 
 | # | Item | Status |
 |---|------|--------|
-| 14 | Plot `SM-<NAME>-STATE` as a step trace and render the index through `state_config` in the tooltip, so it reads `autoSequence` not `3` | in progress |
+| 14 | Plot `SM-<NAME>-STATE` as a step trace and render the index through `state_config` in the tooltip | **done, awaiting validation** (`c96af5a`). Nothing new on the wire — the channel and state_config already carried what was needed. Own y-axis by default, tooltip falls back to the raw index when state_config hasn't arrived or the index is stale. |
 | 15 | Command and feedback as a pair — CMD and FB on one axis so lag is a visible gap | not started |
 | 16 | Freeze — stop the window advancing so a reading can be studied | not started |
 | ~~13~~ | *Cut.* Time presets — scroll-zoom is enough | — |
@@ -209,6 +209,15 @@ Not side-panel items, but done in the same push and worth knowing about.
 - `shippedconfig_test.go` follows the `daq001.sm` -> `engineControl.sm` rename and
   stays pointed at live config on purpose: it exists to make a change to the real
   firing sequence fail loudly.
+
+## Found while building, not fixed
+
+- **The channel search dropdown can't find a softchan.** `createChannelSearchDropdown`
+  (`WebClient/js/utils.js`) only searches `configControls[].channels`, never
+  `softchanConfigMap`. `SM-<NAME>-STATE` — and every other softchan — can only be
+  charted via a saved graph-layout YAML or a P&ID graph object's configured
+  `lines[]`, never by typing into the search box. Pre-existing, not introduced by
+  item 14, and not specific to state channels. Worth its own small fix.
 
 ## Known flakes
 
