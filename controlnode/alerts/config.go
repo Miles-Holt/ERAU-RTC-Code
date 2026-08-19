@@ -43,9 +43,13 @@ type Rule struct {
 	channels []string
 	Severity string
 	Message  string
-	Latch    bool
-	File     string
-	Line     int
+	// Description is the optional long form (item 07a) rendered in the alarm
+	// panel — "" when the alert has no `describe`, in which case the panel
+	// falls back to Message.
+	Description string
+	Latch       bool
+	File        string
+	Line        int
 }
 
 // exprChannels walks a compiled condition and returns the channel refDes it
@@ -375,16 +379,26 @@ func compileRule(file string, def *dsl.AlertDef, known, machines map[string]bool
 	if err := checkPlaceholders(file, def.LineNo, def.Message, known, false); err != nil {
 		return nil, err
 	}
+	// Unlike Message, Description is optional — no `describe` line is the
+	// common case, not an error. When present, it gets the same placeholder
+	// validation as Message: a typo'd channel name in the long form should
+	// fail at startup too, not surface as a literal "?" in the alarm panel.
+	if def.Description != "" {
+		if err := checkPlaceholders(file, def.LineNo, def.Description, known, false); err != nil {
+			return nil, err
+		}
+	}
 
 	return &Rule{
-		Name:     def.Name,
-		Cond:     def.Condition,
-		channels: exprChannels(def.Condition),
-		Severity: def.Severity,
-		Message:  def.Message,
-		Latch:    def.Latch,
-		File:     file,
-		Line:     def.LineNo,
+		Name:        def.Name,
+		Cond:        def.Condition,
+		channels:    exprChannels(def.Condition),
+		Severity:    def.Severity,
+		Message:     def.Message,
+		Description: def.Description,
+		Latch:       def.Latch,
+		File:        file,
+		Line:        def.LineNo,
 	}, nil
 }
 

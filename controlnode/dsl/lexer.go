@@ -59,6 +59,7 @@ const (
 	TOK_ELSE
 	TOK_SEVERITY
 	TOK_MESSAGE
+	TOK_DESCRIBE
 	TOK_LATCH
 	TOK_AND
 	TOK_OR
@@ -580,6 +581,7 @@ func (l *Lexer) keyword(s string) (TokenType, bool) {
 		"else":        TOK_ELSE,
 		"severity":    TOK_SEVERITY,
 		"message":     TOK_MESSAGE,
+		"describe":    TOK_DESCRIBE,
 		"latch":       TOK_LATCH,
 		"and":         TOK_AND,
 		"or":          TOK_OR,

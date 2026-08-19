@@ -419,6 +419,7 @@ alert CHAMBER-HIGH
     if CPT-01 > LIM-CPT01-HIGH
     severity alarm
     message "Chamber pressure high: {CPT-01} psia (limit {LIM-CPT01-HIGH})"
+    describe "CPT-01 exceeded the configured high limit. Check the relief valve and confirm the chamber is venting before re-arming."
     latch
 ```
 
@@ -429,6 +430,12 @@ alert CHAMBER-HIGH
 - `{PLACEHOLDER}` interpolates a channel value at raise time. Template messages
   may also use `{node}`, `{refDes}` and `{value}`. A placeholder that names no
   known channel is a **startup error**, not a literal `?` in an alarm.
+- `describe "…"` is an **optional** long form alongside `message`, sized for an
+  alarm detail panel rather than a one-line board — the same placeholder rules
+  apply, and an unknown placeholder in it is a startup error just like in
+  `message`. Only rules can have one; template events (`disconnect`,
+  `reconnect`, `bad_data`, `stale`) and auto-generated sensor-bounds alerts do
+  not.
 
 ---
 

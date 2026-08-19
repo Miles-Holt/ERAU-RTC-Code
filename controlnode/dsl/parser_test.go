@@ -235,6 +235,62 @@ func TestParser_Alert(t *testing.T) {
 	}
 }
 
+// describe is optional (item 07a): present, it lands in Description
+// alongside Message with the same placeholder interpolation; absent, it
+// leaves Description as the zero value with no error, unlike message which
+// compileRule requires.
+func TestParser_AlertDescribe(t *testing.T) {
+	input := "alert CHAMBER-HIGH\n" +
+		indent(4) + "if CPT-01 > LIM-CPT01-HIGH\n" +
+		indent(4) + "severity alarm\n" +
+		indent(4) + "message \"Chamber pressure high: {CPT-01} psi\"\n" +
+		indent(4) + "describe \"CPT-01 exceeded the configured high limit; check the relief valve\"\n"
+
+	toks, err := NewLexer(input).Tokenize()
+	if err != nil {
+		t.Fatalf("lexer error: %v", err)
+	}
+	decl, err := Parse(toks)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	alert, ok := decl.(*AlertDef)
+	if !ok {
+		t.Fatalf("expected AlertDef, got %T", decl)
+	}
+	if alert.Message != "Chamber pressure high: {CPT-01} psi" {
+		t.Errorf("message: got %q", alert.Message)
+	}
+	if alert.Description != "CPT-01 exceeded the configured high limit; check the relief valve" {
+		t.Errorf("description: got %q", alert.Description)
+	}
+}
+
+// No `describe` line present is the common case (07a says it's optional) —
+// Description stays "" and nothing errors.
+func TestParser_AlertNoDescribe(t *testing.T) {
+	input := "alert CHAMBER-HIGH\n" +
+		indent(4) + "if CPT-01 > LIM-CPT01-HIGH\n" +
+		indent(4) + "severity alarm\n" +
+		indent(4) + "message \"Chamber pressure high\"\n"
+
+	toks, err := NewLexer(input).Tokenize()
+	if err != nil {
+		t.Fatalf("lexer error: %v", err)
+	}
+	decl, err := Parse(toks)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	alert, ok := decl.(*AlertDef)
+	if !ok {
+		t.Fatalf("expected AlertDef, got %T", decl)
+	}
+	if alert.Description != "" {
+		t.Errorf("description: got %q, expected empty", alert.Description)
+	}
+}
+
 func TestParser_Template(t *testing.T) {
 	input := "template every_daqnode\n" +
 		indent(4) + "on disconnect -> alarm \"{node} disconnected\"\n" +

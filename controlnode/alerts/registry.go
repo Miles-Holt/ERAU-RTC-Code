@@ -66,6 +66,17 @@ type Record struct {
 	Acked     bool   `json:"acked"`
 	Resolved  bool   `json:"resolved"` // condition no longer true; says nothing about Acked
 
+	// Suppressed is an operator's standing decision to silence a known,
+	// understood condition — orthogonal to Acked. Acked means "a person has
+	// seen this once"; Suppressed means "stop showing this at all, until
+	// someone says otherwise". The browser treats Suppressed like Acked for
+	// front-panel "alarmed" glow (a client-side decision, not this package's),
+	// but the two facts are tracked and can be toggled independently: a
+	// suppressed alert can still be unacked underneath, and acking it does not
+	// touch Suppressed.
+	Suppressed   bool  `json:"suppressed"`
+	SuppressedAt int64 `json:"suppressedAt,omitempty"` // Unix ms; 0 when not suppressed
+
 	// What this alert is ABOUT, so a front-panel object can tell whether an
 	// alert concerns it. Without this the browser can only guess from the id,
 	// which works for the auto-generated ones (`sensor:<refDes>`) and not at
@@ -73,6 +84,13 @@ type Record struct {
 	// its own channel was raised on the board.
 	Channels []string `json:"channels,omitempty"` // channel refDes this concerns
 	Node     string   `json:"node,omitempty"`     // daqNode refDes, for node-level alerts
+
+	// Description is the alert definition's optional long form (`describe
+	// "…"` in the `.alert` DSL, item 07a), interpolated the same way Message
+	// is. Only rule alerts can carry one — template alerts (node
+	// connect/disconnect, stale, bad_data) and auto-generated sensor-bounds
+	// alerts have no `describe` in their vocabulary, so this is "" for them.
+	Description string `json:"description,omitempty"`
 }
 
 // Sink publishes registry changes to connected browsers.  The webclient server
@@ -131,14 +149,17 @@ func (r *Registry) now() int64 { return r.nowFn().UnixMilli() }
 // Raise records an alert with no channel or node attribution — for alerts that
 // genuinely concern nothing on the panel. Prefer RaiseFor.
 func (r *Registry) Raise(id, severity, message string) {
-	r.RaiseFor(id, severity, message, nil, "")
+	r.RaiseFor(id, severity, message, nil, "", "")
 }
 
 // RaiseFor records an alert and says what it is about. `channels` are the
 // channel refDes it concerns (a rule may reference several); `node` is set
 // instead for node-level alerts, where every channel owned by that node is
-// affected and listing them would be both long and redundant.
-func (r *Registry) RaiseFor(id, severity, message string, channels []string, node string) {
+// affected and listing them would be both long and redundant. `description`
+// is the alert definition's optional `describe "…"` long form (item 07a),
+// already interpolated by the caller; template/sensor call sites, which have
+// no `describe`, pass "".
+func (r *Registry) RaiseFor(id, severity, message string, channels []string, node string, description string) {
 	if !ValidSeverity(severity) {
 		severity = SeverityWarning
 	}
@@ -150,14 +171,29 @@ func (r *Registry) RaiseFor(id, severity, message string, channels []string, nod
 		return // already showing exactly this — nothing changed
 	}
 	rec := Record{
-		ID:        id,
-		Category:  severity,
-		Message:   message,
-		Timestamp: r.now(),
-		Acked:     false,
-		Resolved:  false,
-		Channels:  channels,
-		Node:      node,
+		ID:          id,
+		Category:    severity,
+		Message:     message,
+		Timestamp:   r.now(),
+		Acked:       false,
+		Resolved:    false,
+		Channels:    channels,
+		Node:        node,
+		Description: description,
+	}
+	// A rule and its alert are one identity (package doc): RaiseFor is called
+	// only on a rule's rising edge (evalRules), and evalRules ALWAYS runs a
+	// Resolve or ResolveAndAck on the falling edge before the rule can ever
+	// raise again — so the no-op short-circuit above can never catch a
+	// genuine re-trigger, and every re-trigger falls through to here and
+	// builds a brand new Record. Without this, a suppressed alert would
+	// silently un-suppress itself on the very first re-trigger of its rule,
+	// which defeats the entire feature (Suppress is supposed to survive any
+	// number of re-triggers, not just until the next one). Carry the
+	// suppression forward from whatever record this id already had.
+	if ok {
+		rec.Suppressed = existing.Suppressed
+		rec.SuppressedAt = existing.SuppressedAt
 	}
 	r.store(id, rec)
 	sink := r.sink
@@ -236,6 +272,59 @@ func (r *Registry) Ack(id string) bool {
 
 	if sink != nil {
 		sink.PublishAlertAcked(id)
+	}
+	return ok
+}
+
+// Suppress marks an alert suppressed — an operator's standing decision to
+// silence a known, understood condition — and republishes it as a normal
+// `alert` (not alert_acked; this isn't an acknowledgement, see Record's
+// Suppressed doc). Suppressing an unknown id does nothing and returns false.
+//
+// Suppress targets the ALERT, not the underlying rule, but because RaiseFor
+// (above) explicitly carries Suppressed/SuppressedAt forward onto every
+// future re-raise of the same id, suppressing survives any number of future
+// re-triggers of the same rule with no extra bookkeeping here — that's the
+// whole point of a rule and its alert being one identity (see the package
+// doc). It does NOT survive a control node restart: the registry is
+// memory-only, same as every other alert fact.
+func (r *Registry) Suppress(id string) bool {
+	r.mu.Lock()
+	rec, ok := r.byID[id]
+	var out Record
+	if ok {
+		rec.Suppressed = true
+		rec.SuppressedAt = r.now()
+		out = *rec
+	}
+	sink := r.sink
+	r.mu.Unlock()
+
+	if ok && sink != nil {
+		sink.PublishAlert(out)
+	}
+	return ok
+}
+
+// Unsuppress reverses Suppress. The alert reappears showing its CURRENT
+// state, not a stale snapshot from suppression time: RaiseFor has kept
+// Message/Category/Resolved current underneath the suppression the whole
+// time (see its carry-forward comment) — only Suppressed itself was hiding
+// it. Unsuppressing an unknown id does nothing and returns false.
+func (r *Registry) Unsuppress(id string) bool {
+	r.mu.Lock()
+	rec, ok := r.byID[id]
+	var out Record
+	if ok {
+		rec.Suppressed = false
+		rec.SuppressedAt = 0
+		out = *rec
+	}
+	sink := r.sink
+	r.mu.Unlock()
+
+	if ok && sink != nil {
+		sink.PublishAlert(out)
 	}
 	return ok
 }

@@ -69,6 +69,37 @@ func TestLoadGood(t *testing.T) {
 	}
 }
 
+// describe is optional (item 07a); when present it compiles onto
+// Rule.Description with the same placeholder interpolation as message, and
+// when absent Description is simply "".
+func TestLoadDescribe(t *testing.T) {
+	cfg, err := loadSrc(t, "alert CHAMBER-HIGH\n"+
+		"    if CPT-01 > LIM-CPT01-HIGH\n"+
+		"    severity alarm\n"+
+		"    message \"Chamber pressure high\"\n"+
+		"    describe \"CPT-01 read {CPT-01} psia, above the {LIM-CPT01-HIGH} limit\"\n")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(cfg.Rules) != 1 {
+		t.Fatalf("rules = %d, want 1", len(cfg.Rules))
+	}
+	want := "CPT-01 read {CPT-01} psia, above the {LIM-CPT01-HIGH} limit"
+	if cfg.Rules[0].Description != want {
+		t.Errorf("description = %q, want %q", cfg.Rules[0].Description, want)
+	}
+}
+
+func TestLoadNoDescribe(t *testing.T) {
+	cfg, err := loadSrc(t, goodSrc)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Rules[0].Description != "" {
+		t.Errorf("description = %q, want empty (no describe in goodSrc)", cfg.Rules[0].Description)
+	}
+}
+
 func TestStaleDefaultWhenUnqualified(t *testing.T) {
 	cfg, err := loadSrc(t, "template every_daqnode\n    on stale -> warning \"{node} stale\"\n")
 	if err != nil {
@@ -83,8 +114,9 @@ func TestStaleDefaultWhenUnqualified(t *testing.T) {
 // startup — never evaluate to a silent 0.
 func TestUnknownChannelIsFatal(t *testing.T) {
 	cases := map[string]string{
-		"condition": "alert BAD\n    if NOPE-01 > 5\n    severity alarm\n    message \"nope\"\n",
-		"message":   "alert BAD\n    if CPT-01 > 5\n    severity alarm\n    message \"value {NOPE-01}\"\n",
+		"condition":   "alert BAD\n    if NOPE-01 > 5\n    severity alarm\n    message \"nope\"\n",
+		"message":     "alert BAD\n    if CPT-01 > 5\n    severity alarm\n    message \"value {NOPE-01}\"\n",
+		"description": "alert BAD\n    if CPT-01 > 5\n    severity alarm\n    message \"m\"\n    describe \"value {NOPE-01}\"\n",
 	}
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {

@@ -74,6 +74,25 @@ func TestLexer_SimpleTokens(t *testing.T) {
 	}
 }
 
+// describe is its own keyword (item 07a), deliberately distinct from
+// TOK_DESCRIPTION which belongs to .chan files' channel description — the two
+// must not collapse onto the same token.
+func TestLexer_DescribeKeyword(t *testing.T) {
+	toks, err := NewLexer(`describe "some text"`).Tokenize()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	expect := []TokenType{TOK_DESCRIBE, TOK_STRING, TOK_EOF}
+	if len(toks) != len(expect) {
+		t.Fatalf("got %d tokens, expected %d", len(toks), len(expect))
+	}
+	for i, expTyp := range expect {
+		if toks[i].Type != expTyp {
+			t.Errorf("token %d: got %v, expected %v", i, toks[i].Type, expTyp)
+		}
+	}
+}
+
 func TestLexer_Strings(t *testing.T) {
 	tests := []struct {
 		name   string

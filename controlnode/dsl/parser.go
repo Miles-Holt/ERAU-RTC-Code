@@ -823,6 +823,14 @@ func (p *Parser) parseAlert() (*AlertDef, error) {
 			}
 			alert.Message = msgToken.Value
 
+		case TOK_DESCRIBE:
+			p.advance()
+			descToken, err := p.expect(TOK_STRING)
+			if err != nil {
+				return nil, err
+			}
+			alert.Description = descToken.Value
+
 		case TOK_LATCH:
 			p.advance()
 			alert.Latch = true

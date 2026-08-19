@@ -114,6 +114,16 @@ const latchSrc = `alert CHAMBER-HIGH
     latch
 `
 
+// describeSrc carries a `describe` with a DIFFERENT placeholder than message,
+// so a test can tell the two fields apart rather than merely proving both are
+// non-empty.
+const describeSrc = `alert CHAMBER-HIGH
+    if CPT-01 > LIM-CPT01-HIGH
+    severity alarm
+    message "Chamber pressure high: {CPT-01} psia"
+    describe "CPT-01 exceeded the configured limit of {LIM-CPT01-HIGH} psia"
+`
+
 // A rule raises on the false→true edge and only then: a condition that stays
 // true must not republish on every tick (100 Hz of duplicate alerts).
 func TestRuleEdgeTriggered(t *testing.T) {
@@ -146,6 +156,42 @@ func TestRuleEdgeTriggered(t *testing.T) {
 	}
 	if !reg.Active("rule:CHAMBER-HIGH") {
 		t.Error("alert should be active")
+	}
+}
+
+// A rule's `describe` is interpolated the same way `message` is, from the
+// same tick's snapshot, and lands in Record.Description distinct from
+// Record.Message (item 07a).
+func TestRuleDescribeInterpolated(t *testing.T) {
+	eng, _, rec, _ := newTestEngine(t, describeSrc, nil, nil)
+	s := space{"CPT-01": 500, "LIM-CPT01-HIGH": 450}
+	eng.Tick(s)
+
+	raises := rec.raises()
+	if len(raises) != 1 {
+		t.Fatalf("raises = %d, want 1", len(raises))
+	}
+	if want := "Chamber pressure high: 500 psia"; raises[0].Message != want {
+		t.Errorf("message = %q, want %q", raises[0].Message, want)
+	}
+	if want := "CPT-01 exceeded the configured limit of 450 psia"; raises[0].Description != want {
+		t.Errorf("description = %q, want %q", raises[0].Description, want)
+	}
+}
+
+// A rule with no `describe` raises with Record.Description == "" — describe
+// is optional, and its absence must not surface as a literal "?" or panic.
+func TestRuleNoDescribeLeavesDescriptionEmpty(t *testing.T) {
+	eng, _, rec, _ := newTestEngine(t, ruleSrc, nil, nil)
+	s := space{"CPT-01": 500, "LIM-CPT01-HIGH": 450}
+	eng.Tick(s)
+
+	raises := rec.raises()
+	if len(raises) != 1 {
+		t.Fatalf("raises = %d, want 1", len(raises))
+	}
+	if raises[0].Description != "" {
+		t.Errorf("description = %q, want empty (no describe in ruleSrc)", raises[0].Description)
 	}
 }
 

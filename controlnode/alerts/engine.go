@@ -177,8 +177,12 @@ func (e *Engine) evalRules(space dsl.ChannelSpace) {
 		switch {
 		case on && !prev:
 			// Edge-triggered raise: false → true.
+			description := ""
+			if rule.Description != "" {
+				description = interpolate(rule.Description, nil, space)
+			}
 			e.reg.RaiseFor(rule.ID(), rule.Severity,
-				interpolate(rule.Message, nil, space), rule.channels, "")
+				interpolate(rule.Message, nil, space), rule.channels, "", description)
 		case !on && prev && !rule.Latch:
 			// A rule with no `latch` asked to clear itself when the condition
 			// goes away, so this is the one place the server may ack for the
@@ -269,7 +273,7 @@ func (e *Engine) NodeConnected(node string) {
 		return // initial connect — nothing was lost, so nothing to report
 	}
 	if ev, ok := e.templateEvent(EventReconnect); ok {
-		e.reg.RaiseFor(ConnID(node), ev.Severity, e.renderNode(ev.Message, node), nil, node)
+		e.reg.RaiseFor(ConnID(node), ev.Severity, e.renderNode(ev.Message, node), nil, node, "")
 		return
 	}
 	// No reconnect rule configured — which is the normal case now that the
@@ -298,7 +302,7 @@ func (e *Engine) NodeDisconnected(node string) {
 		return // already known to be down
 	}
 	if ev, ok := e.templateEvent(EventDisconnect); ok {
-		e.reg.RaiseFor(ConnID(node), ev.Severity, e.renderNode(ev.Message, node), nil, node)
+		e.reg.RaiseFor(ConnID(node), ev.Severity, e.renderNode(ev.Message, node), nil, node, "")
 	}
 }
 
@@ -347,7 +351,7 @@ func (e *Engine) sweepStale() {
 
 	for _, r := range toRaise {
 		e.reg.RaiseFor(StaleID(r.node), ev.Severity,
-			e.renderNode(ev.Message, r.node), nil, r.node)
+			e.renderNode(ev.Message, r.node), nil, r.node, "")
 	}
 }
 
@@ -371,7 +375,7 @@ func (e *Engine) BadData(refDes, node, status string, value float64) {
 		FieldValue:  FormatFloat(value),
 	}
 	e.reg.RaiseFor(BadID(refDes), ev.Severity,
-		interpolate(ev.Message, fields, e.vals), []string{refDes}, "")
+		interpolate(ev.Message, fields, e.vals), []string{refDes}, "", "")
 }
 
 // ── Auto-generated sensor bounds alerts ───────────────────────────────────────
@@ -515,7 +519,7 @@ func (e *Engine) sweepSensors(space dsl.ChannelSpace) {
 			e.reg.Resolve(ed.id)
 			continue
 		}
-		e.reg.RaiseFor(ed.id, SeverityAlarm, ed.message, []string{ed.refDes}, "")
+		e.reg.RaiseFor(ed.id, SeverityAlarm, ed.message, []string{ed.refDes}, "", "")
 	}
 }
 

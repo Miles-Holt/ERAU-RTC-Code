@@ -474,7 +474,7 @@ func (s *Server) ServeWsData(w http.ResponseWriter, r *http.Request) {
 // =============================================================================
 
 // ServeWsCtrl upgrades to WebSocket and handles authenticated control messages:
-// auth_request, cmd, ack_alert, set_layout.
+// auth_request, cmd, ack_alert, suppress_alert, unsuppress_alert, set_layout.
 func (s *Server) ServeWsCtrl(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -548,6 +548,40 @@ func (s *Server) ServeWsCtrl(w http.ResponseWriter, r *http.Request) {
 			// can clear it.
 			if !s.alerts.Ack(req.ID) {
 				log.Printf("webclient ctrl %s: ack for unknown alert %q relayed anyway", r.RemoteAddr, req.ID)
+			}
+
+		case "suppress_alert":
+			if !authorized {
+				log.Printf("webclient ctrl %s: rejected suppress_alert from unauthorized client", r.RemoteAddr)
+				continue
+			}
+			var req struct {
+				ID string `json:"id"`
+			}
+			if err := json.Unmarshal(raw, &req); err != nil || req.ID == "" {
+				continue
+			}
+			// Unlike ack_alert, an unknown id has no relay use case: a client
+			// cannot be holding a locally-suppressed row for an id the server
+			// has never told it about, so there is nothing to clear by relaying
+			// a suppress it never sent. Just log and no-op.
+			if !s.alerts.Suppress(req.ID) {
+				log.Printf("webclient ctrl %s: suppress for unknown alert %q ignored", r.RemoteAddr, req.ID)
+			}
+
+		case "unsuppress_alert":
+			if !authorized {
+				log.Printf("webclient ctrl %s: rejected unsuppress_alert from unauthorized client", r.RemoteAddr)
+				continue
+			}
+			var req struct {
+				ID string `json:"id"`
+			}
+			if err := json.Unmarshal(raw, &req); err != nil || req.ID == "" {
+				continue
+			}
+			if !s.alerts.Unsuppress(req.ID) {
+				log.Printf("webclient ctrl %s: unsuppress for unknown alert %q ignored", r.RemoteAddr, req.ID)
 			}
 
 		case "set_layout":

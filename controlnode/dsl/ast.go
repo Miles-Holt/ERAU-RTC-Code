@@ -266,6 +266,7 @@ type AlertDef struct {
 	Condition Expr
 	Severity string
 	Message  string
+	Description string // optional long form; "" when the alert has no `describe`
 	Latch    bool
 	LineNo   int
 }
