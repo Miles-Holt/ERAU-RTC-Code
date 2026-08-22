@@ -23,6 +23,19 @@ type StateMachineRequester interface {
 	RequestTarget(machine, state string) error
 }
 
+// marshalOrLog JSON-marshals v, logging and returning nil on failure instead
+// of propagating the error — every message builder below is best-effort: a
+// bad message is dropped rather than taking the connection down. what names
+// the message kind in the log line.
+func marshalOrLog(v interface{}, what string) []byte {
+	payload, err := json.Marshal(v)
+	if err != nil {
+		log.Printf("webclient: marshal %s: %v", what, err)
+		return nil
+	}
+	return payload
+}
+
 // =============================================================================
 // Browser protocol builders
 // =============================================================================
@@ -86,12 +99,7 @@ func BuildStateConfigJSON(prog *statemachine.Program) []byte {
 		msg.Machines = append(msg.Machines, mc)
 	}
 
-	payload, err := json.Marshal(msg)
-	if err != nil {
-		log.Printf("webclient: marshal state_config: %v", err)
-		return nil
-	}
-	return payload
+	return marshalOrLog(msg, "state_config")
 }
 
 // stateChangeMsg is the authoritative "machine X is now in state Y" broadcast.
@@ -106,12 +114,7 @@ type stateChangeMsg struct {
 // callback publishes.  The state is the state NAME (the numeric
 // SM-<NAME>-STATE channel carries the index on the data path).
 func StateChangeJSON(machine, state string) []byte {
-	payload, err := json.Marshal(stateChangeMsg{Type: "state_change", Machine: machine, State: state})
-	if err != nil {
-		log.Printf("webclient: marshal state_change: %v", err)
-		return nil
-	}
-	return payload
+	return marshalOrLog(stateChangeMsg{Type: "state_change", Machine: machine, State: state}, "state_change")
 }
 
 // pidLayoutMsg carries one front-panel layout file to the browser.
@@ -126,14 +129,9 @@ type pidLayoutMsg struct {
 // PidLayoutJSON builds a pid_layout message.  Used both when panels are loaded
 // from disk at startup and when an operator saves a layout over /ws/ctrl.
 func PidLayoutJSON(name, filename, content string) []byte {
-	payload, err := json.Marshal(pidLayoutMsg{
+	return marshalOrLog(pidLayoutMsg{
 		Type: "pid_layout", Name: name, Filename: filename, Content: content,
-	})
-	if err != nil {
-		log.Printf("webclient: marshal pid_layout %q: %v", filename, err)
-		return nil
-	}
-	return payload
+	}, fmt.Sprintf("pid_layout %q", filename))
 }
 
 // alertAckedMsg tells every browser an alert was acknowledged.
@@ -151,12 +149,7 @@ type alertAckedMsg struct {
 // resolved-but-unacked row, published as an `alert` carrying resolved=true, so a
 // spike that came back down on its own stays red until somebody looks at it.
 func AlertAckedJSON(id string) []byte {
-	payload, err := json.Marshal(alertAckedMsg{Type: "alert_acked", ID: id})
-	if err != nil {
-		log.Printf("webclient: marshal alert_acked: %v", err)
-		return nil
-	}
-	return payload
+	return marshalOrLog(alertAckedMsg{Type: "alert_acked", ID: id}, "alert_acked")
 }
 
 // alertMsg is one alert row pushed to the browser.  The record fields are
@@ -172,12 +165,7 @@ type alertMsg struct {
 
 // AlertJSON builds the `alert` broadcast for one registry record.
 func AlertJSON(rec alerts.Record) []byte {
-	payload, err := json.Marshal(alertMsg{Type: "alert", Record: rec})
-	if err != nil {
-		log.Printf("webclient: marshal alert: %v", err)
-		return nil
-	}
-	return payload
+	return marshalOrLog(alertMsg{Type: "alert", Record: rec}, "alert")
 }
 
 // alertSnapshotMsg is the full alert list, sent on connect and once a second.
@@ -192,12 +180,7 @@ func AlertSnapshotJSON(recs []alerts.Record) []byte {
 	if len(recs) == 0 {
 		return nil
 	}
-	payload, err := json.Marshal(alertSnapshotMsg{Type: "alert_snapshot", Alerts: recs})
-	if err != nil {
-		log.Printf("webclient: marshal alert_snapshot: %v", err)
-		return nil
-	}
-	return payload
+	return marshalOrLog(alertSnapshotMsg{Type: "alert_snapshot", Alerts: recs}, "alert_snapshot")
 }
 
 var upgrader = websocket.Upgrader{
@@ -342,6 +325,18 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 
 // ServeWsData upgrades to WebSocket and streams config, layouts, alerts, and
 // live data to the client.  The client never sends messages on this connection.
+// writeOrClose writes payload to conn as a text message, logging "send
+// <what> to <addr>: <err>" and returning false on failure. what names the
+// message kind in the log line; callers bail out (closing the connection via
+// defer) when it returns false.
+func (s *Server) writeOrClose(conn *websocket.Conn, addr, what string, payload []byte) bool {
+	if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
+		log.Printf("webclient data: send %s to %s: %v", what, addr, err)
+		return false
+	}
+	return true
+}
+
 func (s *Server) ServeWsData(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -352,23 +347,20 @@ func (s *Server) ServeWsData(w http.ResponseWriter, r *http.Request) {
 	log.Printf("webclient data: connected %s", r.RemoteAddr)
 
 	// Send config.
-	if err := conn.WriteMessage(websocket.TextMessage, s.configJSON); err != nil {
-		log.Printf("webclient data: send config to %s: %v", r.RemoteAddr, err)
+	if !s.writeOrClose(conn, r.RemoteAddr, "config", s.configJSON) {
 		return
 	}
 
 	// Send software channel config (if any).
 	if s.softchanConfigJSON != nil {
-		if err := conn.WriteMessage(websocket.TextMessage, s.softchanConfigJSON); err != nil {
-			log.Printf("webclient data: send softchan_config to %s: %v", r.RemoteAddr, err)
+		if !s.writeOrClose(conn, r.RemoteAddr, "softchan_config", s.softchanConfigJSON) {
 			return
 		}
 	}
 
 	// Send DAQ control state machine config (if any).
 	if s.stateConfigJSON != nil {
-		if err := conn.WriteMessage(websocket.TextMessage, s.stateConfigJSON); err != nil {
-			log.Printf("webclient data: send state_config to %s: %v", r.RemoteAddr, err)
+		if !s.writeOrClose(conn, r.RemoteAddr, "state_config", s.stateConfigJSON) {
 			return
 		}
 	}
@@ -379,8 +371,7 @@ func (s *Server) ServeWsData(w http.ResponseWriter, r *http.Request) {
 	copy(panels, s.panelMessages)
 	s.mu.RUnlock()
 	for _, msg := range panels {
-		if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
-			log.Printf("webclient data: send layout to %s: %v", r.RemoteAddr, err)
+		if !s.writeOrClose(conn, r.RemoteAddr, "layout", msg) {
 			return
 		}
 	}
@@ -405,16 +396,14 @@ func (s *Server) ServeWsData(w http.ResponseWriter, r *http.Request) {
 
 	// Send alert snapshot so the client sees existing alerts immediately.
 	if snap := s.alertSnapshot(); snap != nil {
-		if err := conn.WriteMessage(websocket.TextMessage, snap); err != nil {
-			log.Printf("webclient data: send alert snapshot to %s: %v", r.RemoteAddr, err)
+		if !s.writeOrClose(conn, r.RemoteAddr, "alert snapshot", snap) {
 			return
 		}
 	}
 
 	// Send bad-data snapshot so the client sees any currently out-of-range channels.
 	if snap := s.b.BadDataSnapshot(); snap != nil {
-		if err := conn.WriteMessage(websocket.TextMessage, snap); err != nil {
-			log.Printf("webclient data: send bad_data snapshot to %s: %v", r.RemoteAddr, err)
+		if !s.writeOrClose(conn, r.RemoteAddr, "bad_data snapshot", snap) {
 			return
 		}
 	}

@@ -78,30 +78,8 @@ func LoadFromDir(chanDir, valuesPath string) (*Store, error) {
 		s.defIndex[name] = idx
 
 		// Set value: use persisted if available, otherwise default.
-		//
-		// Persisted values are bounds-checked exactly like an operator write.
-		// They come from a file on disk that survives config changes, so a
-		// stale entry can carry a value the current definition would reject —
-		// after the DSL's time base moved from milliseconds to seconds, for
-		// instance, a persisted "SEQ-CUTOFF-T: 3000" meant a 3000-second burn
-		// against a max of 10. Falling back to the default is the safe
-		// direction, but it must be loud: silently running a setpoint the
-		// operator never chose is how a stand surprises someone.
 		v, ok := persisted[name]
-		switch {
-		case !ok:
-			s.values[name] = d.Default
-		case d.Min != nil && v < *d.Min:
-			log.Printf("softchan: persisted %q = %.4g is below its min %.4g — using the default %.4g instead (check %s)",
-				name, v, *d.Min, d.Default, valuesPath)
-			s.values[name] = d.Default
-		case d.Max != nil && v > *d.Max:
-			log.Printf("softchan: persisted %q = %.4g is above its max %.4g — using the default %.4g instead (check %s)",
-				name, v, *d.Max, d.Default, valuesPath)
-			s.values[name] = d.Default
-		default:
-			s.values[name] = v
-		}
+		s.values[name] = resolveInitialValue(name, d, v, ok, valuesPath)
 		idx++
 	}
 
@@ -120,6 +98,34 @@ func LoadFromDir(chanDir, valuesPath string) (*Store, error) {
 	s.computeOrder = topologicalSort(allComputeDefs)
 
 	return s, nil
+}
+
+// resolveInitialValue picks a channel's starting value: the persisted value
+// if there is one and it is in bounds, otherwise the definition's default.
+//
+// Persisted values are bounds-checked exactly like an operator write. They
+// come from a file on disk that survives config changes, so a stale entry
+// can carry a value the current definition would reject — after the DSL's
+// time base moved from milliseconds to seconds, for instance, a persisted
+// "SEQ-CUTOFF-T: 3000" meant a 3000-second burn against a max of 10. Falling
+// back to the default is the safe direction, but it must be loud: silently
+// running a setpoint the operator never chose is how a stand surprises
+// someone.
+func resolveInitialValue(name string, d *chanDef, persisted float64, hasPersisted bool, valuesPath string) float64 {
+	switch {
+	case !hasPersisted:
+		return d.Default
+	case d.Min != nil && persisted < *d.Min:
+		log.Printf("softchan: persisted %q = %.4g is below its min %.4g — using the default %.4g instead (check %s)",
+			name, persisted, *d.Min, d.Default, valuesPath)
+		return d.Default
+	case d.Max != nil && persisted > *d.Max:
+		log.Printf("softchan: persisted %q = %.4g is above its max %.4g — using the default %.4g instead (check %s)",
+			name, persisted, *d.Max, d.Default, valuesPath)
+		return d.Default
+	default:
+		return persisted
+	}
 }
 
 // computeChannelDef is an internal struct for tracking computed channels

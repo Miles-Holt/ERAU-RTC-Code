@@ -266,11 +266,8 @@ func main() {
 			// Publish SM-<NAME>-STATE value (numeric index)
 			stateIndex := 0
 			if m, ok := programOrNil.Machine(machine); ok {
-				for i, st := range m.States {
-					if st.Name == state {
-						stateIndex = i
-						break
-					}
+				if st, ok := m.State(state); ok {
+					stateIndex = st.Index
 				}
 			}
 			sc.SetInternal("SM-"+machine+"-STATE", float64(stateIndex))
