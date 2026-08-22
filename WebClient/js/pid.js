@@ -171,15 +171,6 @@ function loadPidLayout(tab, record) {
     renderPidAll(tab);
 }
 
-function clearPidLayout(tab) {
-    tab.pid.layoutFilename = '';
-    tab.pid.layoutName     = '';
-    tab.pid.objects        = [];
-    tab.pid.connections    = [];
-    buildLayoutPanelItems(tab);
-    renderPidAll(tab);
-}
-
 // Rebuilds the layout panel item list; called on load and when new layouts arrive.
 function buildLayoutPanelItems(tab) {
     const el = tab.pid.layoutPanelEl;
@@ -1026,27 +1017,6 @@ function openObjectSidebarForGraph(obj) {
 
     sidebarEl.style.display = '';
     setTimeout(() => cell.chart?.resize(), 0);
-}
-
-// =============================================================================
-// Canvas centering
-// =============================================================================
-
-function centerCanvasView(tab) {
-    const wrap = tab.pid.canvasWrap;
-    if (!wrap) return;
-    
-    // Get viewport dimensions
-    const viewportW = wrap.clientWidth;
-    const viewportH = wrap.clientHeight;
-    
-    // Canvas is 2400x1800
-    const canvasW = PID.CANVAS_W;
-    const canvasH = PID.CANVAS_H;
-    
-    // Center the canvas in the viewport
-    wrap.scrollLeft = (canvasW - viewportW) / 2;
-    wrap.scrollTop  = (canvasH - viewportH) / 2;
 }
 
 // =============================================================================

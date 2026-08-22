@@ -26,6 +26,13 @@
 let edConfigControls = [];
 let edLayouts = {};   // filename → { name, filename, content }
 
+// Formats a live channel value for display: an integer shows bare, a
+// non-integer number to 3 decimal places, anything else via String().
+function fmtEdLiveValue(v) {
+    if (typeof v !== 'number') return String(v);
+    return Number.isInteger(v) ? String(v) : v.toFixed(3);
+}
+
 const FLUIDS       = ['', 'gn2', 'air', 'lox', 'gox', 'fuel', 'hydrogen'];
 const FLUID_LABELS = { '': 'None', gn2: 'GN2', air: 'Air', lox: 'LOX', gox: 'GOX', fuel: 'Fuel', hydrogen: 'Hydrogen' };
 
@@ -358,9 +365,7 @@ function edApplyData(msg) {
     // Push value to the right sidebar if a sensor is currently selected
     if (edLiveRefDes && edLiveEl && d[edLiveRefDes] !== undefined) {
         const v = d[edLiveRefDes];
-        edLiveEl.textContent = typeof v === 'number'
-            ? (Number.isInteger(v) ? String(v) : v.toFixed(3))
-            : String(v);
+        edLiveEl.textContent = fmtEdLiveValue(v);
         edLiveEl.classList.remove('stale');
         edLiveStale.bump();
     }
@@ -1378,9 +1383,7 @@ function renderPidRsb(objId) {
                 edLiveRefDes = binding?.ch.refDes || null;
                 if (edLiveEl && edLiveRefDes && edLiveValues[edLiveRefDes] !== undefined) {
                     const v = edLiveValues[edLiveRefDes];
-                    edLiveEl.textContent = typeof v === 'number'
-                        ? (Number.isInteger(v) ? String(v) : v.toFixed(3))
-                        : String(v);
+                    edLiveEl.textContent = fmtEdLiveValue(v);
                     edLiveEl.classList.remove('stale');
                 } else if (edLiveEl) {
                     edLiveEl.textContent = '--';
@@ -1399,11 +1402,7 @@ function renderPidRsb(objId) {
             liveVal.className = 'ed-live-value';
             const initRefDes = curBinding?.ch.refDes || null;
             const initVal = initRefDes ? edLiveValues[initRefDes] : undefined;
-            liveVal.textContent = initVal !== undefined
-                ? (typeof initVal === 'number'
-                    ? (Number.isInteger(initVal) ? String(initVal) : initVal.toFixed(3))
-                    : String(initVal))
-                : '--';
+            liveVal.textContent = initVal !== undefined ? fmtEdLiveValue(initVal) : '--';
             liveRow.append(liveLabel, liveVal);
             c.appendChild(liveRow);
 
