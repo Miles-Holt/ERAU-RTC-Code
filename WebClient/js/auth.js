@@ -73,13 +73,7 @@ function openOperatorPopover(anchorEl) {
         });
     });
 
-    const dismiss = (e) => {
-        if (!pop.contains(e.target) && e.target !== anchorEl) {
-            closeOperatorPopover();
-            document.removeEventListener('mousedown', dismiss);
-        }
-    };
-    setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
+    dismissOnOutsideClick(pop, { anchorEl, onDismiss: closeOperatorPopover });
 }
 
 function closeOperatorPopover() {

@@ -904,13 +904,7 @@ function openAxisLockPopup(anchorEl, currentValue, onSet) {
     input.focus();
     input.select();
 
-    const dismiss = (e) => {
-        if (!popup.contains(e.target) && e.target !== anchorEl) {
-            popup.remove();
-            document.removeEventListener('mousedown', dismiss);
-        }
-    };
-    setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
+    dismissOnOutsideClick(popup, { anchorEl, onDismiss: () => popup.remove() });
 }
 
 function attachDragPan(canvas, cell) {

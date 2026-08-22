@@ -95,13 +95,7 @@ function openColorPalette(anchorEl, currentColor, palette, onSelect) {
     popup.style.top  = (rect.bottom + 4) + 'px';
     popup.style.left = rect.left + 'px';
 
-    const dismiss = (e) => {
-        if (!popup.contains(e.target) && e.target !== anchorEl) {
-            popup.remove();
-            document.removeEventListener('mousedown', dismiss);
-        }
-    };
-    setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
+    dismissOnOutsideClick(popup, { anchorEl, onDismiss: () => popup.remove() });
 }
 
 // ── SVG namespace helper ─────────────────────────────────────────────────────
@@ -178,6 +172,22 @@ function makeStaleTimer(ms, onStale) {
         bump()   { clearTimeout(timer); timer = setTimeout(onStale, ms); },
         cancel() { clearTimeout(timer); timer = null; },
     };
+}
+
+// Closes a transient popup/menu on the first mousedown outside it. `el` is
+// the popup element itself (clicks inside it never dismiss); `anchorEl`, if
+// given, is also excluded (the control that opened the popup, so re-clicking
+// it doesn't immediately reopen-then-close). Listener registration is
+// deferred to the next tick so the click that opened the popup doesn't
+// immediately dismiss it. Calls onDismiss() once, then removes itself.
+function dismissOnOutsideClick(el, { anchorEl, onDismiss }) {
+    const dismiss = (e) => {
+        if (!el.contains(e.target) && e.target !== anchorEl) {
+            onDismiss();
+            document.removeEventListener('mousedown', dismiss);
+        }
+    };
+    setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
 }
 
 // ── Port positions (reads shared PID, incl. PID.VALVE_PORT_OFF) ──────────────

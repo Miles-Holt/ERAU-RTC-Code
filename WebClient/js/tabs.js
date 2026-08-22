@@ -190,10 +190,7 @@ function showContextMenu(x, y, items) {
         }
     }
     document.body.appendChild(menu);
-    const dismiss = (e) => {
-        if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('mousedown', dismiss); }
-    };
-    setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
+    dismissOnOutsideClick(menu, { onDismiss: () => menu.remove() });
 }
 
 
