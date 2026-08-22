@@ -486,95 +486,113 @@ func (s *Server) ServeWsCtrl(w http.ResponseWriter, r *http.Request) {
 				log.Printf("webclient ctrl %s: rejected cmd from unauthorized client", r.RemoteAddr)
 				continue
 			}
-			var cmd broker.CmdMsg
-			if err := json.Unmarshal(raw, &cmd); err != nil {
-				log.Printf("webclient ctrl %s: bad cmd JSON: %v", r.RemoteAddr, err)
-				continue
-			}
-
-			// Check if this is a state machine target request (SM-<NAME>-TARGET)
-			if strings.HasPrefix(cmd.RefDes, "SM-") && strings.HasSuffix(cmd.RefDes, "-TARGET") && s.engine != nil {
-				s.handleStateMachineTarget(cmd)
-			} else {
-				s.b.SendCmd(cmd)
-			}
+			s.handleCmd(raw, r.RemoteAddr)
 
 		case "ack_alert":
 			if !authorized {
 				log.Printf("webclient ctrl %s: rejected ack_alert from unauthorized client", r.RemoteAddr)
 				continue
 			}
-			var req struct {
-				ID string `json:"id"`
-			}
-			if err := json.Unmarshal(raw, &req); err != nil || req.ID == "" {
-				continue
-			}
-			// The registry broadcasts alert_acked through PublishAlertAcked; an
-			// unknown id is still relayed so a client holding a stale row locally
-			// can clear it.
-			if !s.alerts.Ack(req.ID) {
-				log.Printf("webclient ctrl %s: ack for unknown alert %q relayed anyway", r.RemoteAddr, req.ID)
-			}
+			s.handleAckAlert(raw, r.RemoteAddr)
 
 		case "set_layout":
 			if !authorized {
 				log.Printf("webclient ctrl %s: rejected set_layout from unauthorized client", r.RemoteAddr)
 				continue
 			}
-			var req struct {
-				Filename string `json:"filename"`
-				Content  string `json:"content"`
-				User     string `json:"user"`
-			}
-			if err := json.Unmarshal(raw, &req); err != nil || req.Filename == "" {
-				log.Printf("webclient ctrl %s: bad set_layout: %v", r.RemoteAddr, err)
-				continue
-			}
-			absPath, ok := s.layoutPaths[req.Filename]
-			if !ok {
-				log.Printf("webclient ctrl %s: set_layout unknown filename %q", r.RemoteAddr, req.Filename)
-				continue
-			}
-			if err := os.WriteFile(absPath, []byte(req.Content), 0644); err != nil {
-				log.Printf("webclient ctrl %s: set_layout write %s: %v", r.RemoteAddr, absPath, err)
-				continue
-			}
-			// Re-publish through the same builder used at startup, preserving the
-			// panel's display name so the browser's layout picker keeps its label.
-			s.mu.Lock()
-			name := req.Filename
-			idx := -1
-			for i, pm := range s.panelMessages {
-				var p struct {
-					Filename string `json:"filename"`
-					Name     string `json:"name"`
-				}
-				if json.Unmarshal(pm, &p) == nil && p.Filename == req.Filename {
-					if p.Name != "" {
-						name = p.Name
-					}
-					idx = i
-					break
-				}
-			}
-			payload := PidLayoutJSON(name, req.Filename, req.Content)
-			if idx >= 0 {
-				s.panelMessages[idx] = payload
-			}
-			s.mu.Unlock()
-			s.b.Publish(payload)
-			user := req.User
-			if user == "" {
-				user = r.RemoteAddr
-			}
-			s.pushAlert("info", fmt.Sprintf("Layout %q updated by %s", req.Filename, user))
-			log.Printf("webclient ctrl %s: saved and broadcast layout %q", r.RemoteAddr, req.Filename)
+			s.handleSetLayout(raw, r.RemoteAddr)
 
 		default:
 			log.Printf("webclient ctrl %s: unexpected message type %q", r.RemoteAddr, peek.Type)
 		}
 	}
+}
+
+// handleCmd unmarshals and routes a "cmd" control message: a state-machine
+// target request (SM-<NAME>-TARGET) goes to the engine, everything else goes
+// straight to the broker. Caller has already checked authorization.
+func (s *Server) handleCmd(raw []byte, addr string) {
+	var cmd broker.CmdMsg
+	if err := json.Unmarshal(raw, &cmd); err != nil {
+		log.Printf("webclient ctrl %s: bad cmd JSON: %v", addr, err)
+		return
+	}
+	if strings.HasPrefix(cmd.RefDes, "SM-") && strings.HasSuffix(cmd.RefDes, "-TARGET") && s.engine != nil {
+		s.handleStateMachineTarget(cmd)
+	} else {
+		s.b.SendCmd(cmd)
+	}
+}
+
+// handleAckAlert unmarshals and applies an "ack_alert" control message.
+// Caller has already checked authorization.
+func (s *Server) handleAckAlert(raw []byte, addr string) {
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(raw, &req); err != nil || req.ID == "" {
+		return
+	}
+	// The registry broadcasts alert_acked through PublishAlertAcked; an
+	// unknown id is still relayed so a client holding a stale row locally
+	// can clear it.
+	if !s.alerts.Ack(req.ID) {
+		log.Printf("webclient ctrl %s: ack for unknown alert %q relayed anyway", addr, req.ID)
+	}
+}
+
+// handleSetLayout unmarshals a "set_layout" control message, writes the new
+// layout to disk, and re-broadcasts it. Caller has already checked
+// authorization.
+func (s *Server) handleSetLayout(raw []byte, addr string) {
+	var req struct {
+		Filename string `json:"filename"`
+		Content  string `json:"content"`
+		User     string `json:"user"`
+	}
+	if err := json.Unmarshal(raw, &req); err != nil || req.Filename == "" {
+		log.Printf("webclient ctrl %s: bad set_layout: %v", addr, err)
+		return
+	}
+	absPath, ok := s.layoutPaths[req.Filename]
+	if !ok {
+		log.Printf("webclient ctrl %s: set_layout unknown filename %q", addr, req.Filename)
+		return
+	}
+	if err := os.WriteFile(absPath, []byte(req.Content), 0644); err != nil {
+		log.Printf("webclient ctrl %s: set_layout write %s: %v", addr, absPath, err)
+		return
+	}
+	// Re-publish through the same builder used at startup, preserving the
+	// panel's display name so the browser's layout picker keeps its label.
+	s.mu.Lock()
+	name := req.Filename
+	idx := -1
+	for i, pm := range s.panelMessages {
+		var p struct {
+			Filename string `json:"filename"`
+			Name     string `json:"name"`
+		}
+		if json.Unmarshal(pm, &p) == nil && p.Filename == req.Filename {
+			if p.Name != "" {
+				name = p.Name
+			}
+			idx = i
+			break
+		}
+	}
+	payload := PidLayoutJSON(name, req.Filename, req.Content)
+	if idx >= 0 {
+		s.panelMessages[idx] = payload
+	}
+	s.mu.Unlock()
+	s.b.Publish(payload)
+	user := req.User
+	if user == "" {
+		user = addr
+	}
+	s.pushAlert("info", fmt.Sprintf("Layout %q updated by %s", req.Filename, user))
+	log.Printf("webclient ctrl %s: saved and broadcast layout %q", addr, req.Filename)
 }
 
 // =============================================================================

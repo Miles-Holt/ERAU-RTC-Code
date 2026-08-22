@@ -291,59 +291,98 @@ type yamlModule struct {
 func ParseDir(configDir string) (*SystemConfig, error) {
 	cfg := &SystemConfig{}
 
-	// system.yaml
+	network, err := parseSystemYAML(configDir)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Network = network
+
+	ctrNode, err := parseControlNodeYAML(configDir)
+	if err != nil {
+		return nil, err
+	}
+	cfg.CtrNode = ctrNode
+
+	controls, err := parseControlsYAML(configDir)
+	if err != nil {
+		return nil, err
+	}
+	cfg.ControlList.Controls = controls
+
+	daqNodes, err := parseDaqNodesDir(configDir)
+	if err != nil {
+		return nil, err
+	}
+	cfg.DaqNodes.Nodes = daqNodes
+
+	// control/*.yaml (DAQ node state machine definitions) — deprecated, no longer loaded.
+	// State machines now come from the DSL (config/machines/*.sm) loaded by the engine.
+
+	return cfg, nil
+}
+
+// parseSystemYAML reads system.yaml into a Network config, applying its
+// documented defaults for any rate/port left at zero.
+func parseSystemYAML(configDir string) (Network, error) {
 	var sys yamlSystem
 	if err := readYAML(filepath.Join(configDir, "system.yaml"), &sys); err != nil {
-		return nil, fmt.Errorf("system.yaml: %w", err)
+		return Network{}, fmt.Errorf("system.yaml: %w", err)
 	}
-	cfg.Network = Network{
+	n := Network{
 		WebSocketPort:    sys.WebSocketPort,
 		BroadcastRateHz:  sys.BroadcastRateHz,
 		ManagementRateHz: sys.ConnectionManagementRateHz,
 		ChannelStaleMs:   sys.ChannelStaleMs,
 		EngineTickRateHz: sys.EngineTickRateHz,
 	}
-	if cfg.Network.BroadcastRateHz == 0 {
-		cfg.Network.BroadcastRateHz = 20
+	if n.BroadcastRateHz == 0 {
+		n.BroadcastRateHz = 20
 	}
-	if cfg.Network.WebSocketPort == 0 {
-		cfg.Network.WebSocketPort = 8000
+	if n.WebSocketPort == 0 {
+		n.WebSocketPort = 8000
 	}
-	if cfg.Network.EngineTickRateHz == 0 {
-		cfg.Network.EngineTickRateHz = 100
+	if n.EngineTickRateHz == 0 {
+		n.EngineTickRateHz = 100
 	}
+	return n, nil
+}
 
-	// controlNode.yaml
+// parseControlNodeYAML reads controlNode.yaml into a CtrNodeDef.
+func parseControlNodeYAML(configDir string) (CtrNodeDef, error) {
 	var cn yamlControlNode
 	if err := readYAML(filepath.Join(configDir, "controlNode.yaml"), &cn); err != nil {
-		return nil, fmt.Errorf("controlNode.yaml: %w", err)
+		return CtrNodeDef{}, fmt.Errorf("controlNode.yaml: %w", err)
 	}
-	cfg.CtrNode = CtrNodeDef{
+	ctrNode := CtrNodeDef{
 		RefDes:      cn.RefDes,
 		IP:          cn.IP,
 		Description: cn.Description,
 		Enabled:     cn.Enabled,
 	}
 	for _, s := range cn.Health.Sensors {
-		cfg.CtrNode.Health.Sensors = append(cfg.CtrNode.Health.Sensors, CtrSensor{
+		ctrNode.Health.Sensors = append(ctrNode.Health.Sensors, CtrSensor{
 			RefDes:      s.RefDes,
 			Description: s.Description,
 			Units:       s.Units,
 		})
 	}
 	for _, c := range cn.Health.Commands {
-		cfg.CtrNode.Health.Commands = append(cfg.CtrNode.Health.Commands, CtrCommand{
+		ctrNode.Health.Commands = append(ctrNode.Health.Commands, CtrCommand{
 			RefDes:      c.RefDes,
 			Description: c.Description,
 			Role:        c.Role,
 		})
 	}
+	return ctrNode, nil
+}
 
-	// controls.yaml
+// parseControlsYAML reads controls.yaml into the flat list of Controls.
+func parseControlsYAML(configDir string) ([]Control, error) {
 	var ctrlFile yamlControlsFile
 	if err := readYAML(filepath.Join(configDir, "controls.yaml"), &ctrlFile); err != nil {
 		return nil, fmt.Errorf("controls.yaml: %w", err)
 	}
+	var controls []Control
 	for _, yc := range ctrlFile.Controls {
 		ctrl := Control{
 			RefDes:      yc.RefDes,
@@ -385,15 +424,19 @@ func ParseDir(configDir string) (*SystemConfig, error) {
 				},
 			})
 		}
-		cfg.ControlList.Controls = append(cfg.ControlList.Controls, ctrl)
+		controls = append(controls, ctrl)
 	}
+	return controls, nil
+}
 
-	// daqNodes/*.yaml
+// parseDaqNodesDir reads every daqNodes/*.yaml file into a DaqNodeDef.
+func parseDaqNodesDir(configDir string) ([]DaqNodeDef, error) {
 	daqDir := filepath.Join(configDir, "daqNodes")
 	entries, err := os.ReadDir(daqDir)
 	if err != nil {
 		return nil, fmt.Errorf("daqNodes dir: %w", err)
 	}
+	var nodes []DaqNodeDef
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".yaml") {
 			continue
@@ -419,13 +462,9 @@ func ParseDir(configDir string) (*SystemConfig, error) {
 				SampleRateHz:      ym.SampleRateHz,
 			})
 		}
-		cfg.DaqNodes.Nodes = append(cfg.DaqNodes.Nodes, node)
+		nodes = append(nodes, node)
 	}
-
-	// control/*.yaml (DAQ node state machine definitions) — deprecated, no longer loaded.
-	// State machines now come from the DSL (config/machines/*.sm) loaded by the engine.
-
-	return cfg, nil
+	return nodes, nil
 }
 
 // readYAML reads the file at path and unmarshals it into v.
