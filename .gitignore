@@ -1,4 +1,6 @@
 controlnode/static/
+controlnode/controlnode.exe
+controlnode/*.exe
 .claude/
 .$node data flow.drawio.bkp
 .$node data flow.drawio.dtmp
