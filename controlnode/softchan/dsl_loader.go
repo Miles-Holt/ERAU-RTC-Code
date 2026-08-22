@@ -251,24 +251,8 @@ func loadChanFile(file, content string, defs map[string]*chanDef, computeDefs ma
 // extractChannelDeps extracts all channel identifiers from an expression
 func extractChannelDeps(expr dsl.Expr) map[string]bool {
 	deps := make(map[string]bool)
-	walkExpr(expr, deps)
+	dsl.WalkIdentifiers(expr, func(name string) { deps[name] = true })
 	return deps
-}
-
-// walkExpr recursively extracts identifiers from an expression
-func walkExpr(expr dsl.Expr, deps map[string]bool) {
-	if expr == nil {
-		return
-	}
-	switch e := expr.(type) {
-	case *dsl.IdentExpr:
-		deps[e.Name] = true
-	case *dsl.BinaryExpr:
-		walkExpr(e.Left, deps)
-		walkExpr(e.Right, deps)
-	case *dsl.UnaryExpr:
-		walkExpr(e.Operand, deps)
-	}
 }
 
 // extractDefaultValue extracts a float64 from a LiteralExpr
@@ -276,18 +260,8 @@ func extractDefaultValue(lit *dsl.LiteralExpr) float64 {
 	if lit == nil {
 		return 0
 	}
-	switch v := lit.Value.(type) {
-	case float64:
-		return v
-	case int64:
-		return float64(v)
-	case bool:
-		if v {
-			return 1
-		}
-		return 0
-	}
-	return 0
+	f, _ := dsl.LiteralFloat(lit) // string default -> 0, same as before
+	return f
 }
 
 // extractLiteralFloat extracts a float64 pointer from a LiteralExpr

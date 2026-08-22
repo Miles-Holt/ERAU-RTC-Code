@@ -122,6 +122,26 @@ func evalLiteral(e *LiteralExpr) (Value, error) {
 	}
 }
 
+// LiteralFloat reduces a literal's underlying value to a float64: an int64 or
+// float64 literal converts directly, and bool reduces to 1/0 (so e.g.
+// `VENT-CMD = true` behaves the same as `VENT-CMD = 1`). ok is false for a
+// string literal, which has no numeric form.
+func LiteralFloat(lit *LiteralExpr) (f float64, ok bool) {
+	switch v := lit.Value.(type) {
+	case int64:
+		return float64(v), true
+	case float64:
+		return v, true
+	case bool:
+		if v {
+			return 1, true
+		}
+		return 0, true
+	default:
+		return 0, false
+	}
+}
+
 func evalIdent(e *IdentExpr, cs ChannelSpace) (Value, error) {
 	val, ok := cs.Get(e.Name)
 	if !ok {

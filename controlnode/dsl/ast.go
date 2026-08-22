@@ -47,6 +47,22 @@ type IdentExpr struct {
 func (e *IdentExpr) expr()  {}
 func (e *IdentExpr) Line() int { return e.LineNo }
 
+// WalkIdentifiers calls fn once for every identifier referenced by e
+// (including repeats), depth-first in left-to-right order. It descends
+// through BinaryExpr and UnaryExpr and reports each IdentExpr.Name it finds;
+// e may be nil, in which case fn is never called.
+func WalkIdentifiers(e Expr, fn func(name string)) {
+	switch v := e.(type) {
+	case *BinaryExpr:
+		WalkIdentifiers(v.Left, fn)
+		WalkIdentifiers(v.Right, fn)
+	case *UnaryExpr:
+		WalkIdentifiers(v.Operand, fn)
+	case *IdentExpr:
+		fn(v.Name)
+	}
+}
+
 // ── Statements ────────────────────────────────────────────────────────────
 
 // Stmt is the interface for all statement nodes.

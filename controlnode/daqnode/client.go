@@ -112,9 +112,6 @@ func New(refDes, ip string, port int, configJSON string, b *broker.Broker, engin
 	}
 }
 
-// RefDes returns the node's refDes.
-func (c *Client) RefDes() string { return c.refDes }
-
 // SetAggregator wires a shared ConnectAggregator into the client.  When set,
 // repeated failed connect retries report their pending state to it instead of
 // each logging their own "retrying in Ns" line; connected/disconnected state
@@ -326,14 +323,10 @@ func (c *Client) handleReconnectState() {
 	if c.engine == nil {
 		return
 	}
-	for _, machine := range c.engine.MachinesForNode(c.refDes) {
-		if !c.engine.IsRunningOnNode(machine, c.refDes) {
-			continue // not in a daq_local state here — send nothing
-		}
-		if err := c.engine.NotifyDaqReconnect(machine, c.refDes); err != nil {
-			c.reportErr(fmt.Errorf("machine %s: reconnected with uncertain state: %v", machine, err))
-		}
-	}
+	c.notifyRunningMachines(c.engine.NotifyDaqReconnect,
+		func(machine string, err error) error {
+			return fmt.Errorf("machine %s: reconnected with uncertain state: %v", machine, err)
+		})
 }
 
 // handleFirstConnectState applies the first-connect rule (distinct from
@@ -343,12 +336,24 @@ func (c *Client) handleFirstConnectState() {
 	if c.engine == nil {
 		return
 	}
+	c.notifyRunningMachines(c.engine.NotifyDaqFirstConnect,
+		func(machine string, err error) error {
+			return fmt.Errorf("machine %s: node connected for the first time while a sequence was already believed to be running: %v", machine, err)
+		})
+}
+
+// notifyRunningMachines calls notify for every machine that has daq_local
+// states running on this node, reporting any error via wrapErr.  Shared by
+// handleReconnectState and handleFirstConnectState, which differ only in
+// which EngineController method they call and how they word the error.
+// Callers must have already checked c.engine != nil.
+func (c *Client) notifyRunningMachines(notify func(machine, node string) error, wrapErr func(machine string, err error) error) {
 	for _, machine := range c.engine.MachinesForNode(c.refDes) {
 		if !c.engine.IsRunningOnNode(machine, c.refDes) {
 			continue // not in a daq_local state here — send nothing
 		}
-		if err := c.engine.NotifyDaqFirstConnect(machine, c.refDes); err != nil {
-			c.reportErr(fmt.Errorf("machine %s: node connected for the first time while a sequence was already believed to be running: %v", machine, err))
+		if err := notify(machine, c.refDes); err != nil {
+			c.reportErr(wrapErr(machine, err))
 		}
 	}
 }

@@ -67,13 +67,11 @@ type DaqStateUpdate struct {
 // DaqLocalState holds the pre-resolved expressions for a daq_local state.
 // The expressions are resolved at send-time via a Reader.
 type DaqLocalState struct {
-	State            string              // state name
-	Steps            []DaqLocalStep      // entry: assignment + sleep steps with expressions
-	AbortSteps       []DaqLocalStep      // abort_sequence: assignment + sleep steps
-	Rules            []DaqLocalAbortRule // abort rules with expressions
-	Node             string              // daqNode name
-	CompletionTarget string              // target state on sequence_complete; "" if none
-	AbortTarget      string              // target state on abort_triggered; "" if none
+	State      string              // state name
+	Steps      []DaqLocalStep      // entry: assignment + sleep steps with expressions
+	AbortSteps []DaqLocalStep      // abort_sequence: assignment + sleep steps
+	Rules      []DaqLocalAbortRule // abort rules with expressions
+	Node       string              // daqNode name
 }
 
 // DaqLocalStep is one assignment or sleep with an expression value (not yet resolved).
@@ -114,7 +112,6 @@ func compileDaqLocal(file string, sd *dsl.StateDef, st *State) (*DaqLocalState, 
 	if err != nil {
 		return nil, fmt.Errorf("%s:%d: state %q: %v", file, err.line, st.Name, err.msg)
 	}
-	out.CompletionTarget = completion
 	st.CompletionTarget = completion
 
 	steps, cerr := compileDaqSteps(file, st.Name, "sequence", entryStmts)
@@ -139,7 +136,6 @@ func compileDaqLocal(file string, sd *dsl.StateDef, st *State) (*DaqLocalState, 
 			return nil, fmt.Errorf("%s:%d: state %q: abort_sequence must end with \"transition <state>\" (the abort destination)",
 				file, sd.AbortSeqLine, st.Name)
 		}
-		out.AbortTarget = abortTarget
 		st.AbortTarget = abortTarget
 
 		abortSteps, aerr := compileDaqSteps(file, st.Name, "abort_sequence", abortStmts)
@@ -176,13 +172,12 @@ func compileDaqLocal(file string, sd *dsl.StateDef, st *State) (*DaqLocalState, 
 }
 
 // stmtErr carries a line number alongside a message so the caller can add the
-// file / state prefix.
+// file / state prefix.  It is a plain data carrier, not an error.Error() type:
+// callers read .line/.msg directly to build a formatted error themselves.
 type stmtErr struct {
 	line int
 	msg  string
 }
-
-func (e *stmtErr) Error() string { return e.msg }
 
 // splitTrailingTransition peels an optional trailing `transition X` off a
 // daq_local block and rejects transitions anywhere else in it.
@@ -414,20 +409,10 @@ func resolveExpr(e dsl.Expr, reader Reader) (float64, error) {
 // literalNumber evaluates a compile-time-constant numeric expression.  Booleans
 // reduce to 1/0 so `VENT-CMD = true` works the same as `VENT-CMD = 1`.
 func literalNumber(e *dsl.LiteralExpr) (float64, error) {
-	switch lit := e.Value.(type) {
-	case int64:
-		return float64(lit), nil
-	case float64:
-		return lit, nil
-	case bool:
-		if lit {
-			return 1, nil
-		}
-		return 0, nil
-	case string:
-		return 0, fmt.Errorf("string literal is not numeric")
+	if f, ok := dsl.LiteralFloat(e); ok {
+		return f, nil
 	}
-	return 0, fmt.Errorf("unknown literal type")
+	return 0, fmt.Errorf("string literal is not numeric")
 }
 
 // dslValueToFloat converts a dsl.Value to a float64.

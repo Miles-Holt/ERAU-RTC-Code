@@ -287,14 +287,6 @@ func (s *Simulator) LastArmed() (state string, runID int64, ok bool) {
 	return s.armedState, s.armedRunID, s.armedState != ""
 }
 
-// RequestState sends a `state_req` (DAQ -> CTR): asks the control node to
-// re-resolve and re-send the current daq_local state's payload, as a real
-// node would after rebooting or losing its cache. No-op-returning-error when
-// not connected.
-func (s *Simulator) RequestState() error {
-	return s.send(map[string]string{"type": "state_req"})
-}
-
 // streamData sends one `data` frame at the config's sampleRateHz (or
 // DataRateOverrideHz if set) until stop is closed. Always driven by the real
 // wall clock — independent of the injected Clock — so a FakeClock-driven test
@@ -407,11 +399,6 @@ func toFloat(v interface{}) (float64, bool) {
 // ChannelValue reads one channel's current value from the model.
 func (s *Simulator) ChannelValue(refDes string) (float64, bool) {
 	return s.model.Get(refDes, time.Since(s.started).Seconds())
-}
-
-// ChannelSnapshot returns every known channel's current value.
-func (s *Simulator) ChannelSnapshot() map[string]float64 {
-	return s.model.Snapshot(time.Since(s.started).Seconds())
 }
 
 // SetSensor overrides a sensor channel's SensorSpec at runtime — how tests

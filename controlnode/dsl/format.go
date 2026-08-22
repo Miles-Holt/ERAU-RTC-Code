@@ -146,12 +146,3 @@ func OperatorString(from []string) string {
 	}
 	return "operator from " + strings.Join(from, ", ")
 }
-
-// AbortRuleString renders an abort_rule back to source form.
-func AbortRuleString(r *AbortRule) string {
-	if r == nil {
-		return ""
-	}
-	return fmt.Sprintf("abort_rule %s %s %s from %s to %s",
-		r.Channel, r.Op, ExprString(r.Value), ExprString(r.FromMs), ExprString(r.ToMs))
-}

@@ -60,25 +60,15 @@ type Rule struct {
 func exprChannels(e dsl.Expr) []string {
 	var out []string
 	seen := map[string]bool{}
-	var walk func(dsl.Expr)
-	walk = func(n dsl.Expr) {
-		switch v := n.(type) {
-		case *dsl.BinaryExpr:
-			walk(v.Left)
-			walk(v.Right)
-		case *dsl.UnaryExpr:
-			walk(v.Operand)
-		case *dsl.IdentExpr:
-			if strings.Contains(v.Name, ".") {
-				return // machine.<name>.state and friends are not channels
-			}
-			if !seen[v.Name] {
-				seen[v.Name] = true
-				out = append(out, v.Name)
-			}
+	dsl.WalkIdentifiers(e, func(name string) {
+		if strings.Contains(name, ".") {
+			return // machine.<name>.state and friends are not channels
 		}
-	}
-	walk(e)
+		if !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	})
 	return out
 }
 

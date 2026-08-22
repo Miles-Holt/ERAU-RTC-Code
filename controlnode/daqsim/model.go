@@ -140,15 +140,6 @@ func (m *Model) BuildFromConfig(cfg daqConfig, sensors map[string]SensorSpec) {
 	sort.Strings(m.order)
 }
 
-// Channels returns the known channel refDes values in a stable order.
-func (m *Model) Channels() []string {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	out := make([]string, len(m.order))
-	copy(out, m.order)
-	return out
-}
-
 // Get returns a channel's current value: the last commanded value for a
 // command channel, or a freshly computed reading for a sensor channel.
 // tSec is seconds since the simulator started, used for RampPerSec.

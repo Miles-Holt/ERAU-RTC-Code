@@ -46,35 +46,6 @@ type computeMeta struct {
 	Description string
 }
 
-// storeChannelSpace implements dsl.ChannelSpace for evaluating computed channels
-// against the current values in the store plus hardware channels from the broker.
-type storeChannelSpace struct {
-	store  *Store
-	broker *broker.Broker
-}
-
-// Get implements dsl.ChannelSpace
-func (cs *storeChannelSpace) Get(name string) (dsl.Value, bool) {
-	// Check soft channels first
-	cs.store.mu.RLock()
-	v, ok := cs.store.values[name]
-	cs.store.mu.RUnlock()
-	if ok {
-		return dsl.NewFloat(v), true
-	}
-
-	// Check hardware channels from broker if available.  Single-key lookup:
-	// copying the whole broker map per identifier made every compute expression
-	// O(channels) and could tear across identifiers within one expression.
-	if cs.broker != nil {
-		if hval, ok := cs.broker.CurrentValue(name); ok {
-			return dsl.NewFloat(hval), true
-		}
-	}
-
-	return dsl.Value{}, false
-}
-
 // staticChannelSpace is a lock-free implementation of dsl.ChannelSpace that uses
 // pre-captured values. Used during Recompute to avoid deadlock.
 type staticChannelSpace struct {
